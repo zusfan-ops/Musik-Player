@@ -230,6 +230,22 @@ https://live.example.com/tvone/index.m3u8
         'Offline',
       );
     });
+
+    test('Extracts YouTube playlist IDs from playlist and watch URLs', () {
+      expect(
+        NewTubeService.extractPlaylistId(
+          'https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG',
+        ),
+        'PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG',
+      );
+      expect(
+        NewTubeService.extractPlaylistId(
+          'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ',
+        ),
+        'RDdQw4w9WgXcQ',
+      );
+      expect(NewTubeService.extractPlaylistId('metallica hits'), isNull);
+    });
   });
 
   testWidgets(

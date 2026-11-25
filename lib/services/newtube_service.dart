@@ -115,6 +115,53 @@ class NewTubeService {
     return _videoIdRegex.firstMatch(trimmed)?.group(1);
   }
 
+  /// Extracts a YouTube playlist ID from a URL (`?list=...` or `&list=...`) or raw playlist ID.
+  static String? extractPlaylistId(String input) {
+    final trimmed = input.trim();
+    if (RegExp(r'^(PL|UU|FL|RD|OLAK5uy_)[a-zA-Z0-9_-]{8,}$').hasMatch(trimmed)) {
+      return trimmed;
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null) {
+      final listParam = uri.queryParameters['list']?.trim();
+      if (listParam != null && listParam.length >= 8) {
+        return listParam;
+      }
+    }
+    final match = RegExp(r'[?&]list=([a-zA-Z0-9_-]{8,})').firstMatch(trimmed);
+    return match?.group(1);
+  }
+
+  /// Fetches metadata summary for a YouTube playlist ID.
+  static Future<NewTubePlaylistItem> fetchPlaylistSummary(
+    String playlistId,
+  ) async {
+    final yt = YoutubeExplode();
+    try {
+      final pl = await yt.playlists
+          .get(playlistId)
+          .timeout(const Duration(seconds: 10));
+      return NewTubePlaylistItem(
+        playlistId: playlistId,
+        title: pl.title.isNotEmpty ? pl.title : 'YouTube Playlist',
+        author: pl.author.isNotEmpty ? pl.author : 'YouTube',
+        videoCountText:
+            pl.videoCount != null ? '${pl.videoCount} lagu' : 'Playlist',
+        thumbnailUrl: pl.thumbnails.highResUrl,
+      );
+    } catch (_) {
+      return NewTubePlaylistItem(
+        playlistId: playlistId,
+        title: 'YouTube Playlist',
+        author: 'YouTube',
+        videoCountText: 'Playlist',
+        thumbnailUrl: '',
+      );
+    } finally {
+      yt.close();
+    }
+  }
+
   static Duration? _parseDurationText(String text) {
     final normalized = text.trim().replaceAll('.', ':');
     final parts = normalized
@@ -747,6 +794,8 @@ class NewTubeService {
   }
 
   /// Downloads a YouTube track's audio stream directly into [targetDir] using a `.part` temp file.
+  /// Uses [YoutubeExplode]'s `streamsClient.get(streamInfo)` which handles YouTube range-chunking
+  /// and client headers automatically to avoid HTTP 403 errors on adaptive audio streams.
   static Future<String> downloadAudioToDirectory({
     required NewTubeItem item,
     required Directory targetDir,
@@ -769,69 +818,146 @@ class NewTubeService {
       }
     }
 
-    final resolved = await resolveAudioDownloadStream(item.videoId);
-    if (resolved == null) {
-      throw Exception('Stream audio YouTube tidak tersedia untuk "${item.title}"');
-    }
-
-    final finalPath = p.join(targetDir.path, '$baseName.${resolved.extension}');
-    final partFile = File('$finalPath.part');
-    if (await partFile.exists()) {
-      await partFile.delete();
-    }
-
-    final client = http.Client();
-    IOSink? sink;
+    final yt = YoutubeExplode();
+    Object? lastErr;
     try {
-      final req = http.Request('GET', Uri.parse(resolved.url));
-      req.headers.addAll(resolved.headers);
-      final res = await client.send(req).timeout(const Duration(seconds: 30));
-      if (res.statusCode < 200 || res.statusCode >= 400) {
-        throw HttpException('HTTP ${res.statusCode} saat mengunduh audio');
-      }
+      final clients = [
+        YoutubeApiClient.android,
+        YoutubeApiClient.androidVr,
+        YoutubeApiClient.ios,
+        YoutubeApiClient.tv,
+      ];
 
-      final totalBytes = res.contentLength ?? 0;
-      int received = 0;
-      sink = partFile.openWrite();
-
-      await for (final chunk in res.stream) {
+      for (final apiClient in clients) {
         if (isCancelled?.call() == true) {
           throw Exception('Unduhan dibatalkan');
         }
-        sink.add(chunk);
-        received += chunk.length;
-        if (totalBytes > 0 && onProgress != null) {
-          onProgress((received / totalBytes).clamp(0.0, 0.99));
+        try {
+          final manifest = await yt.videos.streamsClient
+              .getManifest(item.videoId, ytClients: [apiClient])
+              .timeout(const Duration(seconds: 14));
+
+          final List<({StreamInfo stream, String ext})> candidates = [];
+
+          final mp4Audio = manifest.audioOnly
+              .where((s) => s.container.name.toLowerCase() == 'mp4')
+              .toList()
+            ..sort((a, b) =>
+                b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+          for (final s in mp4Audio) {
+            candidates.add((stream: s, ext: 'm4a'));
+          }
+
+          if (manifest.audioOnly.isNotEmpty) {
+            final best = manifest.audioOnly.withHighestBitrate();
+            final cname = best.container.name.toLowerCase();
+            final ext = cname == 'mp4'
+                ? 'm4a'
+                : (cname == 'webm' ? 'opus' : 'm4a');
+            candidates.add((stream: best, ext: ext));
+          }
+
+          if (manifest.muxed.isNotEmpty) {
+            candidates.add((
+              stream: manifest.muxed.withHighestBitrate(),
+              ext: 'm4a',
+            ));
+          }
+
+          for (final candidate in candidates) {
+            if (isCancelled?.call() == true) {
+              throw Exception('Unduhan dibatalkan');
+            }
+            final finalPath =
+                p.join(targetDir.path, '$baseName.${candidate.ext}');
+            final partFile = File('$finalPath.part');
+            if (await partFile.exists()) {
+              await partFile.delete();
+            }
+
+            IOSink? sink;
+            try {
+              final totalBytes = candidate.stream.size.totalBytes;
+              int received = 0;
+              sink = partFile.openWrite();
+
+              final byteStream = yt.videos.streamsClient.get(candidate.stream);
+              await for (final chunk in byteStream) {
+                if (isCancelled?.call() == true) {
+                  throw Exception('Unduhan dibatalkan');
+                }
+                sink.add(chunk);
+                received += chunk.length;
+                if (totalBytes > 0 && onProgress != null) {
+                  onProgress((received / totalBytes).clamp(0.0, 0.99));
+                }
+              }
+
+              await sink.flush();
+              await sink.close();
+              sink = null;
+
+              if (await partFile.length() <= 1024) {
+                throw Exception('File audio unduhan kosong/korup');
+              }
+
+              final targetFile = File(finalPath);
+              if (await targetFile.exists()) {
+                await targetFile.delete();
+              }
+              await partFile.rename(finalPath);
+              onProgress?.call(1.0);
+              return finalPath;
+            } catch (e) {
+              lastErr = e;
+              try {
+                await sink?.close();
+              } catch (_) {}
+              try {
+                if (await partFile.exists()) {
+                  await partFile.delete();
+                }
+              } catch (_) {}
+              if (isCancelled?.call() == true) rethrow;
+            }
+          }
+        } catch (e) {
+          lastErr = e;
+          if (isCancelled?.call() == true) rethrow;
         }
       }
 
-      await sink.flush();
-      await sink.close();
-      sink = null;
-
-      if (await partFile.length() <= 1024) {
-        throw Exception('File audio unduhan kosong/korup');
-      }
-
-      final targetFile = File(finalPath);
-      if (await targetFile.exists()) {
-        await targetFile.delete();
-      }
-      await partFile.rename(finalPath);
-      onProgress?.call(1.0);
-      return finalPath;
-    } catch (e) {
-      try {
-        await sink?.close();
-      } catch (_) {}
-      try {
-        if (await partFile.exists()) {
-          await partFile.delete();
-        }
-      } catch (_) {}
-      rethrow;
+      throw Exception(
+        'Gagal mengunduh "${item.title}": ${lastErr ?? 'Stream tidak tersedia'}',
+      );
     } finally {
-      client.close();
+      yt.close();
     }
+  }
+
+  /// Downloads and caches track thumbnail artwork locally so offline tracks show cover art.
+  static Future<String?> downloadArtworkToFile(
+    String imageUrl,
+    File targetFile,
+  ) async {
+    if (imageUrl.trim().isEmpty) return null;
+    try {
+      if (await targetFile.exists() && await targetFile.length() > 512) {
+        return targetFile.path;
+      }
+      if (!await targetFile.parent.exists()) {
+        await targetFile.parent.create(recursive: true);
+      }
+      final res = await http
+          .get(Uri.parse(imageUrl))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode >= 200 &&
+          res.statusCode < 300 &&
+          res.bodyBytes.length > 512) {
+        await targetFile.writeAsBytes(res.bodyBytes, flush: true);
+        return targetFile.path;
+      }
+    } catch (_) {}
+    return null;
   }
 }

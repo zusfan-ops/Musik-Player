@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -141,6 +142,12 @@ class TrackItem {
   bool get hasValidNetworkArtwork =>
       artworkUrl != null &&
       (artworkUrl!.startsWith('http://') || artworkUrl!.startsWith('https://'));
+
+  bool get hasLocalArtwork =>
+      artworkUrl != null &&
+      artworkUrl!.isNotEmpty &&
+      !hasValidNetworkArtwork &&
+      File(artworkUrl!).existsSync();
 
   String get fileExtension {
     if (isVideo && !isLocalFile) {

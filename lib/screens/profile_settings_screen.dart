@@ -8,6 +8,7 @@ import '../providers/profile_jellyfin_provider.dart';
 import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/user_avatar_widget.dart';
+import 'driving_mode_screen.dart';
 import 'onboarding_screen.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
@@ -653,6 +654,60 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const Divider(height: 1, color: AppColors.surfaceHighlight),
                   ListTile(
                     leading: const Icon(
+                      Icons.storage_rounded,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    title: const Text(
+                      'Penyimpanan Musik Offline',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: FutureBuilder<
+                        ({
+                          int totalBytes,
+                          int fileCount,
+                          List<
+                              ({
+                                String name,
+                                String path,
+                                int fileCount,
+                                int totalBytes,
+                              })> folders,
+                        })>(
+                      future: music.getOfflineStorageSummary(),
+                      builder: (_, snap) {
+                        if (!snap.hasData) {
+                          return const Text('Menghitung ukuran penyimpanan...');
+                        }
+                        final data = snap.data!;
+                        final mb = (data.totalBytes / (1024 * 1024))
+                            .toStringAsFixed(1);
+                        return Text(
+                          '${data.fileCount} lagu • $mb MB terpakai (${data.folders.length} folder)',
+                        );
+                      },
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _showOfflineStorageManager(context, music),
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.directions_car_rounded,
+                      color: AppColors.neonPurple,
+                    ),
+                    title: const Text(
+                      'Driving Mode (Car UI)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: const Text(
+                      'Tampilan kontrol ekstra besar saat berkendara',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => DrivingModeScreen.show(context),
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ListTile(
+                    leading: const Icon(
                       Icons.system_update_rounded,
                       color: AppColors.spotifyGreen,
                     ),
@@ -721,6 +776,177 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         SnackBar(content: Text(message)),
       );
     }
+  }
+
+  Future<void> _showOfflineStorageManager(
+    BuildContext context,
+    MusicProvider music,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                child: FutureBuilder<
+                    ({
+                      int totalBytes,
+                      int fileCount,
+                      List<
+                          ({
+                            String name,
+                            String path,
+                            int fileCount,
+                            int totalBytes,
+                          })> folders,
+                    })>(
+                  future: music.getOfflineStorageSummary(),
+                  builder: (_, snap) {
+                    if (!snap.hasData) {
+                      return const SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.spotifyGreen,
+                          ),
+                        ),
+                      );
+                    }
+                    final data = snap.data!;
+                    final totalMb =
+                        (data.totalBytes / (1024 * 1024)).toStringAsFixed(1);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.storage_rounded,
+                              color: AppColors.spotifyGreen,
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Manajemen Musik Offline',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '$totalMb MB',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.spotifyGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${data.fileCount} file audio offline di ${data.folders.length} folder',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (data.folders.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 28),
+                            child: Center(
+                              child: Text(
+                                'Belum ada musik YouTube yang diunduh.',
+                                style: TextStyle(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 280),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: data.folders.length,
+                              separatorBuilder: (_, _) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final f = data.folders[i];
+                                final mb = (f.totalBytes / (1024 * 1024))
+                                    .toStringAsFixed(1);
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(
+                                    Icons.folder_rounded,
+                                    color: AppColors.spotifyGreen,
+                                  ),
+                                  title: Text(
+                                    f.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text('${f.fileCount} lagu • $mb MB'),
+                                  trailing: IconButton(
+                                    tooltip: 'Hapus Folder',
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: AppColors.netflixRed,
+                                    ),
+                                    onPressed: () async {
+                                      await music.deleteOfflineFolder(f.path);
+                                      if (ctx.mounted) setSheetState(() {});
+                                      if (mounted) setState(() {});
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        if (data.folders.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.netflixRed,
+                                side: const BorderSide(
+                                  color: AppColors.netflixRed,
+                                ),
+                              ),
+                              onPressed: () async {
+                                await music.clearAllYouTubeOfflineCache();
+                                if (ctx.mounted) setSheetState(() {});
+                                if (mounted) setState(() {});
+                              },
+                              icon: const Icon(Icons.delete_sweep_rounded),
+                              label: const Text(
+                                'Hapus Semua Cache Musik Offline',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _pickAvatarPhoto(

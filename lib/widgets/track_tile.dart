@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -338,6 +340,18 @@ class _TrackArtworkThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (track.hasLocalArtwork) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          File(track.artworkUrl!),
+          width: 46,
+          height: 46,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const AppLogo(size: 46, borderRadius: 10),
+        ),
+      );
+    }
     if (track.hasValidNetworkArtwork) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(10),

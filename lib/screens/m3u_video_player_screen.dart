@@ -80,6 +80,12 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   bool _isFullscreenLandscape = false;
   bool _isZoomCrop = false;
   double _playbackSpeed = 1.0;
+  double _gestureBrightness = 1.0;
+  double _gestureVolume = 1.0;
+  bool? _draggingLeftSide;
+  String? _gestureHudText;
+  IconData? _gestureHudIcon;
+  Timer? _gestureHudTimer;
   String? _errorMessage;
   String _channelFilter = '';
   StreamSubscription<bool>? _pipSub;
@@ -312,6 +318,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   void dispose() {
     _initToken++;
     _hideControlsTimer?.cancel();
+    _gestureHudTimer?.cancel();
     _pipSub?.cancel();
     _channelSearchCtrl.dispose();
     final ctrl = _controller;
@@ -371,19 +378,86 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     );
   }
 
+  void _showGestureHud(IconData icon, String text) {
+    _gestureHudTimer?.cancel();
+    setState(() {
+      _gestureHudIcon = icon;
+      _gestureHudText = text;
+    });
+    _gestureHudTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        setState(() {
+          _gestureHudText = null;
+          _gestureHudIcon = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _handleDoubleTapSeek(
+    TapDownDetails details,
+    double viewportWidth,
+  ) async {
+    final ctrl = _controller;
+    if (ctrl == null || !ctrl.value.isInitialized || _isLiveStream) return;
+    final isLeft = details.localPosition.dx < viewportWidth / 2;
+    final delta = isLeft
+        ? const Duration(seconds: -10)
+        : const Duration(seconds: 10);
+    final dur = ctrl.value.duration;
+    var target = ctrl.value.position + delta;
+    if (target < Duration.zero) target = Duration.zero;
+    if (dur > Duration.zero && target > dur) target = dur;
+    await ctrl.seekTo(target);
+    if (mounted) {
+      _showGestureHud(
+        isLeft ? Icons.replay_10_rounded : Icons.forward_10_rounded,
+        isLeft ? '-10 detik' : '+10 detik',
+      );
+    }
+  }
+
   Widget _buildVideoViewport({required bool fullscreenMode}) {
     final ctrl = _controller;
     final item = _currentItem;
 
     return Builder(
-      builder: (scaffoldCtx) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _toggleControls,
-        child: Container(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
+      builder: (scaffoldCtx) => LayoutBuilder(
+        builder: (layoutCtx, constraints) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _toggleControls,
+          onDoubleTapDown: (details) =>
+              _handleDoubleTapSeek(details, constraints.maxWidth),
+          onVerticalDragStart: (details) {
+            _draggingLeftSide =
+                details.localPosition.dx < constraints.maxWidth / 2;
+          },
+          onVerticalDragUpdate: (details) {
+            final h = constraints.maxHeight > 0 ? constraints.maxHeight : 300.0;
+            final delta = -details.delta.dy / (h * 0.75);
+            if (_draggingLeftSide == true) {
+              _gestureBrightness =
+                  (_gestureBrightness + delta).clamp(0.15, 1.0);
+              _showGestureHud(
+                Icons.brightness_6_rounded,
+                'Kecerahan ${(_gestureBrightness * 100).round()}%',
+              );
+            } else {
+              _gestureVolume = (_gestureVolume + delta).clamp(0.0, 1.0);
+              ctrl?.setVolume(_gestureVolume);
+              _showGestureHud(
+                _gestureVolume == 0
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                'Volume ${(_gestureVolume * 100).round()}%',
+              );
+            }
+          },
+          child: Container(
+            color: Colors.black,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
               // 1. Video Surface (or artwork fallback if stream is audio-only HLS)
               if (ctrl != null && ctrl.value.isInitialized)
                 ctrl.value.size.width > 0 && ctrl.value.size.height > 0
@@ -498,6 +572,48 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                 ),
 
               // 2. Interactive OSD Controls
+              if (_gestureBrightness < 0.99)
+                IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(
+                      alpha: ((1.0 - _gestureBrightness) * 0.78).clamp(0.0, 0.75),
+                    ),
+                  ),
+                ),
+              if (_gestureHudText != null)
+                IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _gestureHudIcon ?? Icons.tune_rounded,
+                            color: AppColors.spotifyGreen,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _gestureHudText!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (_showControls && !_isInPipMode)
                 Container(
                   decoration: BoxDecoration(
@@ -838,6 +954,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                 ),
             ],
           ),
+        ),
         ),
       ),
     );

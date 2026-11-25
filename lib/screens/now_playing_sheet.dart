@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../providers/music_provider.dart';
 import '../services/lyrics_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/equalizer_sheet.dart';
+import 'driving_mode_screen.dart';
 import 'm3u_video_player_screen.dart';
 
 class NowPlayingSheet extends StatefulWidget {
@@ -48,13 +50,17 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
     _lastActiveLyricIdx = -1;
     _loadingLyrics = true;
     unawaited(
-      LyricsService.loadLyricsForTrack(track).then((lines) {
+      () async {
+        var lines = await LyricsService.loadLyricsForTrack(track);
+        if (lines.isEmpty) {
+          lines = await LyricsService.fetchAndCacheOnlineLyrics(track);
+        }
         if (!mounted || _loadedLyricsTrackId != track.id) return;
         setState(() {
           _lyrics = lines;
           _loadingLyrics = false;
         });
-      }),
+      }(),
     );
   }
 
@@ -179,6 +185,17 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Driving Mode (Car UI)',
+                              icon: const Icon(
+                                Icons.directions_car_rounded,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                DrivingModeScreen.show(context);
+                              },
                             ),
                             IconButton(
                               tooltip: provider.isCastConnected
@@ -373,7 +390,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                     },
                                   ),
                       )
-                    else if (track.hasValidNetworkArtwork)
+                    else if (track.hasLocalArtwork || track.hasValidNetworkArtwork)
                       Container(
                         width: artSize,
                         height: artSize,
@@ -389,15 +406,25 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(26),
-                          child: Image.network(
-                            track.artworkUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => AppLogo(
-                              size: artSize,
-                              borderRadius: 26,
-                              showGlow: true,
-                            ),
-                          ),
+                          child: track.hasLocalArtwork
+                              ? Image.file(
+                                  File(track.artworkUrl!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => AppLogo(
+                                    size: artSize,
+                                    borderRadius: 26,
+                                    showGlow: true,
+                                  ),
+                                )
+                              : Image.network(
+                                  track.artworkUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => AppLogo(
+                                    size: artSize,
+                                    borderRadius: 26,
+                                    showGlow: true,
+                                  ),
+                                ),
                         ),
                       )
                     else

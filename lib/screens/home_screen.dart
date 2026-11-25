@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -266,6 +268,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _OfflineMusicPlayerCard(
               directoriesCount: directories.length,
               onOpenDirectories: () => widget.onNavigateTab(1),
+              onOpenYouTube: () => widget.onNavigateTab(3),
+            ),
+          ),
+
+        // 2-ter. YOUTUBE OFFLINE DOWNLOADS CARD / SWIMLANE
+        if (_selectedChip == 'Semua' ||
+            _selectedChip == 'Direktori' ||
+            _selectedChip == 'Offline Ready')
+          SliverToBoxAdapter(
+            child: _YouTubeOfflineSection(
               onOpenYouTube: () => widget.onNavigateTab(3),
             ),
           ),
@@ -1949,6 +1961,329 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _YouTubeOfflineSection extends StatelessWidget {
+  final VoidCallback onOpenYouTube;
+
+  const _YouTubeOfflineSection({required this.onOpenYouTube});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<MusicProvider>();
+    final ytFolders = provider.youTubeOfflineFolders;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          badge: 'YOUTUBE OFFLINE',
+          title: ytFolders.isNotEmpty
+              ? 'Unduhan YouTube (${ytFolders.length} Folder)'
+              : 'YouTube Offline',
+          actionLabel: 'Buka YouTube',
+          onAction: onOpenYouTube,
+        ),
+        if (ytFolders.isEmpty)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.netflixRed.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.smart_display_rounded,
+                    color: AppColors.netflixRed,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Belum ada unduhan YouTube',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Unduh lagu single atau playlist YouTube agar muncul & bisa diputar offline di sini.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.spotifyGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onPressed: onOpenYouTube,
+                  child: const Text(
+                    'Unduh',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 158,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: ytFolders.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, idx) {
+                final folder = ytFolders[idx];
+                final firstTrack =
+                    folder.tracks.isNotEmpty ? folder.tracks.first : null;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => _showYouTubeOfflineFolderSheet(
+                    context,
+                    provider,
+                    folder,
+                  ),
+                  child: Container(
+                    width: 184,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE9EFF5), Color(0xFFDDE5EE)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.14),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: _buildFolderCover(firstTrack, size: 48),
+                            ),
+                            const Spacer(),
+                            InkWell(
+                              onTap: () =>
+                                  provider.playTrackList(folder.tracks),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.spotifyGreen,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Text(
+                          folder.directoryName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${folder.trackCount} lagu • YouTube Offline',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFolderCover(TrackItem? track, {double size = 48}) {
+    if (track != null && track.hasLocalArtwork) {
+      return Image.file(
+        File(track.artworkUrl!),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallbackCover(size),
+      );
+    }
+    if (track != null && track.hasValidNetworkArtwork) {
+      return Image.network(
+        track.artworkUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallbackCover(size),
+      );
+    }
+    return _fallbackCover(size);
+  }
+
+  Widget _fallbackCover(double size) {
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.netflixRed.withValues(alpha: 0.14),
+      child: const Icon(
+        Icons.smart_display_rounded,
+        color: AppColors.netflixRed,
+        size: 24,
+      ),
+    );
+  }
+
+  void _showYouTubeOfflineFolderSheet(
+    BuildContext context,
+    MusicProvider provider,
+    MusicDirectoryGroup folder,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.7,
+          maxChildSize: 0.92,
+          minChildSize: 0.4,
+          builder: (_, scrollCtrl) {
+            return Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              folder.directoryName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              '${folder.trackCount} lagu offline siap putar',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.spotifyGreen,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(sheetCtx);
+                          provider.playTrackList(folder.tracks);
+                        },
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text(
+                          'Putar Semua',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.surfaceHighlight),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollCtrl,
+                    itemCount: folder.tracks.length,
+                    itemBuilder: (_, i) {
+                      final t = folder.tracks[i];
+                      return TrackTile(
+                        track: t,
+                        indexNumber: i + 1,
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          provider.playTrackList(
+                            folder.tracks,
+                            initialIndex: i,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

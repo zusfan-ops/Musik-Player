@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/music_provider.dart';
@@ -50,6 +51,31 @@ class _NewTubeScreenState extends State<NewTubeScreen>
   Future<void> _runSearch(String query) async {
     final q = query.trim();
     if (q.isEmpty) return;
+
+    // Direct YouTube Playlist URL import
+    final directPlaylistId = NewTubeService.extractPlaylistId(q);
+    if (directPlaylistId != null) {
+      setState(() {
+        _isSearching = true;
+        _error = null;
+      });
+      try {
+        final summary =
+            await NewTubeService.fetchPlaylistSummary(directPlaylistId);
+        if (!mounted) return;
+        setState(() => _isSearching = false);
+        await _openPlaylist(summary);
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _error = 'Gagal membuka link playlist: $e';
+          _isSearching = false;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _isSearching = true;
       _error = null;
@@ -242,14 +268,36 @@ class _NewTubeScreenState extends State<NewTubeScreen>
               textInputAction: TextInputAction.search,
               onSubmitted: _runSearch,
               decoration: InputDecoration(
-                hintText: 'Cari lagu, band, playlist, atau link YouTube...',
+                hintText: 'Cari lagu, band, atau tempel link playlist YouTube...',
                 prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: AppColors.spotifyGreen,
-                  ),
-                  onPressed: () => _runSearch(_searchCtrl.text),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Tempel Link YouTube',
+                      icon: const Icon(
+                        Icons.content_paste_rounded,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () async {
+                        final clip = await Clipboard.getData('text/plain');
+                        if (!mounted) return;
+                        final text = clip?.text?.trim() ?? '';
+                        if (text.isNotEmpty) {
+                          _searchCtrl.text = text;
+                          await _runSearch(text);
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AppColors.spotifyGreen,
+                      ),
+                      onPressed: () => _runSearch(_searchCtrl.text),
+                    ),
+                  ],
                 ),
                 filled: true,
                 fillColor: AppColors.surface,
@@ -368,6 +416,126 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                         valueColor: const AlwaysStoppedAnimation<Color>(
                           AppColors.spotifyGreen,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          Consumer<MusicProvider>(
+            builder: (ctx, music, _) {
+              final count = music.autoSyncYouTubePlaylists.length;
+              if (count == 0 || music.isDownloadingYouTube) {
+                return const SizedBox.shrink();
+              }
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.sync_rounded,
+                      size: 16,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$count Playlist Auto-Sync tersimpan',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: AppColors.spotifyGreen,
+                      ),
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(ctx);
+                        final synced =
+                            await music.syncAllAutoSyncYouTubePlaylists();
+                        if (!ctx.mounted) return;
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Sinkronisasi selesai: $synced lagu diperiksa/disimpan.',
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Sinkronkan',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          Consumer<MusicProvider>(
+            builder: (ctx, music, _) {
+              final folders = music.youTubeOfflineFolders;
+              if (folders.isEmpty) return const SizedBox.shrink();
+              final totalSongs =
+                  folders.fold<int>(0, (sum, g) => sum + g.trackCount);
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.spotifyGreen.withValues(alpha: 0.32),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.offline_pin_rounded,
+                      size: 17,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'YouTube Offline: $totalSongs lagu di ${folders.length} folder',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: AppColors.spotifyGreen,
+                      ),
+                      onPressed: () {
+                        final allYtTracks =
+                            folders.expand((f) => f.tracks).toList();
+                        if (allYtTracks.isNotEmpty) {
+                          music.playTrackList(allYtTracks);
+                        }
+                      },
+                      child: const Text(
+                        'Putar Offline',
+                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                   ],
@@ -1012,6 +1180,36 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                       ],
                     ),
                   ),
+                  Builder(
+                    builder: (ctx) {
+                      final music = ctx.watch<MusicProvider>();
+                      final isAutoSync = music.isYouTubePlaylistAutoSync(
+                        widget.playlist.playlistId,
+                      );
+                      return IconButton(
+                        tooltip: isAutoSync
+                            ? 'Auto-Sync Aktif (Ketuk untuk Matikan)'
+                            : 'Aktifkan Auto-Sync Playlist Offline',
+                        style: IconButton.styleFrom(
+                          backgroundColor: isAutoSync
+                              ? AppColors.spotifyGreen.withValues(alpha: 0.18)
+                              : AppColors.surfaceElevated,
+                        ),
+                        onPressed: () => music.toggleAutoSyncYouTubePlaylist(
+                          widget.playlist,
+                        ),
+                        icon: Icon(
+                          isAutoSync
+                              ? Icons.sync_rounded
+                              : Icons.sync_disabled_rounded,
+                          color: isAutoSync
+                              ? AppColors.spotifyGreen
+                              : AppColors.textSecondary,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
                   IconButton(
                     tooltip: 'Unduh Playlist Offline',
                     style: IconButton.styleFrom(

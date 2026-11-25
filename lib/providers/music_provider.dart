@@ -42,6 +42,7 @@ class MusicProvider extends ChangeNotifier {
   static const String _kEqPresetKey = 'eq_preset_v1';
   static const String _kBassBoostKey = 'eq_bass_boost_v1';
   static const String _kLoudnessDbKey = 'eq_loudness_db_v1';
+  static const String _kAutoSyncYtPlaylistsKey = 'auto_sync_yt_playlists_v1';
   static const MethodChannel _widgetChannel =
       MethodChannel('com.musikm3u.player/media_store');
 
@@ -85,6 +86,8 @@ class MusicProvider extends ChangeNotifier {
   String? _ytDownloadLabel;
   double _ytDownloadProgress = 0.0;
   Map<String, Map<String, dynamic>> _ytOfflineMeta = {};
+  List<NewTubePlaylistItem> _autoSyncYouTubePlaylists = [];
+  String? _youTubeOfflineRootPath;
 
   // Memoized derived collections
   List<TrackItem>? _cachedAllTracks;
@@ -238,6 +241,21 @@ class MusicProvider extends ChangeNotifier {
 
   List<TrackItem> get allOfflineMusicTracks =>
       allTracks.where((t) => !t.isVideo && t.isOfflineReady).toList();
+
+  List<MusicDirectoryGroup> get youTubeOfflineFolders {
+    final root = _youTubeOfflineRootPath;
+    if (root == null || root.isEmpty) return const [];
+    final normRoot = p.normalize(root).toLowerCase();
+    return combinedDirectoryGroups
+        .where((g) => p.normalize(g.directoryPath).toLowerCase().startsWith(normRoot))
+        .toList();
+  }
+
+  List<NewTubePlaylistItem> get autoSyncYouTubePlaylists =>
+      List.unmodifiable(_autoSyncYouTubePlaylists);
+
+  bool isYouTubePlaylistAutoSync(String playlistId) =>
+      _autoSyncYouTubePlaylists.any((p) => p.playlistId == playlistId);
 
   bool isFavorite(String trackId) => _favoriteIds.contains(trackId);
 
@@ -553,6 +571,25 @@ class MusicProvider extends ChangeNotifier {
 
     _customDirectories =
         List<String>.from(prefs.getStringList(_kCustomDirsKey) ?? const []);
+    try {
+      final rawAutoSync =
+          prefs.getStringList(_kAutoSyncYtPlaylistsKey) ?? const [];
+      _autoSyncYouTubePlaylists = rawAutoSync
+          .map((s) {
+            final m = jsonDecode(s) as Map<String, dynamic>;
+            return NewTubePlaylistItem(
+              playlistId: m['playlistId']?.toString() ?? '',
+              title: m['title']?.toString() ?? 'YouTube Playlist',
+              author: m['author']?.toString() ?? 'YouTube',
+              videoCountText: m['videoCountText']?.toString() ?? '',
+              thumbnailUrl: m['thumbnailUrl']?.toString() ?? '',
+            );
+          })
+          .where((p) => p.playlistId.isNotEmpty)
+          .toList();
+    } catch (_) {
+      _autoSyncYouTubePlaylists = [];
+    }
     _favoriteIds =
         Set<String>.from(prefs.getStringList(_kFavoritesKey) ?? const []);
     _hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
@@ -661,6 +698,7 @@ class MusicProvider extends ChangeNotifier {
       }
 
       final offlineRoot = await _getYouTubeOfflineRootDir();
+      _youTubeOfflineRootPath = offlineRoot.path;
       await _loadYouTubeOfflineMeta(offlineRoot);
       final scanDirs = <String>[
         ..._customDirectories,
@@ -1134,10 +1172,16 @@ class MusicProvider extends ChangeNotifier {
         }
         final meta = videoId != null ? _ytOfflineMeta[videoId] : null;
         if (meta != null) {
+          final localArt = meta['localArtworkPath'] as String?;
+          final resolvedArt = (localArt != null &&
+                  localArt.isNotEmpty &&
+                  File(localArt).existsSync())
+              ? localArt
+              : (meta['artworkUrl'] as String?);
           return t.copyWith(
             title: (meta['title'] as String?) ?? t.title,
             artist: (meta['artist'] as String?) ?? t.artist,
-            artworkUrl: (meta['artworkUrl'] as String?) ?? t.artworkUrl,
+            artworkUrl: resolvedArt ?? t.artworkUrl,
             durationSeconds:
                 (meta['durationSeconds'] as num?)?.toInt() ?? t.durationSeconds,
           );
@@ -1154,11 +1198,20 @@ class MusicProvider extends ChangeNotifier {
     }).toList();
   }
 
-  void _recordYouTubeMeta(NewTubeItem item) {
+  Future<void> _recordYouTubeMetaWithArtwork(
+    NewTubeItem item,
+    Directory offlineRoot,
+  ) async {
+    final artFile = File(p.join(offlineRoot.path, '.art', '${item.videoId}.jpg'));
+    final localArtPath = await NewTubeService.downloadArtworkToFile(
+      item.thumbnailUrl,
+      artFile,
+    );
     _ytOfflineMeta[item.videoId] = {
       'title': item.title,
       'artist': item.author,
       'artworkUrl': item.thumbnailUrl,
+      'localArtworkPath': ?localArtPath,
       if (item.duration != null) 'durationSeconds': item.duration!.inSeconds,
     };
   }
@@ -1179,6 +1232,7 @@ class MusicProvider extends ChangeNotifier {
 
     try {
       final offlineRoot = await _getYouTubeOfflineRootDir();
+      _youTubeOfflineRootPath = offlineRoot.path;
       await _loadYouTubeOfflineMeta(offlineRoot);
       final singleDir = Directory(p.join(offlineRoot.path, 'Lagu Offline'));
 
@@ -1192,7 +1246,7 @@ class MusicProvider extends ChangeNotifier {
         },
       );
 
-      _recordYouTubeMeta(item);
+      await _recordYouTubeMetaWithArtwork(item, offlineRoot);
       _downloadedYouTubeIds.add(item.videoId);
       await _saveYouTubeOfflineMeta(offlineRoot);
       await refreshPermissionsAndScan(requestInteractive: false);
@@ -1234,6 +1288,7 @@ class MusicProvider extends ChangeNotifier {
       }
 
       final offlineRoot = await _getYouTubeOfflineRootDir();
+      _youTubeOfflineRootPath = offlineRoot.path;
       await _loadYouTubeOfflineMeta(offlineRoot);
       final folderName = NewTubeService.sanitizeFileName(
         playlist.title,
@@ -1241,6 +1296,7 @@ class MusicProvider extends ChangeNotifier {
       );
       final playlistDir = Directory(p.join(offlineRoot.path, folderName));
 
+      Object? lastTrackErr;
       for (int i = 0; i < items.length; i++) {
         if (_cancelYouTubeDownloadRequested) break;
         final item = items[i];
@@ -1260,14 +1316,20 @@ class MusicProvider extends ChangeNotifier {
               notifyListeners();
             },
           );
-          _recordYouTubeMeta(item);
+          await _recordYouTubeMetaWithArtwork(item, offlineRoot);
           _downloadedYouTubeIds.add(item.videoId);
           successCount++;
-        } catch (_) {
+        } catch (e) {
+          lastTrackErr = e;
           // Continue with remaining tracks in playlist
         } finally {
           _downloadingYouTubeIds.remove(item.videoId);
         }
+      }
+
+      if (successCount == 0 && lastTrackErr != null) {
+        _lastError =
+            'Gagal mengunduh playlist "${playlist.title}": $lastTrackErr';
       }
 
       await _saveYouTubeOfflineMeta(offlineRoot);
@@ -1283,6 +1345,114 @@ class MusicProvider extends ChangeNotifier {
       _ytDownloadProgress = 0.0;
       notifyListeners();
     }
+  }
+
+  Future<void> _persistAutoSyncYouTubePlaylists() async {
+    final encoded = _autoSyncYouTubePlaylists
+        .map((pl) => jsonEncode({
+              'playlistId': pl.playlistId,
+              'title': pl.title,
+              'author': pl.author,
+              'videoCountText': pl.videoCountText,
+              'thumbnailUrl': pl.thumbnailUrl,
+            }))
+        .toList();
+    await _prefs?.setStringList(_kAutoSyncYtPlaylistsKey, encoded);
+  }
+
+  Future<void> toggleAutoSyncYouTubePlaylist(
+    NewTubePlaylistItem playlist,
+  ) async {
+    final idx = _autoSyncYouTubePlaylists
+        .indexWhere((p) => p.playlistId == playlist.playlistId);
+    if (idx >= 0) {
+      _autoSyncYouTubePlaylists.removeAt(idx);
+      await _persistAutoSyncYouTubePlaylists();
+      notifyListeners();
+    } else {
+      _autoSyncYouTubePlaylists.add(playlist);
+      await _persistAutoSyncYouTubePlaylists();
+      notifyListeners();
+      if (!_isDownloadingYouTubePlaylist) {
+        unawaited(downloadNewTubePlaylist(playlist));
+      }
+    }
+  }
+
+  Future<int> syncAllAutoSyncYouTubePlaylists() async {
+    if (_autoSyncYouTubePlaylists.isEmpty) return 0;
+    int totalSynced = 0;
+    for (final pl in List<NewTubePlaylistItem>.from(_autoSyncYouTubePlaylists)) {
+      if (_cancelYouTubeDownloadRequested) break;
+      totalSynced += await downloadNewTubePlaylist(pl);
+    }
+    return totalSynced;
+  }
+
+  /// Returns storage size and file counts for `MediaCenterOffline` folders.
+  Future<({
+    int totalBytes,
+    int fileCount,
+    List<({String name, String path, int fileCount, int totalBytes})> folders,
+  })> getOfflineStorageSummary() async {
+    final offlineRoot = await _getYouTubeOfflineRootDir();
+    if (!await offlineRoot.exists()) {
+      return (
+        totalBytes: 0,
+        fileCount: 0,
+        folders: <({String name, String path, int fileCount, int totalBytes})>[],
+      );
+    }
+
+    int totalBytes = 0;
+    int totalFiles = 0;
+    final List<({String name, String path, int fileCount, int totalBytes})>
+        folders = [];
+
+    await for (final entity in offlineRoot.list(followLinks: false)) {
+      if (entity is! Directory) continue;
+      int folderBytes = 0;
+      int folderFiles = 0;
+      try {
+        await for (final sub in entity.list(recursive: true, followLinks: false)) {
+          if (sub is File && !p.basename(sub.path).endsWith('.json')) {
+            folderBytes += await sub.length();
+            folderFiles++;
+          }
+        }
+      } catch (_) {}
+      if (folderFiles > 0 || folderBytes > 0) {
+        totalBytes += folderBytes;
+        totalFiles += folderFiles;
+        folders.add((
+          name: p.basename(entity.path),
+          path: entity.path,
+          fileCount: folderFiles,
+          totalBytes: folderBytes,
+        ));
+      }
+    }
+
+    folders.sort((a, b) => b.totalBytes.compareTo(a.totalBytes));
+    return (totalBytes: totalBytes, fileCount: totalFiles, folders: folders);
+  }
+
+  Future<void> deleteOfflineFolder(String folderPath) async {
+    final dir = Directory(folderPath);
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+    await refreshPermissionsAndScan(requestInteractive: false);
+  }
+
+  Future<void> clearAllYouTubeOfflineCache() async {
+    final offlineRoot = await _getYouTubeOfflineRootDir();
+    if (await offlineRoot.exists()) {
+      await offlineRoot.delete(recursive: true);
+    }
+    _ytOfflineMeta.clear();
+    _downloadedYouTubeIds.clear();
+    await refreshPermissionsAndScan(requestInteractive: false);
   }
 
   void _updateTrackOfflineCache(String rawSourceUrl, String offlinePath) {
@@ -1378,9 +1548,11 @@ class MusicProvider extends ChangeNotifier {
       duration: track.durationSeconds != null && track.durationSeconds! > 0
           ? Duration(seconds: track.durationSeconds!)
           : null,
-      artUri: track.hasValidNetworkArtwork
-          ? Uri.tryParse(track.artworkUrl!)
-          : _defaultArtUri,
+      artUri: track.hasLocalArtwork
+          ? Uri.file(track.artworkUrl!)
+          : (track.hasValidNetworkArtwork
+              ? Uri.tryParse(track.artworkUrl!)
+              : _defaultArtUri),
     );
 
     if (track.isLocalFile) {

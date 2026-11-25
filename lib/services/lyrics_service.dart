@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../models/music_models.dart';
 
@@ -51,20 +54,28 @@ class LyricsService {
     return lines;
   }
 
-  /// Searches for a matching `.lrc` file alongside the local audio file.
+  /// Searches for a matching `.lrc` file alongside the local audio file or in app cache.
   static Future<List<LyricLine>> loadLyricsForTrack(TrackItem track) async {
-    if (!track.playsFromLocalFile) return const [];
-    final audioPath = track.playableSource;
-    if (audioPath.isEmpty) return const [];
+    final List<String> candidates = [];
 
-    final dir = p.dirname(audioPath);
-    final stem = p.basenameWithoutExtension(audioPath);
-    final candidates = <String>[
-      p.setExtension(audioPath, '.lrc'),
-      p.setExtension(audioPath, '.LRC'),
-      p.join(dir, 'Lyrics', '$stem.lrc'),
-      p.join(dir, 'lyrics', '$stem.lrc'),
-    ];
+    if (track.playsFromLocalFile) {
+      final audioPath = track.playableSource;
+      if (audioPath.isNotEmpty) {
+        final dir = p.dirname(audioPath);
+        final stem = p.basenameWithoutExtension(audioPath);
+        candidates.addAll([
+          p.setExtension(audioPath, '.lrc'),
+          p.setExtension(audioPath, '.LRC'),
+          p.join(dir, 'Lyrics', '$stem.lrc'),
+          p.join(dir, 'lyrics', '$stem.lrc'),
+        ]);
+      }
+    }
+
+    try {
+      final cacheFile = await _cachedLrcFileForTrack(track);
+      candidates.add(cacheFile.path);
+    } catch (_) {}
 
     for (final path in candidates) {
       try {
@@ -79,6 +90,111 @@ class LyricsService {
       }
     }
     return const [];
+  }
+
+  static Future<File> _cachedLrcFileForTrack(TrackItem track) async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(docDir.path, 'MediaCenterLyrics'));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    final safeId = track.id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return File(p.join(dir.path, '$safeId.lrc'));
+  }
+
+  static String _cleanQueryPart(String raw) {
+    return raw
+        .replaceAll(RegExp(r'\[[a-zA-Z0-9_-]{11}\]'), '')
+        .replaceAll(
+          RegExp(
+            r'\((official|lyric|lyrics|audio|video|mv|hd|4k)[^)]*\)',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'\[(official|lyric|lyrics|audio|video|mv|hd|4k)[^\]]*\]',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Auto-fetches synced LRC lyrics online via LRCLIB and caches `.lrc` locally.
+  static Future<List<LyricLine>> fetchAndCacheOnlineLyrics(
+    TrackItem track,
+  ) async {
+    final cleanTitle = _cleanQueryPart(track.title);
+    final cleanArtist = _cleanQueryPart(track.artist);
+    if (cleanTitle.isEmpty) return const [];
+
+    final client = http.Client();
+    try {
+      String? syncedLrc;
+
+      // 1. Try exact track+artist endpoint
+      if (cleanArtist.isNotEmpty &&
+          !cleanArtist.toLowerCase().contains('unknown') &&
+          !cleanArtist.toLowerCase().contains('youtube')) {
+        final getUri = Uri.https('lrclib.net', '/api/get', {
+          'track_name': cleanTitle,
+          'artist_name': cleanArtist,
+          if (track.durationSeconds != null && track.durationSeconds! > 0)
+            'duration': track.durationSeconds.toString(),
+        });
+        final res = await client.get(getUri).timeout(const Duration(seconds: 7));
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          if (decoded is Map && decoded['syncedLyrics'] is String) {
+            final candidate = (decoded['syncedLyrics'] as String).trim();
+            if (candidate.isNotEmpty) syncedLrc = candidate;
+          }
+        }
+      }
+
+      // 2. Fallback to search endpoint
+      if (syncedLrc == null) {
+        final query = cleanArtist.isNotEmpty &&
+                !cleanArtist.toLowerCase().contains('unknown')
+            ? '$cleanArtist $cleanTitle'
+            : cleanTitle;
+        final searchUri = Uri.https('lrclib.net', '/api/search', {'q': query});
+        final res =
+            await client.get(searchUri).timeout(const Duration(seconds: 7));
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          if (decoded is List) {
+            for (final item in decoded) {
+              if (item is Map && item['syncedLyrics'] is String) {
+                final candidate = (item['syncedLyrics'] as String).trim();
+                if (candidate.isNotEmpty) {
+                  syncedLrc = candidate;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (syncedLrc == null || syncedLrc.isEmpty) return const [];
+      final parsed = parseLrc(syncedLrc);
+      if (parsed.isEmpty) return const [];
+
+      try {
+        final cacheFile = await _cachedLrcFileForTrack(track);
+        await cacheFile.writeAsString(syncedLrc);
+      } catch (_) {}
+
+      return parsed;
+    } catch (_) {
+      return const [];
+    } finally {
+      client.close();
+    }
   }
 
   /// Returns the active lyric index for [position], or -1 if before the first timestamp.

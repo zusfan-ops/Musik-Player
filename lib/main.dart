@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'providers/music_provider.dart';
 import 'providers/profile_jellyfin_provider.dart';
 import 'screens/directories_screen.dart';
+import 'screens/driving_mode_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jellyfin_movies_screen.dart';
 import 'screens/newtube_screen.dart';
@@ -248,6 +249,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void _showMoreMenu(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
         return ClipRRect(
@@ -266,8 +268,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               ),
               child: SafeArea(
                 top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 40,
@@ -318,6 +321,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     ),
                     const SizedBox(height: 8),
                     _MoreMenuTile(
+                      icon: Icons.directions_car_rounded,
+                      color: AppColors.neonPurple,
+                      title: 'Driving Mode (Car UI)',
+                      subtitle: 'Tombol ekstra besar & aman saat berkendara',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        DrivingModeScreen.show(context);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _MoreMenuTile(
                       icon: Icons.menu_book_rounded,
                       color: AppColors.neonCyan,
                       title: 'Panduan Penggunaan',
@@ -329,6 +344,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       },
                     ),
                   ],
+                ),
                 ),
               ),
             ),
@@ -464,36 +480,33 @@ class _ModernBottomNavBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(26),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.82),
-                    AppColors.surface.withValues(alpha: 0.78),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(26),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
               ),
-              child: Row(
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.darkNav.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    width: 1.1,
+                  ),
+                ),
+                child: Row(
                 children: [
                   for (int i = 0; i < _items.length; i++)
                     Expanded(
@@ -520,6 +533,7 @@ class _ModernBottomNavBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
         ),
       ),
     );
@@ -567,7 +581,7 @@ class _GlassNavButton extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: selected ? Colors.white : AppColors.textSecondary,
+              color: selected ? Colors.white : Colors.white70,
             ),
             const SizedBox(height: 3),
             FittedBox(
@@ -576,7 +590,7 @@ class _GlassNavButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 style: TextStyle(
-                  color: selected ? Colors.white : AppColors.textSecondary,
+                  color: selected ? Colors.white : Colors.white70,
                   fontSize: 10.5,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 ),
