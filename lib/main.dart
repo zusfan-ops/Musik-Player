@@ -105,7 +105,7 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Offline Music • Multi-M3U • Jellyfin Cinema',
+                'Offline Music • Multi-M3U • Hallsem Cinema',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12.5,

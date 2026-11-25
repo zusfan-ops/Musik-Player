@@ -353,7 +353,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                     Text(
                       _useHls
                           ? 'Menyiapkan Stream HLS Universal...'
-                          : 'Memuat Film dari Jellyfin...',
+                          : 'Memuat Film dari Hallsem Cinema...',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w600,

@@ -1,0 +1,1 @@
+﻿Update v1.2.3: Integrasi langsung Jellyfin API (user nonton) tanpa perlu input API di setting

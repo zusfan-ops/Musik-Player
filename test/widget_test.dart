@@ -163,7 +163,7 @@ https://live.example.com/tvone/index.m3u8
       findsOneWidget,
     );
 
-    // Open Film Jellyfin tab
+    // Open Hallsem Cinema tab (integrated directly, no API input prompt)
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),
@@ -171,7 +171,8 @@ https://live.example.com/tvone/index.m3u8
       ),
     );
     await tester.pump();
-    expect(find.text('Input API Code Jellyfin di Setting'), findsOneWidget);
+    expect(find.text('Hallsem Cinema'), findsWidgets);
+    expect(find.text('Input API Code Jellyfin di Setting'), findsNothing);
 
     // Open Profil & Setting tab
     await tester.tap(
@@ -184,15 +185,27 @@ https://live.example.com/tvone/index.m3u8
     expect(find.text('Profil & Setting'), findsOneWidget);
     expect(find.text('Pilih Karakter Avatar Preset'), findsOneWidget);
 
-    // Scroll down inside ProfileSettingsScreen ListView to verify Jellyfin API section
+    // Scroll down inside ProfileSettingsScreen ListView to verify Hallsem Cinema & Developer Info
     await tester.scrollUntilVisible(
-      find.text('Integrasi Server & API Code Jellyfin'),
+      find.text('Hallsem Cinema Terintegrasi'),
       250,
       scrollable: find.descendant(
         of: find.byType(Scaffold).last,
         matching: find.byType(Scrollable).first,
       ),
     );
-    expect(find.text('Integrasi Server & API Code Jellyfin'), findsOneWidget);
+    expect(find.text('Hallsem Cinema Terintegrasi'), findsOneWidget);
+    expect(find.text('Simpan & Hubungkan Jellyfin'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Zusfan Mashuri'),
+      250,
+      scrollable: find.descendant(
+        of: find.byType(Scaffold).last,
+        matching: find.byType(Scrollable).first,
+      ),
+    );
+    expect(find.text('Zusfan Mashuri'), findsOneWidget);
+    expect(find.text('https://zusfan.hallosemarang.com'), findsOneWidget);
   });
 }

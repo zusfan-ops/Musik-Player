@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/jellyfin_config.dart';
 import '../models/jellyfin_profile_models.dart';
 import '../services/jellyfin_service.dart';
 
@@ -19,40 +19,36 @@ class ProfileJellyfinProvider extends ChangeNotifier {
   static const String _kAvatarModeKey = 'profile_avatar_mode_v1';
   static const String _kAvatarPresetKey = 'profile_avatar_preset_v1';
   static const String _kCustomAvatarPathKey = 'profile_custom_avatar_path_v1';
-
-  static const String _kJfServerUrlKey = 'jellyfin_server_url_v1';
-  static const String _kJfServerNameKey = 'jellyfin_server_name_v1';
-  static const String _kJfServerVersionKey = 'jellyfin_server_version_v1';
-  static const String _kJfSelectedUserIdKey = 'jellyfin_selected_user_id_v1';
-  static const String _kJfUsersListKey = 'jellyfin_users_list_v1';
   static const String _kJfMovieProgressKey = 'jellyfin_movie_progress_sec_v1';
-  static const String _kSecureApiKeyName = 'jellyfin_api_code_secure_v1';
 
   final bool autoConnectOnInit;
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   SharedPreferences? _prefs;
   bool _initialized = false;
 
   // Profile & Avatar State
   String _displayName = 'Penikmat Musik';
-  String _bioSubtitle = 'Offline M3U • Direktori • Sinema Jellyfin';
+  String _bioSubtitle = 'Offline M3U • Direktori • Hallsem Cinema';
   AvatarSourceMode _avatarMode = AvatarSourceMode.preset;
   int _avatarPresetIndex = 0;
   String? _customAvatarPath;
 
-  // Jellyfin Configuration & Catalog State
-  String _serverUrl = '';
-  String _apiKey = '';
-  String _serverName = '';
+  // Built-in Integrated Jellyfin State (zero manual input required)
+  final String _serverUrl = JellyfinBuiltInConfig.serverUrl;
+  final String _apiKey = JellyfinBuiltInConfig.apiKey;
+  String _serverName = JellyfinBuiltInConfig.defaultServerName;
   String _serverVersion = '';
-  String? _selectedUserId;
-  List<JellyfinUserSummary> _availableUsers = [];
+  String _selectedUserId = JellyfinBuiltInConfig.defaultUserId;
+  List<JellyfinUserSummary> _availableUsers = const [
+    JellyfinUserSummary(
+      id: JellyfinBuiltInConfig.defaultUserId,
+      name: JellyfinBuiltInConfig.username,
+    ),
+  ];
   List<JellyfinMovieItem> _movies = [];
   Map<String, int> _movieWatchSeconds = {};
 
-  bool _isTestingConnection = false;
   bool _isLoadingMovies = false;
-  bool _isConnected = false;
+  bool _isConnected = true;
   String? _errorMessage;
   int _fetchToken = 0;
 
@@ -68,29 +64,22 @@ class ProfileJellyfinProvider extends ChangeNotifier {
   String get serverUrl => _serverUrl;
   bool get hasCredentials => _serverUrl.isNotEmpty && _apiKey.isNotEmpty;
   bool get isConnected => _isConnected;
-  bool get isTestingConnection => _isTestingConnection;
   bool get isLoadingMovies => _isLoadingMovies;
   String get serverName => _serverName;
   String get serverVersion => _serverVersion;
-  String? get selectedUserId => _selectedUserId;
+  String get activeUsername =>
+      selectedUser?.name ?? JellyfinBuiltInConfig.username;
+  String get selectedUserId => _selectedUserId;
   List<JellyfinUserSummary> get availableUsers =>
       List.unmodifiable(_availableUsers);
   List<JellyfinMovieItem> get movies => List.unmodifiable(_movies);
   String? get errorMessage => _errorMessage;
 
   JellyfinUserSummary? get selectedUser {
-    if (_selectedUserId == null) return null;
     for (final u in _availableUsers) {
       if (u.id == _selectedUserId) return u;
     }
     return null;
-  }
-
-  /// Masked display of saved API code for UI safety (never exposes raw secret in plain view).
-  String get maskedApiCode {
-    if (_apiKey.isEmpty) return '';
-    if (_apiKey.length <= 6) return '••••••';
-    return '${_apiKey.substring(0, 4)}••••••••${_apiKey.substring(_apiKey.length - 4)}';
   }
 
   Map<String, String> get authHeaders =>
@@ -124,22 +113,22 @@ class ProfileJellyfinProvider extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
-    await _loadPersistedProfileAndSettings();
+    await _loadPersistedProfile();
     _initialized = true;
     notifyListeners();
 
     if (autoConnectOnInit && hasCredentials) {
-      unawaited(refreshMovies());
+      unawaited(connectAndSyncBuiltInJellyfin());
     }
   }
 
-  Future<void> _loadPersistedProfileAndSettings() async {
+  Future<void> _loadPersistedProfile() async {
     final prefs = _prefs;
     if (prefs == null) return;
 
     _displayName = prefs.getString(_kDisplayNameKey) ?? 'Penikmat Musik';
     _bioSubtitle =
-        prefs.getString(_kBioSubtitleKey) ?? 'Offline M3U • Direktori • Sinema Jellyfin';
+        prefs.getString(_kBioSubtitleKey) ?? 'Offline M3U • Direktori • Hallsem Cinema';
 
     final modeStr = prefs.getString(_kAvatarModeKey) ?? 'preset';
     _avatarMode = AvatarSourceMode.values.firstWhere(
@@ -161,24 +150,6 @@ class ProfileJellyfinProvider extends ChangeNotifier {
       }
     }
 
-    _serverUrl = prefs.getString(_kJfServerUrlKey) ?? '';
-    _serverName = prefs.getString(_kJfServerNameKey) ?? '';
-    _serverVersion = prefs.getString(_kJfServerVersionKey) ?? '';
-    _selectedUserId = prefs.getString(_kJfSelectedUserIdKey);
-
-    try {
-      final rawUsers = prefs.getStringList(_kJfUsersListKey) ?? const [];
-      _availableUsers = rawUsers
-          .map(
-            (s) => JellyfinUserSummary.fromJson(
-              jsonDecode(s) as Map<String, dynamic>,
-            ),
-          )
-          .toList();
-    } catch (_) {
-      _availableUsers = [];
-    }
-
     try {
       final rawProg = prefs.getString(_kJfMovieProgressKey);
       if (rawProg != null && rawProg.isNotEmpty) {
@@ -188,17 +159,6 @@ class ProfileJellyfinProvider extends ChangeNotifier {
     } catch (_) {
       _movieWatchSeconds = {};
     }
-
-    try {
-      _apiKey = await _secureStorage
-              .read(key: _kSecureApiKeyName)
-              .timeout(const Duration(seconds: 2)) ??
-          '';
-    } catch (_) {
-      _apiKey = '';
-    }
-
-    _isConnected = _serverUrl.isNotEmpty && _apiKey.isNotEmpty;
   }
 
   void clearError() {
@@ -221,7 +181,7 @@ class ProfileJellyfinProvider extends ChangeNotifier {
       await _prefs?.setString(_kDisplayNameKey, _displayName);
     }
     _bioSubtitle =
-        cleanBio.isEmpty ? 'Offline M3U • Direktori • Sinema Jellyfin' : cleanBio;
+        cleanBio.isEmpty ? 'Offline M3U • Direktori • Hallsem Cinema' : cleanBio;
     await _prefs?.setString(_kBioSubtitleKey, _bioSubtitle);
     notifyListeners();
   }
@@ -241,7 +201,6 @@ class ProfileJellyfinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Picks an image file via FilePicker (`readAsBytes`) and stores it safely in app support storage.
   Future<bool> pickCustomAvatarImage() async {
     _errorMessage = null;
     try {
@@ -270,15 +229,11 @@ class ProfileJellyfinProvider extends ChangeNotifier {
         ext = '.png';
       }
 
-      final hash = sha256
-          .convert(bytes)
-          .toString()
-          .substring(0, 16);
+      final hash = sha256.convert(bytes).toString().substring(0, 16);
       final targetPath = p.join(avatarDir.path, 'avatar_$hash$ext');
       final outFile = File(targetPath);
       await outFile.writeAsBytes(bytes, flush: true);
 
-      // Delete old custom avatar file if different
       final previous = _customAvatarPath;
       if (previous != null && previous != targetPath) {
         try {
@@ -300,82 +255,31 @@ class ProfileJellyfinProvider extends ChangeNotifier {
     }
   }
 
-  // ==================== JELLYFIN API SETTINGS & MOVIES ====================
+  // ==================== INTEGRATED JELLYFIN SYNC ====================
 
-  /// Validates, connects, stores API Key securely in Keystore, and loads Jellyfin movies.
-  Future<bool> saveAndConnectJellyfin({
-    required String rawServerUrl,
-    required String rawApiCode,
-  }) async {
-    _isTestingConnection = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    final candidateKey = rawApiCode.trim().isNotEmpty ? rawApiCode.trim() : _apiKey;
-
+  Future<void> connectAndSyncBuiltInJellyfin() async {
     try {
       final result = await JellyfinService.testAndDiscoverServer(
-        rawServerUrl: rawServerUrl,
-        rawApiKey: candidateKey,
+        rawServerUrl: _serverUrl,
+        rawApiKey: _apiKey,
       );
-
-      _serverUrl = result.normalizedServerUrl;
-      _apiKey = candidateKey;
       _serverName = result.serverName;
       _serverVersion = result.serverVersion;
-      _availableUsers = result.users;
-
-      if (_availableUsers.isNotEmpty) {
-        final stillValid =
-            _availableUsers.any((u) => u.id == _selectedUserId);
-        if (!stillValid) {
-          _selectedUserId = _availableUsers.first.id;
+      if (result.users.isNotEmpty) {
+        _availableUsers = result.users;
+        final matchedUser = result.users.where(
+          (u) =>
+              u.name.toLowerCase() ==
+              JellyfinBuiltInConfig.username.toLowerCase(),
+        );
+        if (matchedUser.isNotEmpty) {
+          _selectedUserId = matchedUser.first.id;
         }
-      } else {
-        _selectedUserId = null;
       }
-
       _isConnected = true;
-
-      await _prefs?.setString(_kJfServerUrlKey, _serverUrl);
-      await _prefs?.setString(_kJfServerNameKey, _serverName);
-      await _prefs?.setString(_kJfServerVersionKey, _serverVersion);
-      if (_selectedUserId != null) {
-        await _prefs?.setString(_kJfSelectedUserIdKey, _selectedUserId!);
-      } else {
-        await _prefs?.remove(_kJfSelectedUserIdKey);
-      }
-      await _prefs?.setStringList(
-        _kJfUsersListKey,
-        _availableUsers.map((u) => jsonEncode(u.toJson())).toList(),
-      );
-
-      try {
-        await _secureStorage
-            .write(
-              key: _kSecureApiKeyName,
-              value: _apiKey,
-            )
-            .timeout(const Duration(seconds: 2));
-      } catch (_) {}
-
-      await refreshMovies();
-      return true;
-    } catch (e) {
-      _isConnected = false;
-      _errorMessage = JellyfinService.sanitizeErrorMessage(e, candidateKey);
-      return false;
-    } finally {
-      _isTestingConnection = false;
-      notifyListeners();
+    } catch (_) {
+      // Proceed to fetch movies directly for user `nonton`
     }
-  }
-
-  Future<void> selectJellyfinUser(String userId) async {
-    if (_selectedUserId == userId) return;
-    _selectedUserId = userId;
-    await _prefs?.setString(_kJfSelectedUserIdKey, userId);
-    notifyListeners();
     await refreshMovies();
   }
 
@@ -398,6 +302,7 @@ class ProfileJellyfinProvider extends ChangeNotifier {
       _isConnected = true;
     } catch (e) {
       if (token != _fetchToken) return;
+      _isConnected = false;
       _errorMessage = JellyfinService.sanitizeErrorMessage(e, _apiKey);
     } finally {
       if (token == _fetchToken) {
@@ -405,34 +310,6 @@ class ProfileJellyfinProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
-  }
-
-  Future<void> disconnectJellyfin() async {
-    _serverUrl = '';
-    _apiKey = '';
-    _serverName = '';
-    _serverVersion = '';
-    _selectedUserId = null;
-    _availableUsers = [];
-    _movies = [];
-    _isConnected = false;
-    _errorMessage = null;
-    if (_avatarMode == AvatarSourceMode.jellyfinAvatar) {
-      _avatarMode = AvatarSourceMode.preset;
-      await _prefs?.setString(_kAvatarModeKey, _avatarMode.name);
-    }
-
-    await _prefs?.remove(_kJfServerUrlKey);
-    await _prefs?.remove(_kJfServerNameKey);
-    await _prefs?.remove(_kJfServerVersionKey);
-    await _prefs?.remove(_kJfSelectedUserIdKey);
-    await _prefs?.remove(_kJfUsersListKey);
-    try {
-      await _secureStorage
-          .delete(key: _kSecureApiKeyName)
-          .timeout(const Duration(seconds: 2));
-    } catch (_) {}
-    notifyListeners();
   }
 
   Future<void> saveMovieProgress(String movieId, Duration position) async {

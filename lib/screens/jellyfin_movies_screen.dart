@@ -34,7 +34,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
             children: [
               AppLogo(size: 30, borderRadius: 8),
               SizedBox(width: 10),
-              Text('Film Jellyfin'),
+              Text('Hallsem Cinema'),
             ],
           ),
           actions: [
@@ -76,7 +76,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
-                      'JELLYFIN CINEMA',
+                      'HALLSEM CINEMA',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w900,
@@ -86,7 +86,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Tonton Koleksi Film dari Server Jellyfin Anda',
+                    'Tonton Koleksi Film di Hallsem Cinema',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 20,
@@ -96,7 +96,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Masukkan alamat Server Jellyfin beserta API Code di menu Profil & Setting untuk memutar film secara langsung dengan pemutar video bawaan.',
+                    'Koleksi film Hallsem Cinema terhubung otomatis. Tekan tombol di bawah jika katalog belum termuat.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.textSecondary,
@@ -116,10 +116,10 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: widget.onOpenSettings,
-                      icon: const Icon(Icons.vpn_key_rounded),
+                      onPressed: () => jf.connectAndSyncBuiltInJellyfin(),
+                      icon: const Icon(Icons.refresh_rounded),
                       label: const Text(
-                        'Input API Code Jellyfin di Setting',
+                        'Muat Ulang Katalog Film',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -159,7 +159,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Film Jellyfin',
+                    'Hallsem Cinema',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   if (jf.serverName.isNotEmpty)
@@ -230,8 +230,8 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: widget.onOpenSettings,
-                      child: const Text('Setting'),
+                      onPressed: () => jf.connectAndSyncBuiltInJellyfin(),
+                      child: const Text('Coba Lagi'),
                     ),
                   ],
                 ),
@@ -339,7 +339,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     jf.movies.isEmpty
-                        ? 'Belum ada koleksi film di server Jellyfin ini.'
+                        ? 'Belum ada koleksi film di Hallsem Cinema.'
                         : 'Tidak ada film yang cocok dengan filter pencarian.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: AppColors.textSecondary),
@@ -433,7 +433,7 @@ class _MovieHeroBanner extends StatelessWidget {
                           borderRadius: BorderRadius.circular(5),
                         ),
                         child: const Text(
-                          'JELLYFIN FILM',
+                          'HALLSEM CINEMA',
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w900,

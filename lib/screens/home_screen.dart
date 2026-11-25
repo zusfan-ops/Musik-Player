@@ -214,12 +214,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // 2b. JELLYFIN CINEMA MOVIES SWIMLANE
+        // 2b. HALLSEM CINEMA MOVIES SWIMLANE
         if (jfProvider.movies.isNotEmpty && _selectedChip == 'Semua') ...[
           SliverToBoxAdapter(
             child: _SectionHeader(
-              badge: 'JELLYFIN CINEMA',
-              title: 'Film dari Server Jellyfin (${jfProvider.movies.length})',
+              badge: 'HALLSEM CINEMA',
+              title: 'Film Hallsem Cinema (${jfProvider.movies.length})',
               actionLabel: 'Semua Film',
               onAction: () => widget.onNavigateTab(3),
             ),
@@ -800,10 +800,10 @@ class _SpotifyQuickGrid extends StatelessWidget {
         onTap: () => onNavigateTab(2),
       ),
       (
-        title: 'Film Jellyfin',
-        subtitle: jf.isConnected
+        title: 'Hallsem Cinema',
+        subtitle: jf.movies.isNotEmpty
             ? '${jf.movies.length} film siap tonton'
-            : 'Input API di Setting',
+            : 'Katalog Film & Video',
         icon: Icons.movie_filter_rounded,
         accent: AppColors.netflixRed,
         onTap: () => onNavigateTab(3),

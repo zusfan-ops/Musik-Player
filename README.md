@@ -1,27 +1,78 @@
-# M3U Musik & Jellyfin Cinema Player (Flutter Android)
+# M3U Musik & Hallsem Cinema (Flutter Android)
 
-Aplikasi Android **Musik Player Offline, Multi-Playlist M3U & Pemutar Film Jellyfin** dengan desain antarmuka kombinasi **Netflix x Spotify** dan identitas visual [logo2.png](file:///d:/www/musik/logo2.png) untuk logo aplikasi, launcher icon, serta native splash screen.
+Aplikasi Android **Musik Player Offline, Multi-Playlist M3U (Audio & Video/IPTV), Direktori Musik, dan Hallsem Cinema** yang dibangun dengan Flutter, mengusung antarmuka gelap modern kombinasi **Netflix x Spotify** serta identitas visual [logo2.png](logo2.png).
 
-## Fitur Utama
-- **Identitas `logo2.png`**: Digunakan penuh pada logo aplikasi, Android adaptive launcher icon, serta native & in-app splash screen.
-- **Pemutar Musik Offline & Online (`just_audio` + `audio_session`)**: Play/Pause, Next/Prev, Shuffle, Repeat (Off/All/One), Seekbar, Kecepatan Putar (`0.75x`–`2.0x`), Sleep Timer, Antrean Aktif, dan Favorit.
-- **Akses & Pengelompokan Berdasarkan Direktori**: Scan otomatis folder musik Android (`Music`, `Download`, `Audio`, `Podcasts`, SD Card) maupun tambah banyak folder kustom (`+ Tambah Direktori`), lengkap dengan deteksi otomatis file `.m3u`/`.m3u8`.
-- **Multi-Playlist M3U (File Lokal & Alamat Link)**:
-  - Impor **satu atau banyak file `.m3u` / `.m3u8`** sekaligus dari penyimpanan lokal untuk mode offline penuh.
-  - Tambah **satu atau banyak alamat link URL M3U** (`http://` / `https://`) sekaligus, lengkap dengan sinkronisasi ulang dan fitur **Simpan Audio ke Offline**.
-- **Halaman Profil, Avatar & Integrasi Film Jellyfin**:
-  - **Atur Profil & Avatar**: Ubah nama/bio profil, pilih dari **8 Karakter Preset Avatar**, unggah **Foto Avatar Kustom** dari galeri/file, atau gunakan **Avatar Akun Jellyfin**.
-  - **Input API Code Jellyfin & Putar Film (`video_player`)**: Masukkan Server URL & API Code Jellyfin (tersimpan terenkripsi di Android Keystore via `flutter_secure_storage`) untuk memuat katalog film & memutar film langsung dengan pemutar video layar penuh (*Direct Play* & *HLS Universal Stream* fallback, kontrol kecepatan, rasio layar, dan simpan progres tontonan).
+---
 
-## Cara Build Release (Seperti Project `rif`)
-Jalankan menu interaktif:
+## ✨ Fitur Utama
+
+### 1. Pemutar Musik Offline & Pengelompokan Direktori
+- Memindai otomatis folder musik perangkat Android (`/Music`, `/Download`, `/Audio`, `/Podcasts`, `/Ringtones`, serta SD Card) dan mendukung penambahan banyak direktori kustom (**+ Tambah Direktori**).
+- Seluruh lagu otomatis dikelompokkan berdasarkan direktorinya masing-masing, lengkap dengan pencarian cepat di dalam folder dan fitur **Jadikan Playlist M3U Offline**.
+- Mendukung format audio populer: `.mp3`, `.flac`, `.m4a`, `.wav`, `.aac`, `.ogg`, `.opus`, `.wma`, `.amr`.
+- Kontrol pemutar Spotify-style: *Shuffle*, *Repeat* (`Off` / `All` / `One`), *Seekbar*, kecepatan putar (`0.75x`–`2.0x`), *Sleep Timer*, *Antrean Putar*, dan *Lagu Favorit*.
+
+### 2. Multi-Playlist M3U (File Lokal & Alamat Link URL)
+- Mendukung penambahan **lebih dari satu playlist `.m3u` / `.m3u8` sekaligus**.
+- **Mode Offline Penuh**: File `.m3u` lokal di-cache otomatis, path lagu relatif/absolut dipetakan ke penyimpanan lokal, dan audio dari link HTTP/HTTPS dapat diunduh ke penyimpanan offline (*Simpan Offline*).
+- **Deteksi Otomatis Video & Live TV IPTV**: Link/file video (`.m3u8`, `.mp4`, `.mkv`, `.ts`, tag `tvg-*`, resolusi `720p`/`1080p`/`HD`, serta header `#EXTVLCOPT`) otomatis dibuka di **M3U Video & Live TV Player** (*Portrait Split* dengan daftar pencarian channel di bawah video + *Fullscreen Landscape* dengan drawer channel & tombol *Fit/Zoom*).
+
+### 3. Hallsem Cinema (Film & Serial Terintegrasi)
+- Terintegrasi langsung dengan server **Hallsem Cinema** (`HallSem Media Center`) tanpa perlu konfigurasi manual.
+- Dilengkapi tampilan katalog sinema bergaya Netflix (*Hero Billboard*, *Lanjutkan Menonton*, pencarian judul/genre, filter *Film / Episode / Video*), serta pemutar video layar penuh dengan *Direct Play* + fallback otomatis *HLS Universal*, tombol `-10s` / `+10s`, rasio layar, kecepatan putar, dan simpan progres tontonan.
+
+### 4. Profil Pengguna, Avatar Kustom & Identitas Visual
+- Menggunakan [logo2.png](logo2.png) sebagai **Logo Aplikasi**, **Android Adaptive Launcher Icon**, serta **Native & In-App Splash Screen**.
+- Halaman **Profil & Setting** mendukung ubah nama/bio profil dan kustomisasi **Avatar** (8 Karakter Avatar Preset, Upload Foto dari galeri/file, atau Avatar akun Hallsem).
+
+---
+
+## 📖 Cara Input Playlist M3U di Aplikasi
+
+Anda dapat memasukkan playlist M3U melalui **3 cara**:
+
+### Cara 1: Input Alamat Link / URL M3U (Online & IPTV)
+1. Buka tab **M3U** di bilah navigasi bawah (atau tekan ikon **`+ Playlist M3U`** di halaman Beranda).
+2. Pilih tab **Alamat Link**.
+3. Isi **Nama Playlist** *(opsional, misalnya: `TV Indonesia`)*.
+4. Tempelkan satu atau beberapa link M3U (satu URL per baris jika lebih dari satu) pada kolom **Alamat Link M3U**, lalu tekan **Simpan Link M3U**.
+
+**Contoh Link M3U TV Indonesia Siap Pakai:**
+```text
+https://iptv-org.github.io/iptv/countries/id.m3u
+```
+
+> **Tips:** Saat memutar channel dari link di atas (misalnya `tvOne HD (720p)`), aplikasi otomatis membuka **M3U Video & Live TV Player** lengkap dengan daftar pencarian channel di bawah layar.
+
+### Cara 2: Impor File `.m3u` / `.m3u8` Lokal (Offline)
+1. Buka tab **M3U** → tekan **Impor File M3U**.
+2. Pilih satu atau beberapa file `.m3u` / `.m3u8` dari penyimpanan HP Anda sekaligus.
+3. Playlist otomatis tersimpan di aplikasi dan siap diputar secara offline.
+
+### Cara 3: Deteksi Otomatis dari Direktori Musik
+1. Buka tab **Direktori** → tekan **Izin & Scan** atau **Tambah Direktori**.
+2. Jika di dalam folder terdapat file `.m3u` / `.m3u8`, aplikasi akan menampilkan banner **"Ditemukan File M3U di Direktori"** — tekan **Impor Semua** untuk memasukkannya langsung ke daftar playlist.
+
+---
+
+## 🛠️ Cara Build Release APK
+
 ```bat
 build_release.bat
 ```
 Atau langsung via CLI:
 ```powershell
-.\build_release.bat -BumpType none
+.\build_release.bat -BumpType patch
 ```
-Hasil build otomatis tersimpan di:
-- `public/release/<versi>/` (beserta `latest.json`, `release_notes.txt`, dan `index.php`)
-- `releases/v<versi>/`
+Output APK split per ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`), `latest.json`, dan catatan rilis otomatis dibuat di `public/release/<versi>/` dan `releases/v<versi>/`.
+
+---
+
+## 👨‍💻 Informasi Developer
+
+- **Nama**: **Zusfan Mashuri**
+- **Peran**: Marketing Strategist • IT Builder • Public Service Innovator
+- **Digital Business Card**: https://zusfan.hallosemarang.com
+- **Website**: https://www.hallosemarang.com
+- **WhatsApp**: https://wa.me/628998813000
+- **Repository**: https://github.com/zusfan-ops/Musik-Player
