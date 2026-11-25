@@ -823,9 +823,9 @@ class NewTubeService {
     try {
       final clients = [
         YoutubeApiClient.android,
-        YoutubeApiClient.androidVr,
         YoutubeApiClient.ios,
         YoutubeApiClient.tv,
+        YoutubeApiClient.androidVr,
       ];
 
       for (final apiClient in clients) {
@@ -835,17 +835,26 @@ class NewTubeService {
         try {
           final manifest = await yt.videos.streamsClient
               .getManifest(item.videoId, ytClients: [apiClient])
-              .timeout(const Duration(seconds: 14));
+              .timeout(const Duration(seconds: 12));
 
+          final headers = _headersForClient(apiClient);
           final List<({StreamInfo stream, String ext})> candidates = [];
+
+          // Progressive muxed MP4 (itag 18) returns HTTP 200 reliably at full speed.
+          if (manifest.muxed.isNotEmpty) {
+            candidates.add((
+              stream: manifest.muxed.withHighestBitrate(),
+              ext: 'm4a',
+            ));
+          }
 
           final mp4Audio = manifest.audioOnly
               .where((s) => s.container.name.toLowerCase() == 'mp4')
               .toList()
             ..sort((a, b) =>
                 b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
-          for (final s in mp4Audio) {
-            candidates.add((stream: s, ext: 'm4a'));
+          if (mp4Audio.isNotEmpty) {
+            candidates.add((stream: mp4Audio.first, ext: 'm4a'));
           }
 
           if (manifest.audioOnly.isNotEmpty) {
@@ -855,13 +864,6 @@ class NewTubeService {
                 ? 'm4a'
                 : (cname == 'webm' ? 'opus' : 'm4a');
             candidates.add((stream: best, ext: ext));
-          }
-
-          if (manifest.muxed.isNotEmpty) {
-            candidates.add((
-              stream: manifest.muxed.withHighestBitrate(),
-              ext: 'm4a',
-            ));
           }
 
           for (final candidate in candidates) {
@@ -875,14 +877,30 @@ class NewTubeService {
               await partFile.delete();
             }
 
+            final client = http.Client();
             IOSink? sink;
             try {
-              final totalBytes = candidate.stream.size.totalBytes;
+              final req = http.Request('GET', candidate.stream.url);
+              req.headers.addAll(headers);
+              final res =
+                  await client.send(req).timeout(const Duration(seconds: 15));
+              if (res.statusCode < 200 || res.statusCode >= 400) {
+                unawaited(res.stream.drain<void>().catchError((_) {}));
+                throw HttpException(
+                  'HTTP ${res.statusCode} saat mengunduh audio',
+                );
+              }
+
+              final totalBytes =
+                  res.contentLength ?? candidate.stream.size.totalBytes;
               int received = 0;
               sink = partFile.openWrite();
 
-              final byteStream = yt.videos.streamsClient.get(candidate.stream);
-              await for (final chunk in byteStream) {
+              await for (final chunk in res.stream.timeout(
+                const Duration(seconds: 15),
+                onTimeout: (s) =>
+                    s.addError(TimeoutException('Stream chunk timeout')),
+              )) {
                 if (isCancelled?.call() == true) {
                   throw Exception('Unduhan dibatalkan');
                 }
@@ -919,6 +937,8 @@ class NewTubeService {
                 }
               } catch (_) {}
               if (isCancelled?.call() == true) rethrow;
+            } finally {
+              client.close();
             }
           }
         } catch (e) {

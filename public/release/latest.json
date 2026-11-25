@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.9.4/M3UMusik-v1.9.4-arm64-v8a.apk",
-    "build_number":  24,
-    "version":  "1.9.4",
-    "release_date":  "2026-11-25 18:50:29",
-    "changelog":  "Update v1.9.4: Floating Pill Bottom Nav, LRC Lirik Online, Manajemen Offline, Auto-Sync \u0026 Link Playlist YouTube, Card YouTube Offline + Artwork Otomatis, Gesture Video \u0026 Driving Mode"
+    "download_url":  "/release/1.9.5/M3UMusik-v1.9.5-arm64-v8a.apk",
+    "build_number":  25,
+    "version":  "1.9.5",
+    "release_date":  "2026-11-25 19:09:37",
+    "changelog":  "Update v1.9.5: Perbaikan Download Playlist YouTube (HTTP 403 Fix \u0026 Unduhan Cepat)"
 }
