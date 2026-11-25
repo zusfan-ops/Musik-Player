@@ -9,6 +9,7 @@ import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../services/lyrics_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/audio_waveform_visualizer.dart';
 import '../widgets/equalizer_sheet.dart';
 import 'driving_mode_screen.dart';
 import 'm3u_video_player_screen.dart';
@@ -519,7 +520,19 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                           ],
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: AudioWaveformVisualizer(
+                            isPlaying: provider.isPlaying,
+                            color: AppColors.spotifyGreen,
+                            barCount: 30,
+                            height: 26,
+                          ),
+                        ),
+
+                        const SizedBox(height: 6),
 
                         // Decoupled high-frequency Slider + Timestamp listener
                         ValueListenableBuilder<Duration>(

@@ -1,32 +1,32 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Warm Cream & Sand Editorial Canvas (inspired by reference design)
-  static const Color background = Color(0xFFF6F2ED);
-  static const Color surface = Color(0xFFEDE6DD);
-  static const Color surfaceElevated = Color(0xFFFAF7F4);
-  static const Color surfaceHighlight = Color(0xFFE2D8CC);
-  static const Color darkNav = Color(0xFF141312);
+  // Calm Matte Warm Stone Palette (glare-free, readable, zero AI-slop gradients)
+  static const Color background = Color(0xFFE9E4DC);
+  static const Color surface = Color(0xFFDFD9CF);
+  static const Color surfaceElevated = Color(0xFFF1EDE6);
+  static const Color surfaceHighlight = Color(0xFFD2CBC0);
+  static const Color darkNav = Color(0xFF17181A);
 
-  // Terracotta Coral, Deep Petrol Ink & Warm Ochre Accents
-  static const Color spotifyGreen = Color(0xFFE8633A);
-  static const Color neonCyan = Color(0xFF18222F);
-  static const Color neonPurple = Color(0xFFE59A28);
-  static const Color netflixRed = Color(0xFFD94A2B);
+  // Muted Burnt Terracotta, Deep Slate Ink & Warm Amber Accents
+  static const Color spotifyGreen = Color(0xFFC95633);
+  static const Color neonCyan = Color(0xFF1E2936);
+  static const Color neonPurple = Color(0xFFC28222);
+  static const Color netflixRed = Color(0xFFBD3F2A);
 
   // Text Hierarchy
-  static const Color textPrimary = Color(0xFF1B1918);
-  static const Color textSecondary = Color(0xFF6E675F);
-  static const Color textMuted = Color(0xFF9C948B);
+  static const Color textPrimary = Color(0xFF1A1918);
+  static const Color textSecondary = Color(0xFF5D5750);
+  static const Color textMuted = Color(0xFF847D74);
 
   static const LinearGradient brandGradient = LinearGradient(
-    colors: [Color(0xFFE8633A), Color(0xFFD94A2B)],
+    colors: [Color(0xFFC95633), Color(0xFFB84A29)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient spotifyHeroGradient = LinearGradient(
-    colors: [Color(0xFFE8633A), Color(0xFFD4522D)],
+    colors: [Color(0xFF23272D), Color(0xFF1A1D22)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

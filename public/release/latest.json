@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.9.5/M3UMusik-v1.9.5-arm64-v8a.apk",
-    "build_number":  25,
-    "version":  "1.9.5",
-    "release_date":  "2026-11-25 19:09:37",
-    "changelog":  "Update v1.9.5: Perbaikan Download Playlist YouTube (HTTP 403 Fix \u0026 Unduhan Cepat)"
+    "download_url":  "/release/1.9.7/M3UMusik-v1.9.7-arm64-v8a.apk",
+    "build_number":  27,
+    "version":  "1.9.7",
+    "release_date":  "2026-11-25 20:51:24",
+    "changelog":  "Update v1.9.7: Redesign Warna Matte Calm, Alarm Musik \u0026 Sleep Timer Fade Out, Audio Waveform Visualizer, serta Crossfade \u0026 Gapless Playback"
 }

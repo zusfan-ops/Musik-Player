@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/music_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/audio_waveform_visualizer.dart';
 
 /// High-contrast, extra-large-button Driving Mode (Car UI) for safe playback control on the road.
 class DrivingModeScreen extends StatelessWidget {
@@ -94,11 +95,15 @@ class DrivingModeScreen extends StatelessWidget {
 
               const Spacer(),
 
-              // Track info
-              Icon(
-                track != null ? Icons.graphic_eq_rounded : Icons.library_music_rounded,
-                size: 54,
-                color: AppColors.spotifyGreen,
+              // Track info & live waveform
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: AudioWaveformVisualizer(
+                  isPlaying: provider.isPlaying,
+                  color: AppColors.spotifyGreen,
+                  barCount: 24,
+                  height: 44,
+                ),
               ),
               const SizedBox(height: 18),
               Text(

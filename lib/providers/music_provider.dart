@@ -45,6 +45,10 @@ class MusicProvider extends ChangeNotifier {
   static const String _kLoudnessDbKey = 'eq_loudness_db_v1';
   static const String _kAutoSyncYtPlaylistsKey = 'auto_sync_yt_playlists_v1';
   static const String _kSeededDefaultTvKey = 'seeded_default_tv_v1';
+  static const String _kAlarmEnabledKey = 'music_alarm_enabled_v1';
+  static const String _kAlarmHourKey = 'music_alarm_hour_v1';
+  static const String _kAlarmMinuteKey = 'music_alarm_minute_v1';
+  static const String _kCrossfadeSecKey = 'audio_crossfade_sec_v1';
   static const String defaultTvPlaylistUrl =
       'https://iptv-org.github.io/iptv/countries/id.m3u';
   static const MethodChannel _widgetChannel =
@@ -116,9 +120,16 @@ class MusicProvider extends ChangeNotifier {
   int _loadRequestToken = 0;
   DateTime _lastProgressPersist = DateTime.fromMillisecondsSinceEpoch(0);
 
-  // Sleep timer
+  // Sleep timer, Music Alarm & Crossfade
   Timer? _sleepTimer;
   DateTime? _sleepEndTime;
+  Timer? _alarmTicker;
+  Timer? _fadeVolumeTimer;
+  bool _alarmEnabled = false;
+  int _alarmHour = 6;
+  int _alarmMinute = 30;
+  String? _lastTriggeredAlarmDateKey;
+  int _crossfadeSeconds = 0;
 
   // Equalizer & audio effects state
   bool _equalizerEnabled = false;
@@ -227,6 +238,11 @@ class MusicProvider extends ChangeNotifier {
     final diff = _sleepEndTime!.difference(DateTime.now());
     return diff.isNegative ? null : diff;
   }
+
+  bool get alarmEnabled => _alarmEnabled;
+  int get alarmHour => _alarmHour;
+  int get alarmMinute => _alarmMinute;
+  int get crossfadeSeconds => _crossfadeSeconds;
 
   bool isTrackDownloading(String trackId) =>
       _downloadingTrackIds.contains(trackId);
@@ -517,6 +533,12 @@ class MusicProvider extends ChangeNotifier {
           _recordTrackPlayed(_queue[realIdx]);
           _syncHomeWidgets();
           _maybePreloadNextNewTubeTrack();
+          if (_crossfadeSeconds > 0 && _sleepEndTime == null) {
+            _fadeInPlayerVolume(
+              startVol: 0.25,
+              durationSeconds: _crossfadeSeconds.clamp(1, 4),
+            );
+          }
           notifyListeners();
         }
       }),
@@ -537,6 +559,18 @@ class MusicProvider extends ChangeNotifier {
       _player.positionStream.listen((pos) {
         _positionNotifier.value = pos;
         final active = currentTrack;
+        if (_crossfadeSeconds > 0 &&
+            _isPlaying &&
+            _sleepEndTime == null &&
+            _repeatMode != RepeatCycleMode.one &&
+            _duration > Duration(seconds: _crossfadeSeconds + 2)) {
+          final remainingMs = _duration.inMilliseconds - pos.inMilliseconds;
+          final fadeWindowMs = _crossfadeSeconds * 1000;
+          if (remainingMs > 0 && remainingMs <= fadeWindowMs) {
+            final vol = (remainingMs / fadeWindowMs).clamp(0.15, 1.0);
+            unawaited(_player.setVolume(vol));
+          }
+        }
         if (active != null &&
             DateTime.now().difference(_lastProgressPersist).inSeconds >= 5) {
           _lastProgressPersist = DateTime.now();
@@ -613,6 +647,13 @@ class MusicProvider extends ChangeNotifier {
     }
     _favoriteIds =
         Set<String>.from(prefs.getStringList(_kFavoritesKey) ?? const []);
+    _alarmEnabled = prefs.getBool(_kAlarmEnabledKey) ?? false;
+    _alarmHour = prefs.getInt(_kAlarmHourKey) ?? 6;
+    _alarmMinute = prefs.getInt(_kAlarmMinuteKey) ?? 30;
+    _crossfadeSeconds = prefs.getInt(_kCrossfadeSecKey) ?? 0;
+    if (_alarmEnabled) {
+      _startAlarmTicker();
+    }
     _hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
     _deadTrackIds =
         Set<String>.from(prefs.getStringList(_kDeadLinksKey) ?? const []);
@@ -2104,16 +2145,100 @@ class MusicProvider extends ChangeNotifier {
     _sleepTimer = null;
     if (duration == null) {
       _sleepEndTime = null;
+      unawaited(_player.setVolume(1.0));
       notifyListeners();
       return;
     }
     _sleepEndTime = DateTime.now().add(duration);
-    _sleepTimer = Timer(duration, () {
-      pause();
-      _sleepEndTime = null;
-      _sleepTimer = null;
-      notifyListeners();
+    _sleepTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      final end = _sleepEndTime;
+      if (end == null) {
+        timer.cancel();
+        return;
+      }
+      final rem = end.difference(DateTime.now());
+      if (rem <= Duration.zero) {
+        timer.cancel();
+        _sleepTimer = null;
+        _sleepEndTime = null;
+        unawaited(pause().then((_) => _player.setVolume(1.0)));
+        notifyListeners();
+      } else if (rem.inMilliseconds <= 10000 && _isPlaying) {
+        final vol = (rem.inMilliseconds / 10000).clamp(0.08, 1.0);
+        unawaited(_player.setVolume(vol));
+      }
     });
+    notifyListeners();
+  }
+
+  void _fadeInPlayerVolume({
+    double startVol = 0.2,
+    int durationSeconds = 3,
+  }) {
+    _fadeVolumeTimer?.cancel();
+    unawaited(_player.setVolume(startVol));
+    final totalSteps = (durationSeconds * 5).clamp(5, 30);
+    int step = 0;
+    _fadeVolumeTimer = Timer.periodic(const Duration(milliseconds: 200), (t) {
+      step++;
+      final progress = (step / totalSteps).clamp(0.0, 1.0);
+      final vol = startVol + (1.0 - startVol) * progress;
+      unawaited(_player.setVolume(vol.clamp(0.0, 1.0)));
+      if (step >= totalSteps) {
+        t.cancel();
+        _fadeVolumeTimer = null;
+      }
+    });
+  }
+
+  Future<void> setCrossfadeSeconds(int seconds) async {
+    _crossfadeSeconds = seconds.clamp(0, 10);
+    await _prefs?.setInt(_kCrossfadeSecKey, _crossfadeSeconds);
+    if (_crossfadeSeconds == 0) {
+      _fadeVolumeTimer?.cancel();
+      unawaited(_player.setVolume(1.0));
+    }
+    notifyListeners();
+  }
+
+  void _startAlarmTicker() {
+    _alarmTicker?.cancel();
+    _alarmTicker = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!_alarmEnabled) return;
+      final now = DateTime.now();
+      if (now.hour == _alarmHour && now.minute == _alarmMinute) {
+        final dateKey = '${now.year}-${now.month}-${now.day}';
+        if (_lastTriggeredAlarmDateKey == dateKey) return;
+        _lastTriggeredAlarmDateKey = dateKey;
+        final candidates = allOfflineMusicTracks.isNotEmpty
+            ? allOfflineMusicTracks
+            : (favoriteTracks.isNotEmpty ? favoriteTracks : allTracks);
+        if (candidates.isNotEmpty) {
+          _fadeInPlayerVolume(startVol: 0.15, durationSeconds: 5);
+          unawaited(playTrackList(candidates));
+        }
+      }
+    });
+  }
+
+  Future<void> setMusicAlarm({
+    required bool enabled,
+    int? hour,
+    int? minute,
+  }) async {
+    _alarmEnabled = enabled;
+    if (hour != null) _alarmHour = hour.clamp(0, 23);
+    if (minute != null) _alarmMinute = minute.clamp(0, 59);
+    _lastTriggeredAlarmDateKey = null;
+    await _prefs?.setBool(_kAlarmEnabledKey, _alarmEnabled);
+    await _prefs?.setInt(_kAlarmHourKey, _alarmHour);
+    await _prefs?.setInt(_kAlarmMinuteKey, _alarmMinute);
+    if (_alarmEnabled) {
+      _startAlarmTicker();
+    } else {
+      _alarmTicker?.cancel();
+      _alarmTicker = null;
+    }
     notifyListeners();
   }
 
@@ -2406,6 +2531,8 @@ class MusicProvider extends ChangeNotifier {
   @override
   void dispose() {
     _sleepTimer?.cancel();
+    _alarmTicker?.cancel();
+    _fadeVolumeTimer?.cancel();
     for (final sub in _subscriptions) {
       sub.cancel();
     }

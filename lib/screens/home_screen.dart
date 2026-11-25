@@ -348,18 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 175,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFFBE6DA),
-                                    Color(0xFFF3D4C2),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
+                                color: AppColors.surfaceElevated,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: AppColors.spotifyGreen
-                                      .withValues(alpha: 0.25),
+                                  color: Colors.black.withValues(alpha: 0.08),
                                 ),
                               ),
                               child: Column(
@@ -1764,20 +1756,16 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFAF7F4), Color(0xFFEDE6DD)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.spotifyGreen.withValues(alpha: 0.25),
+          color: Colors.black.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),

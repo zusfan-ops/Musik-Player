@@ -1,1 +1,0 @@
-﻿Update v1.9.5: Perbaikan Download Playlist YouTube (HTTP 403 Fix & Unduhan Cepat)

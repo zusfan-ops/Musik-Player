@@ -692,6 +692,61 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const Divider(height: 1, color: AppColors.surfaceHighlight),
                   ListTile(
                     leading: const Icon(
+                      Icons.alarm_rounded,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    title: const Text(
+                      'Alarm Musik',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      music.alarmEnabled
+                          ? 'Aktif pukul ${music.alarmHour.toString().padLeft(2, '0')}:${music.alarmMinute.toString().padLeft(2, '0')} (Fade-In otomatis)'
+                          : 'Putar musik otomatis pada jam tertentu',
+                    ),
+                    trailing: Switch(
+                      value: music.alarmEnabled,
+                      activeThumbColor: AppColors.spotifyGreen,
+                      onChanged: (val) => music.setMusicAlarm(enabled: val),
+                    ),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(
+                          hour: music.alarmHour,
+                          minute: music.alarmMinute,
+                        ),
+                      );
+                      if (picked != null && context.mounted) {
+                        await music.setMusicAlarm(
+                          enabled: true,
+                          hour: picked.hour,
+                          minute: picked.minute,
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.graphic_eq_rounded,
+                      color: AppColors.neonCyan,
+                    ),
+                    title: const Text(
+                      'Crossfade & Gapless Playback',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      music.crossfadeSeconds > 0
+                          ? 'Transisi halus ${music.crossfadeSeconds} detik antar lagu'
+                          : 'Gapless aktif (tanpa jeda, crossfade mati)',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _showCrossfadePicker(context, music),
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ListTile(
+                    leading: const Icon(
                       Icons.directions_car_rounded,
                       color: AppColors.neonPurple,
                     ),
@@ -776,6 +831,63 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         SnackBar(content: Text(message)),
       );
     }
+  }
+
+  Future<void> _showCrossfadePicker(
+    BuildContext context,
+    MusicProvider music,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        const options = [
+          (0, 'Gapless Murni (Crossfade Mati)'),
+          (3, 'Halus (3 detik)'),
+          (5, 'Seimbang (5 detik)'),
+          (8, 'Panjang (8 detik)'),
+        ];
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Crossfade & Gapless Playback',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                for (final opt in options)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      music.crossfadeSeconds == opt.$1
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: music.crossfadeSeconds == opt.$1
+                          ? AppColors.spotifyGreen
+                          : AppColors.textSecondary,
+                    ),
+                    title: Text(
+                      opt.$2,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onTap: () async {
+                      await music.setCrossfadeSeconds(opt.$1);
+                      if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showOfflineStorageManager(
