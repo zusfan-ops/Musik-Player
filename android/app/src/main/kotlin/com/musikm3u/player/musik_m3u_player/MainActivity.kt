@@ -1,6 +1,9 @@
 package com.musikm3u.player.musik_m3u_player
 
 import android.app.PictureInPictureParams
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -231,6 +234,68 @@ class MainActivity : AudioServiceActivity() {
                             hasActiveSession = hasActiveSession,
                         )
                         result.success(true)
+                    }
+                    "listPairedBluetoothPrinters" -> {
+                        executor.execute {
+                            try {
+                                val mgr = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                                val adapter: BluetoothAdapter? = mgr?.adapter
+                                val bonded = adapter?.bondedDevices ?: emptySet()
+                                val list = bonded.map { dev ->
+                                    mapOf(
+                                        "name" to (dev.name ?: "Bluetooth Printer"),
+                                        "address" to dev.address,
+                                    )
+                                }
+                                mainHandler.post { result.success(list) }
+                            } catch (e: SecurityException) {
+                                mainHandler.post {
+                                    result.error("BT_PERMISSION", "Izin Bluetooth diperlukan: ${e.message}", null)
+                                }
+                            } catch (e: Exception) {
+                                mainHandler.post {
+                                    result.error("BT_ERROR", e.message, null)
+                                }
+                            }
+                        }
+                    }
+                    "printEscPosBytes" -> {
+                        val address = call.argument<String>("address")
+                        val bytes = call.argument<ByteArray>("bytes")
+                        if (address.isNullOrEmpty() || bytes == null) {
+                            result.error("BT_ARGS", "Alamat printer dan data nota wajib diisi", null)
+                        } else {
+                            executor.execute {
+                                var socket: android.bluetooth.BluetoothSocket? = null
+                                try {
+                                    val mgr = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                                    val adapter = mgr?.adapter
+                                        ?: throw IllegalStateException("Bluetooth tidak tersedia di perangkat")
+                                    val device = adapter.getRemoteDevice(address)
+                                    val sppUuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+                                    socket = device.createRfcommSocketToServiceRecord(sppUuid)
+                                    adapter.cancelDiscovery()
+                                    socket.connect()
+                                    val out = socket.outputStream
+                                    out.write(bytes)
+                                    out.flush()
+                                    Thread.sleep(250)
+                                    mainHandler.post { result.success(true) }
+                                } catch (e: SecurityException) {
+                                    mainHandler.post {
+                                        result.error("BT_PERMISSION", "Izin Bluetooth ditolak: ${e.message}", null)
+                                    }
+                                } catch (e: Exception) {
+                                    mainHandler.post {
+                                        result.error("BT_PRINT_ERROR", "Gagal mencetak ke printer: ${e.message}", null)
+                                    }
+                                } finally {
+                                    try {
+                                        socket?.close()
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
                     }
                     else -> result.notImplemented()
                 }

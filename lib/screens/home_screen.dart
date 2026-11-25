@@ -15,6 +15,7 @@ import 'jellyfin_movies_screen.dart';
 import 'library_search_screen.dart';
 import 'm3u_video_player_screen.dart';
 import 'playlists_screen.dart';
+import 'pos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ValueChanged<int> onNavigateTab;
@@ -1055,6 +1056,13 @@ class _SpotifyQuickGrid extends StatelessWidget {
             onNavigateTab(2);
           }
         },
+      ),
+      (
+        title: 'Kasir (POS)',
+        subtitle: 'Coffeeshop, Roastery & Umum',
+        icon: Icons.point_of_sale_rounded,
+        accent: AppColors.spotifyGreen,
+        onTap: () => PosScreen.show(context),
       ),
       (
         title: 'Semua Direktori',

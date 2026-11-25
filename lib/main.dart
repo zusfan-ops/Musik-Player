@@ -6,6 +6,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/music_provider.dart';
+import 'providers/pos_provider.dart';
 import 'providers/profile_jellyfin_provider.dart';
 import 'screens/directories_screen.dart';
 import 'screens/driving_mode_screen.dart';
@@ -14,6 +15,7 @@ import 'screens/jellyfin_movies_screen.dart';
 import 'screens/newtube_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/playlists_screen.dart';
+import 'screens/pos_screen.dart';
 import 'screens/profile_settings_screen.dart';
 import 'services/update_checker_service.dart';
 import 'theme/app_theme.dart';
@@ -65,6 +67,9 @@ class MusikM3uApp extends StatelessWidget {
           create: (_) => ProfileJellyfinProvider(
             autoConnectOnInit: autoScanOnInit,
           )..initialize(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PosProvider()..initialize(),
         ),
       ],
       child: MaterialApp(
@@ -317,6 +322,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       onTap: () {
                         Navigator.pop(sheetCtx);
                         _switchTab(5);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _MoreMenuTile(
+                      icon: Icons.point_of_sale_rounded,
+                      color: AppColors.spotifyGreen,
+                      title: 'Kasir & POS Usaha',
+                      subtitle: 'Coffeeshop, Roastery, Retail, Nota & Laporan PDF',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        PosScreen.show(context);
                       },
                     ),
                     const SizedBox(height: 8),

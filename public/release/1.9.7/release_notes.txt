@@ -1,1 +1,0 @@
-﻿Update v1.9.7: Redesign Warna Matte Calm, Alarm Musik & Sleep Timer Fade Out, Audio Waveform Visualizer, serta Crossfade & Gapless Playback

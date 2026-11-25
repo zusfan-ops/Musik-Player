@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musik_m3u_player/main.dart';
 import 'package:musik_m3u_player/models/music_models.dart';
+import 'package:musik_m3u_player/models/pos_models.dart';
+import 'package:musik_m3u_player/providers/pos_provider.dart';
+import 'package:musik_m3u_player/services/pos_printer_service.dart';
 import 'package:musik_m3u_player/services/directory_scanner_service.dart';
 import 'package:musik_m3u_player/services/jellyfin_service.dart';
 import 'package:musik_m3u_player/services/lyrics_service.dart';
@@ -245,6 +248,28 @@ https://live.example.com/tvone/index.m3u8
         'RDdQw4w9WgXcQ',
       );
       expect(NewTubeService.extractPlaylistId('metallica hits'), isNull);
+    });
+
+    test('POS formats Rupiah, computes cart & checkout, and builds ESC/POS receipt', () async {
+      SharedPreferences.setMockInitialValues({});
+      expect(PosFormat.rupiah(28000), 'Rp 28.000');
+      final pos = PosProvider();
+      await pos.initialize();
+      expect(pos.products, isNotEmpty);
+
+      final item = pos.products.first;
+      pos.addToCart(item);
+      pos.addToCart(item);
+      expect(pos.cartItemCount, 2);
+
+      final order = await pos.checkout(paymentMethod: 'Tunai', amountPaid: 100000);
+      expect(order.items.length, 1);
+      expect(order.total, item.price * 2);
+      expect(pos.cart, isEmpty);
+
+      final escPos = PosBluetoothPrinterService.buildEscPosReceipt(order, pos.profile);
+      expect(escPos.isNotEmpty, isTrue);
+      expect(escPos.first, 0x1B);
     });
   });
 
