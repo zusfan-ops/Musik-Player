@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.2.3/M3UMusik-v1.2.3-arm64-v8a.apk",
-    "build_number":  6,
-    "version":  "1.2.3",
-    "release_date":  "2026-11-25 10:55:01",
-    "changelog":  "Update v1.2.3: Integrasi langsung Jellyfin API (user nonton) tanpa perlu input API di setting"
+    "download_url":  "/release/1.3.0/M3UMusik-v1.3.0-arm64-v8a.apk",
+    "build_number":  7,
+    "version":  "1.3.0",
+    "release_date":  "2026-11-25 11:06:56",
+    "changelog":  "v1.3.0: Info developer, rename Hallsem Cinema, README lengkap"
 }
