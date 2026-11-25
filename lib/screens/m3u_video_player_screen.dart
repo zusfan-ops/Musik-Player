@@ -33,8 +33,7 @@ class M3uPlaybackLauncher {
     final selected = items[targetIdx];
 
     if (forceVideoPlayer || selected.isVideo) {
-      await Navigator.push(
-        context,
+      await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
           builder: (_) => M3uVideoPlayerScreen(
             playlistItems: items,

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/mini_player_bar.dart';
 import '../widgets/track_tile.dart';
 import 'm3u_video_player_screen.dart';
 
@@ -563,7 +562,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }).toList();
 
     return Scaffold(
-      bottomNavigationBar: const SafeArea(child: MiniPlayerBar()),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(

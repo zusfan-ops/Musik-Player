@@ -501,8 +501,7 @@ class _MovieHeroBanner extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            Navigator.push(
-                              context,
+                            Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute<void>(
                                 builder: (_) =>
                                     JellyfinMoviePlayerScreen(movie: movie),
@@ -574,8 +573,7 @@ class JellyfinContinueWatchingCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(
             builder: (_) => JellyfinMoviePlayerScreen(movie: movie),
           ),
@@ -965,8 +963,7 @@ class JellyfinMovieDetailSheet extends StatelessWidget {
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          Navigator.push(
-                            context,
+                          Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute<void>(
                               builder: (_) => JellyfinMoviePlayerScreen(
                                 movie: movie,
@@ -995,8 +992,7 @@ class JellyfinMovieDetailSheet extends StatelessWidget {
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        Navigator.push(
-                          context,
+                        Navigator.of(context, rootNavigator: true).push(
                           MaterialPageRoute<void>(
                             builder: (_) => JellyfinMoviePlayerScreen(
                               movie: movie,

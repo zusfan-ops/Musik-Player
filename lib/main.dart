@@ -22,7 +22,8 @@ Future<void> main() async {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.musikm3u.player.channel.audio',
       androidNotificationChannelName: 'Pemutaran Musik M3U',
-      androidNotificationOngoing: true,
+      androidNotificationIcon: 'drawable/ic_stat_music',
+      androidNotificationOngoing: false,
     );
   } catch (_) {
     // Safe fallback if native audio background service is unavailable (e.g. tests)
@@ -162,6 +163,7 @@ class MainNavigationShell extends StatefulWidget {
 }
 
 class _MainNavigationShellState extends State<MainNavigationShell> {
+  final GlobalKey<NavigatorState> _shellNavKey = GlobalKey<NavigatorState>();
   int _selectedIndex = 0;
 
   @override
@@ -182,6 +184,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   }
 
   void _switchTab(int index) {
+    _shellNavKey.currentState?.popUntil((route) => route.isFirst);
     setState(() => _selectedIndex = index.clamp(0, 5));
   }
 
@@ -196,83 +199,170 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ProfileSettingsScreen(onOpenMoviesTab: () => _switchTab(4)),
     ];
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _selectedIndex,
-            children: pages,
-          ),
-          const Align(
-            alignment: Alignment.bottomCenter,
-            child: MiniPlayerBar(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
-          ),
-        ),
-        child: NavigationBar(
-          height: 64,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          backgroundColor: AppColors.background,
-          indicatorColor: AppColors.spotifyGreen.withValues(alpha: 0.18),
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: _switchTab,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(
-                Icons.home_filled,
-                color: AppColors.spotifyGreen,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        final nav = _shellNavKey.currentState;
+        if (nav != null && nav.canPop()) {
+          nav.pop();
+        } else if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Navigator(
+              key: _shellNavKey,
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (_) => IndexedStack(
+                  index: _selectedIndex,
+                  children: pages,
+                ),
               ),
-              label: 'Beranda',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.folder_outlined),
-              selectedIcon: Icon(
-                Icons.folder_rounded,
-                color: AppColors.spotifyGreen,
-              ),
-              label: 'Direktori',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.queue_music_outlined),
-              selectedIcon: Icon(
-                Icons.queue_music_rounded,
-                color: AppColors.spotifyGreen,
-              ),
-              label: 'M3U',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.smart_display_outlined),
-              selectedIcon: Icon(
-                Icons.smart_display_rounded,
-                color: AppColors.netflixRed,
-              ),
-              label: 'YouTube',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.movie_outlined),
-              selectedIcon: Icon(
-                Icons.movie_rounded,
-                color: AppColors.netflixRed,
-              ),
-              label: 'Film',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(
-                Icons.person_rounded,
-                color: AppColors.spotifyGreen,
-              ),
-              label: 'Profil',
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: MiniPlayerBar(),
             ),
           ],
+        ),
+        bottomNavigationBar: _ModernBottomNavBar(
+          key: const Key('modern_bottom_nav'),
+          selectedIndex: _selectedIndex,
+          onSelected: _switchTab,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModernBottomNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  const _ModernBottomNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  static const List<({
+    IconData icon,
+    IconData selectedIcon,
+    String label,
+    Color accent,
+  })> _items = [
+    (
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
+      label: 'Beranda',
+      accent: AppColors.spotifyGreen,
+    ),
+    (
+      icon: Icons.folder_outlined,
+      selectedIcon: Icons.folder_rounded,
+      label: 'Folder',
+      accent: AppColors.spotifyGreen,
+    ),
+    (
+      icon: Icons.queue_music_outlined,
+      selectedIcon: Icons.queue_music_rounded,
+      label: 'M3U',
+      accent: AppColors.neonCyan,
+    ),
+    (
+      icon: Icons.smart_display_outlined,
+      selectedIcon: Icons.smart_display_rounded,
+      label: 'YouTube',
+      accent: AppColors.netflixRed,
+    ),
+    (
+      icon: Icons.movie_outlined,
+      selectedIcon: Icons.movie_rounded,
+      label: 'Film',
+      accent: AppColors.netflixRed,
+    ),
+    (
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+      label: 'Profil',
+      accent: AppColors.spotifyGreen,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(_items.length, (i) {
+            final item = _items[i];
+            final selected = i == selectedIndex;
+            return Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => onSelected(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? item.accent.withValues(alpha: 0.16)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        selected ? item.selectedIcon : item.icon,
+                        size: 20,
+                        color: selected ? item.accent : AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          item.label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: selected
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                            fontSize: 10.5,
+                            fontWeight:
+                                selected ? FontWeight.w800 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );

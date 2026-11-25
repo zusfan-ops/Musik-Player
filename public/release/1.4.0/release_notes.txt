@@ -1,1 +1,0 @@
-﻿Update v1.4.0: Perbaikan scan direktori Android MediaStore (bebas Ringtones) + Notifikasi & Download Update APK otomatis dari GitHub Releases

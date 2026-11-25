@@ -221,7 +221,18 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                     ),
                                   );
                                 } else {
-                                  provider.openCastPicker();
+                                  provider.openCastPicker().then((opened) {
+                                    if (!opened && context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Pastikan HP & Chromecast/Google Nest berada di jaringan Wi-Fi yang sama.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  });
                                 }
                               },
                             ),

@@ -12,7 +12,6 @@ import 'directories_screen.dart';
 import 'jellyfin_movies_screen.dart';
 import 'library_search_screen.dart';
 import 'm3u_video_player_screen.dart';
-import 'newtube_screen.dart';
 import 'playlists_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -59,32 +58,19 @@ class _HomeScreenState extends State<HomeScreen> {
           pinned: true,
           backgroundColor: AppColors.background.withValues(alpha: 0.92),
           titleSpacing: 16,
-          title: Row(
+          title: const Row(
             children: [
-              const AppLogo(size: 34, borderRadius: 9),
-              const SizedBox(width: 10),
-              const Text(
-                'M3U Musik',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.netflixRed,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'OFFLINE',
+              AppLogo(size: 32, borderRadius: 9),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'M3U Musik',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.6,
+                    fontSize: 19,
+                    letterSpacing: -0.4,
                   ),
                 ),
               ),
@@ -92,21 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: [
             IconButton(
-              tooltip: 'NewTube (YouTube Background Play)',
-              icon: const Icon(
-                Icons.smart_display_rounded,
-                color: AppColors.netflixRed,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const NewTubeScreen(),
-                  ),
-                );
-              },
-            ),
-            IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Cari Lagu & Koleksi Favorit',
               icon: const Icon(Icons.search_rounded),
               onPressed: () {
@@ -119,11 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Tambah Playlist M3U (File / Link)',
               icon: const Icon(Icons.playlist_add_circle_outlined),
               onPressed: () => AddM3uBottomSheet.show(context),
             ),
             IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Pilih / Scan Direktori Musik',
               icon: provider.isScanning
                   ? const SizedBox(
@@ -140,9 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   : () => provider.pickAndAddDirectory(),
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 12, left: 4),
+              padding: const EdgeInsets.only(right: 12, left: 2),
               child: UserAvatarWidget(
-                size: 32,
+                size: 30,
                 onTap: () => widget.onNavigateTab(5),
               ),
             ),
@@ -309,6 +283,112 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
+          ),
+        ],
+
+        // 2a-bis. M3U & CHANNEL FAVORIT ROW
+        if (provider.favoriteTracks.any((t) => t.playlistId != null) &&
+            (_selectedChip == 'Semua' || _selectedChip == 'Playlist M3U')) ...[
+          Builder(
+            builder: (ctx) {
+              final m3uFavs = provider.favoriteTracks
+                  .where((t) => t.playlistId != null)
+                  .toList();
+              return SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionHeader(
+                      badge: 'M3U FAVORIT',
+                      title: 'Favorit M3U & Channel (${m3uFavs.length})',
+                      actionLabel: 'Buka M3U',
+                      onAction: () => widget.onNavigateTab(2),
+                    ),
+                    SizedBox(
+                      height: 112,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: m3uFavs.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (_, idx) {
+                          final item = m3uFavs[idx];
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => M3uPlaybackLauncher.playItemList(
+                              context,
+                              m3uFavs,
+                              initialIndex: idx,
+                            ),
+                            child: Container(
+                              width: 175,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        item.isVideo
+                                            ? Icons.live_tv_rounded
+                                            : Icons.music_note_rounded,
+                                        size: 18,
+                                        color: item.isVideo
+                                            ? AppColors.netflixRed
+                                            : AppColors.spotifyGreen,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          item.groupTitle ?? item.directoryName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: AppColors.neonCyan,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    item.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    item.artist,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
 
@@ -874,6 +954,10 @@ class _SpotifyQuickGrid extends StatelessWidget {
       );
     }
 
+    final m3uFavTracks = provider.favoriteTracks
+        .where((t) => t.playlistId != null)
+        .toList();
+
     final List<({String title, String subtitle, IconData icon, Color accent, VoidCallback onTap})>
         tiles = [
       (
@@ -882,6 +966,19 @@ class _SpotifyQuickGrid extends StatelessWidget {
         icon: Icons.favorite_rounded,
         accent: AppColors.spotifyGreen,
         onTap: openLibrary,
+      ),
+      (
+        title: 'M3U Favorit',
+        subtitle: '${m3uFavTracks.length} channel & lagu',
+        icon: Icons.star_rounded,
+        accent: AppColors.neonPurple,
+        onTap: () {
+          if (m3uFavTracks.isNotEmpty) {
+            M3uPlaybackLauncher.playItemList(context, m3uFavTracks);
+          } else {
+            onNavigateTab(2);
+          }
+        },
       ),
       (
         title: 'Semua Direktori',
@@ -896,6 +993,13 @@ class _SpotifyQuickGrid extends StatelessWidget {
         icon: Icons.queue_music_rounded,
         accent: AppColors.neonPurple,
         onTap: () => onNavigateTab(2),
+      ),
+      (
+        title: 'NewTube',
+        subtitle: 'YouTube Audio & Video',
+        icon: Icons.smart_display_rounded,
+        accent: AppColors.netflixRed,
+        onTap: () => onNavigateTab(3),
       ),
       (
         title: 'Hallsem Cinema',

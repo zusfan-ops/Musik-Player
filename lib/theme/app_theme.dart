@@ -1,31 +1,31 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Deep Netflix Obsidian Canvas
-  static const Color background = Color(0xFF090B10);
-  static const Color surface = Color(0xFF121620);
-  static const Color surfaceElevated = Color(0xFF191F2E);
-  static const Color surfaceHighlight = Color(0xFF232B3E);
+  // Balanced Warm-Charcoal Studio Canvas (neither pitch-black nor glaring)
+  static const Color background = Color(0xFF161920);
+  static const Color surface = Color(0xFF1F242E);
+  static const Color surfaceElevated = Color(0xFF272D3A);
+  static const Color surfaceHighlight = Color(0xFF313949);
 
-  // Brand Accents (Spotify Emerald + Netflix/Vinyl Crimson Red from logo2.png + Neon Accents)
-  static const Color spotifyGreen = Color(0xFF1DB954);
-  static const Color neonCyan = Color(0xFF00E5FF);
-  static const Color neonPurple = Color(0xFFA855F7);
-  static const Color netflixRed = Color(0xFFE50914);
+  // Tasteful Studio Accents (Emerald Audio + Cinema Crimson + Calm Studio Slate-Blue & Amber)
+  static const Color spotifyGreen = Color(0xFF22C55E);
+  static const Color neonCyan = Color(0xFF60A5FA);
+  static const Color neonPurple = Color(0xFFF59E0B);
+  static const Color netflixRed = Color(0xFFE53935);
 
   // Text Hierarchy
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  static const Color textPrimary = Color(0xFFF1F5F9);
+  static const Color textSecondary = Color(0xFFA3B0C2);
+  static const Color textMuted = Color(0xFF707D91);
 
   static const LinearGradient brandGradient = LinearGradient(
-    colors: [Color(0xFFE50914), Color(0xFF9333EA), Color(0xFF1DB954)],
+    colors: [Color(0xFF272D3A), Color(0xFF1F242E), Color(0xFF182420)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient spotifyHeroGradient = LinearGradient(
-    colors: [Color(0xFF2B1219), Color(0xFF121624), Color(0xFF090B10)],
+    colors: [Color(0xFF272D3A), Color(0xFF1D222C), Color(0xFF161920)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

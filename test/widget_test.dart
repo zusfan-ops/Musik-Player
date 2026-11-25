@@ -238,21 +238,21 @@ https://live.example.com/tvone/index.m3u8
     expect(find.text('M3U Musik'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byKey(const Key('modern_bottom_nav')),
         matching: find.text('YouTube'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byKey(const Key('modern_bottom_nav')),
         matching: find.text('Film'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byKey(const Key('modern_bottom_nav')),
         matching: find.text('Profil'),
       ),
       findsOneWidget,
@@ -261,7 +261,7 @@ https://live.example.com/tvone/index.m3u8
     // Open Hallsem Cinema tab (integrated directly, no API input prompt)
     await tester.tap(
       find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byKey(const Key('modern_bottom_nav')),
         matching: find.text('Film'),
       ),
     );
@@ -272,7 +272,7 @@ https://live.example.com/tvone/index.m3u8
     // Open Profil & Setting tab
     await tester.tap(
       find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byKey(const Key('modern_bottom_nav')),
         matching: find.text('Profil'),
       ),
     );

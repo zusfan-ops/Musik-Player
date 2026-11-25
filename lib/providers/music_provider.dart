@@ -18,6 +18,7 @@ import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
 import '../services/link_checker_service.dart';
 import '../services/m3u_service.dart';
+import '../services/newtube_service.dart';
 
 enum RepeatCycleMode {
   off,
@@ -122,6 +123,11 @@ class MusicProvider extends ChangeNotifier {
   // Cast & PiP state
   bool _isCastConnected = false;
   String? _castDeviceName;
+
+  // Lazy-resolved NewTube queue state
+  List<NewTubeItem> _pendingNewTubeItems = const [];
+  int _newTubeSessionToken = 0;
+  int? _preloadingNewTubeSessionToken;
 
   MusicProvider({this.autoScanOnInit = true}) {
     if (Platform.isAndroid) {
@@ -444,6 +450,7 @@ class MusicProvider extends ChangeNotifier {
           _duration = _player.duration ?? Duration.zero;
           _recordTrackPlayed(_queue[idx]);
           _syncHomeWidgets();
+          _maybePreloadNextNewTubeTrack();
           notifyListeners();
         }
       }),
@@ -1148,6 +1155,8 @@ class MusicProvider extends ChangeNotifier {
   }) async {
     if (tracks.isEmpty) return;
 
+    _newTubeSessionToken++;
+    _pendingNewTubeItems = const [];
     _queue = List<TrackItem>.from(tracks);
     _shuffleEnabled = shuffle;
 
@@ -1161,6 +1170,89 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> playSingleTrack(TrackItem track) async {
     await playTrackList([track], initialIndex: 0);
+  }
+
+  /// Plays a NewTube search/list as a continuous queue with lazy background
+  /// resolution of upcoming tracks so Next & Auto-Next work on lockscreen too.
+  Future<bool> playNewTubePlaylist(
+    List<NewTubeItem> items, {
+    int initialIndex = 0,
+  }) async {
+    if (items.isEmpty) return false;
+    final startIdx = initialIndex.clamp(0, items.length - 1);
+    final token = ++_newTubeSessionToken;
+
+    final firstItem = items[startIdx];
+    final firstTrack = await _resolveNewTubeAudioTrack(firstItem);
+    if (firstTrack == null || token != _newTubeSessionToken) {
+      return false;
+    }
+
+    _pendingNewTubeItems = items.sublist(startIdx + 1);
+    _queue = [firstTrack];
+    _shuffleEnabled = false;
+    await _setQueueAndPlay(0);
+    if (token != _newTubeSessionToken) return false;
+
+    // Preload the next 2 tracks in background so hasNext becomes true immediately
+    unawaited(_preloadNewTubeTracks(token, count: 2));
+    return true;
+  }
+
+  Future<TrackItem?> _resolveNewTubeAudioTrack(NewTubeItem item) async {
+    final audio = await NewTubeService.resolveAudioStream(item.videoId);
+    if (audio != null && audio.url.isNotEmpty) {
+      return item.toTrackItem(
+        streamUrl: audio.url,
+        httpHeaders: audio.headers,
+        asVideo: false,
+      );
+    }
+    final muxed = await NewTubeService.resolveVideoStream(item.videoId);
+    if (muxed != null && muxed.url.isNotEmpty) {
+      return item.toTrackItem(
+        streamUrl: muxed.url,
+        httpHeaders: muxed.headers,
+        asVideo: false,
+      );
+    }
+    return null;
+  }
+
+  Future<void> _preloadNewTubeTracks(int token, {int count = 1}) async {
+    if (token != _newTubeSessionToken ||
+        _preloadingNewTubeSessionToken == token ||
+        _pendingNewTubeItems.isEmpty) {
+      return;
+    }
+    _preloadingNewTubeSessionToken = token;
+    try {
+      int added = 0;
+      while (added < count &&
+          _pendingNewTubeItems.isNotEmpty &&
+          token == _newTubeSessionToken) {
+        final nextItem = _pendingNewTubeItems.first;
+        _pendingNewTubeItems = _pendingNewTubeItems.sublist(1);
+        final resolved = await _resolveNewTubeAudioTrack(nextItem);
+        if (token != _newTubeSessionToken) return;
+        if (resolved != null) {
+          await addToQueue(resolved);
+          added++;
+        }
+      }
+    } finally {
+      if (_preloadingNewTubeSessionToken == token) {
+        _preloadingNewTubeSessionToken = null;
+      }
+    }
+  }
+
+  void _maybePreloadNextNewTubeTrack() {
+    if (_pendingNewTubeItems.isEmpty) return;
+    final remainingInQueue = _queue.length - 1 - _currentIndex;
+    if (remainingInQueue <= 1) {
+      unawaited(_preloadNewTubeTracks(_newTubeSessionToken, count: 1));
+    }
   }
 
   Future<void> addToQueue(TrackItem track) async {
@@ -1681,11 +1773,19 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> openCastPicker() async {
-    if (!Platform.isAndroid) return;
+  Future<bool> openCastPicker() async {
+    if (!Platform.isAndroid) return false;
     try {
-      await _widgetChannel.invokeMethod<bool>('openCastDialog');
+      if (await Permission.nearbyWifiDevices.isDenied) {
+        await Permission.nearbyWifiDevices.request();
+      }
     } catch (_) {}
+    try {
+      final ok = await _widgetChannel.invokeMethod<bool>('openCastDialog');
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> disconnectCast() async {
@@ -1703,7 +1803,9 @@ class MusicProvider extends ChangeNotifier {
     _castDeviceName = deviceName;
     notifyListeners();
     if (connected && currentTrack != null) {
-      unawaited(_pushCurrentTrackToCast(positionMs: _positionNotifier.value.inMilliseconds));
+      final posMs = _positionNotifier.value.inMilliseconds;
+      unawaited(_player.pause().catchError((_) {}));
+      unawaited(_pushCurrentTrackToCast(positionMs: posMs));
     }
   }
 
@@ -1716,6 +1818,13 @@ class MusicProvider extends ChangeNotifier {
       if (track.playsFromLocalFile) {
         url = await _castServer.serveLocalFile(track.playableSource);
         mime = CastMediaServer.mimeTypeForPath(track.playableSource);
+      } else if (track.httpHeaders != null && track.httpHeaders!.isNotEmpty) {
+        mime = 'audio/mp4';
+        url = await _castServer.serveRemoteProxy(
+          track.playableSource,
+          track.httpHeaders!,
+          mimeType: mime,
+        );
       } else {
         url = track.playableSource;
       }

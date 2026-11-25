@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.7.1/M3UMusik-v1.7.1-arm64-v8a.apk",
-    "build_number":  12,
-    "version":  "1.7.1",
-    "release_date":  "2026-11-25 15:55:17",
-    "changelog":  "Update v1.7.1: Perbaikan Pencarian \u0026 Pemutaran YouTube NewTube (Innertube + Multi-Client Stream) + Menu Tab YouTube di Navigasi Bawah"
+    "download_url":  "/release/1.8.3/M3UMusik-v1.8.3-arm64-v8a.apk",
+    "build_number":  18,
+    "version":  "1.8.3",
+    "release_date":  "2026-11-25 17:07:03",
+    "changelog":  "Update v1.8.3: Perbaikan Chromecast \u0026 Google Nest (Izin Wi-Fi/Nearby, Dialog AppCompat Theme \u0026 Proxy HTTP LAN untuk Stream YouTube/Lokal)"
 }

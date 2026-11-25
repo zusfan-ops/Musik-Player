@@ -10,7 +10,9 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Rational
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.mediarouter.app.MediaRouteChooserDialog
+import androidx.mediarouter.app.MediaRouteControllerDialog
 import com.google.android.gms.cast.MediaInfo
 import com.google.android.gms.cast.MediaLoadRequestData
 import com.google.android.gms.cast.MediaMetadata
@@ -26,6 +28,8 @@ import java.util.concurrent.Executors
 class MainActivity : AudioServiceActivity() {
     companion object {
         private const val CHANNEL = "com.musikm3u.player/media_store"
+        @Suppress("unused")
+        private val KEEP_NOTIF_ICON = R.drawable.ic_stat_music
     }
 
     private val executor = Executors.newSingleThreadExecutor()
@@ -129,13 +133,29 @@ class MainActivity : AudioServiceActivity() {
                             } catch (_: Exception) {}
                             result.success(false)
                         } else {
-                            val selector = ctx.mergedSelector
-                            if (selector != null) {
-                                val dialog = MediaRouteChooserDialog(this)
-                                dialog.routeSelector = selector
-                                dialog.show()
-                                result.success(true)
-                            } else {
+                            try {
+                                val themedCtx = ContextThemeWrapper(
+                                    this,
+                                    androidx.appcompat.R.style.Theme_AppCompat_DayNight_Dialog_Alert,
+                                )
+                                if (ctx.sessionManager.currentCastSession != null) {
+                                    MediaRouteControllerDialog(themedCtx).show()
+                                    result.success(true)
+                                } else {
+                                    val selector = ctx.mergedSelector
+                                    if (selector != null) {
+                                        val dialog = MediaRouteChooserDialog(themedCtx)
+                                        dialog.routeSelector = selector
+                                        dialog.show()
+                                        result.success(true)
+                                    } else {
+                                        result.success(false)
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                try {
+                                    startActivity(Intent(Settings.ACTION_CAST_SETTINGS))
+                                } catch (_: Exception) {}
                                 result.success(false)
                             }
                         }
@@ -217,6 +237,7 @@ class MainActivity : AudioServiceActivity() {
             }
 
         captureWidgetAction(intent)
+        mainHandler.post { ensureCastContext() }
     }
 
     override fun onPictureInPictureModeChanged(
@@ -244,6 +265,7 @@ class MainActivity : AudioServiceActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         captureWidgetAction(intent)
+        mainHandler.post { ensureCastContext() }
     }
 
     private fun captureWidgetAction(intent: Intent?) {
