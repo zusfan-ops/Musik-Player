@@ -6,6 +6,7 @@ import 'package:musik_m3u_player/services/directory_scanner_service.dart';
 import 'package:musik_m3u_player/services/jellyfin_service.dart';
 import 'package:musik_m3u_player/services/lyrics_service.dart';
 import 'package:musik_m3u_player/services/m3u_service.dart';
+import 'package:musik_m3u_player/services/newtube_service.dart';
 import 'package:musik_m3u_player/services/update_checker_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -202,6 +203,22 @@ https://live.example.com/tvone/index.m3u8
         3,
       );
     });
+
+    test('Extracts YouTube video IDs from watch, share, and shorts URLs', () {
+      expect(
+        NewTubeService.extractVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+        'dQw4w9WgXcQ',
+      );
+      expect(
+        NewTubeService.extractVideoId('https://youtu.be/wAPCSnAhhC8?si=abc'),
+        'wAPCSnAhhC8',
+      );
+      expect(
+        NewTubeService.extractVideoId('https://youtube.com/shorts/jfKfPfyJRdk'),
+        'jfKfPfyJRdk',
+      );
+      expect(NewTubeService.extractVideoId('lofi hip hop'), isNull);
+    });
   });
 
   testWidgets(
@@ -219,6 +236,13 @@ https://live.example.com/tvone/index.m3u8
 
     // Main 5-tab Netflix x Spotify shell should be visible
     expect(find.text('M3U Musik'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('YouTube'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byType(NavigationBar),

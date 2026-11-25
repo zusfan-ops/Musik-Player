@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.7.0/M3UMusik-v1.7.0-arm64-v8a.apk",
-    "build_number":  11,
-    "version":  "1.7.0",
-    "release_date":  "2026-11-25 15:42:07",
-    "changelog":  "Update v1.7.0: Equalizer 5-Band + Bass Boost, Lirik .lrc, IPTV Favorit \u0026 Link Checker, PiP, Continue Watching, Unduh Film Offline, Google Cast/Nest \u0026 NewTube Background Player"
+    "download_url":  "/release/1.7.1/M3UMusik-v1.7.1-arm64-v8a.apk",
+    "build_number":  12,
+    "version":  "1.7.1",
+    "release_date":  "2026-11-25 15:55:17",
+    "changelog":  "Update v1.7.1: Perbaikan Pencarian \u0026 Pemutaran YouTube NewTube (Innertube + Multi-Client Stream) + Menu Tab YouTube di Navigasi Bawah"
 }

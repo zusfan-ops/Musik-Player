@@ -8,6 +8,7 @@ import 'providers/profile_jellyfin_provider.dart';
 import 'screens/directories_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jellyfin_movies_screen.dart';
+import 'screens/newtube_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/playlists_screen.dart';
 import 'screens/profile_settings_screen.dart';
@@ -181,7 +182,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   }
 
   void _switchTab(int index) {
-    setState(() => _selectedIndex = index.clamp(0, 4));
+    setState(() => _selectedIndex = index.clamp(0, 5));
   }
 
   @override
@@ -190,8 +191,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       HomeScreen(onNavigateTab: _switchTab),
       const DirectoriesScreen(),
       const PlaylistsScreen(),
-      JellyfinMoviesScreen(onOpenSettings: () => _switchTab(4)),
-      ProfileSettingsScreen(onOpenMoviesTab: () => _switchTab(3)),
+      const NewTubeScreen(),
+      JellyfinMoviesScreen(onOpenSettings: () => _switchTab(5)),
+      ProfileSettingsScreen(onOpenMoviesTab: () => _switchTab(4)),
     ];
 
     return Scaffold(
@@ -245,6 +247,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 color: AppColors.spotifyGreen,
               ),
               label: 'M3U',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.smart_display_outlined),
+              selectedIcon: Icon(
+                Icons.smart_display_rounded,
+                color: AppColors.netflixRed,
+              ),
+              label: 'YouTube',
             ),
             NavigationDestination(
               icon: Icon(Icons.movie_outlined),

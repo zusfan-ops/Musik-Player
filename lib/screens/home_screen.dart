@@ -143,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(right: 12, left: 4),
               child: UserAvatarWidget(
                 size: 32,
-                onTap: () => widget.onNavigateTab(4),
+                onTap: () => widget.onNavigateTab(5),
               ),
             ),
           ],
@@ -292,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
               badge: 'LANJUTKAN MENONTON',
               title: 'Lanjutkan Menonton Film',
               actionLabel: 'Buka Cinema',
-              onAction: () => widget.onNavigateTab(3),
+              onAction: () => widget.onNavigateTab(4),
             ),
           ),
           SliverToBoxAdapter(
@@ -319,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
               badge: 'HALLSEM CINEMA',
               title: 'Film Hallsem Cinema (${jfProvider.movies.length})',
               actionLabel: 'Semua Film',
-              onAction: () => widget.onNavigateTab(3),
+              onAction: () => widget.onNavigateTab(4),
             ),
           ),
           SliverToBoxAdapter(
@@ -904,7 +904,7 @@ class _SpotifyQuickGrid extends StatelessWidget {
             : 'Katalog Film & Video',
         icon: Icons.movie_filter_rounded,
         accent: AppColors.netflixRed,
-        onTap: () => onNavigateTab(3),
+        onTap: () => onNavigateTab(4),
       ),
     ];
 
