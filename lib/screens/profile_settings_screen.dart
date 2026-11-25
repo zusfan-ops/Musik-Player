@@ -8,6 +8,7 @@ import '../providers/profile_jellyfin_provider.dart';
 import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/user_avatar_widget.dart';
+import 'onboarding_screen.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final VoidCallback? onOpenMoviesTab;
@@ -468,6 +469,42 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ],
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // ==================== PANDUAN PENGGUNAAN (ONBOARDING) ====================
+          Material(
+            color: AppColors.surface,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppColors.spotifyGreen.withValues(alpha: 0.25)),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: AppColors.spotifyGreen,
+                ),
+              ),
+              title: const Text(
+                'Panduan Penggunaan Aplikasi',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+              ),
+              subtitle: const Text(
+                'Cara scan musik, import M3U, Hallsem Cinema & Widget',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => OnboardingScreen.show(context),
             ),
           ),
 

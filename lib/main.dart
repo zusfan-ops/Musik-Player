@@ -8,6 +8,7 @@ import 'providers/profile_jellyfin_provider.dart';
 import 'screens/directories_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jellyfin_movies_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/playlists_screen.dart';
 import 'screens/profile_settings_screen.dart';
 import 'services/update_checker_service.dart';
@@ -166,7 +167,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void initState() {
     super.initState();
     if (widget.autoCheckUpdates) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final music = context.read<MusicProvider>();
+        if (!music.hasSeenOnboarding) {
+          await OnboardingScreen.show(context);
+        }
         if (mounted) {
           UpdateCheckerService.instance.checkAndShowUpdateDialog(context);
         }

@@ -257,5 +257,22 @@ https://live.example.com/tvone/index.m3u8
     );
     expect(find.text('Zusfan Mashuri'), findsOneWidget);
     expect(find.text('https://zusfan.hallosemarang.com'), findsOneWidget);
+
+    // Open Panduan Penggunaan Aplikasi (OnboardingScreen)
+    await tester.scrollUntilVisible(
+      find.text('Panduan Penggunaan Aplikasi'),
+      -250,
+      scrollable: find.descendant(
+        of: find.byType(Scaffold).last,
+        matching: find.byType(Scrollable).first,
+      ),
+    );
+    expect(find.text('Panduan Penggunaan Aplikasi'), findsOneWidget);
+    await tester.tap(find.text('Panduan Penggunaan Aplikasi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Putar Musik dari Folder HP'), findsOneWidget);
+    await tester.tap(find.text('Lewati'));
+    await tester.pumpAndSettle();
+    expect(find.text('Putar Musik dari Folder HP'), findsNothing);
   });
 }

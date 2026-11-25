@@ -30,6 +30,7 @@ class MusicProvider extends ChangeNotifier {
   static const String _kRecentTracksKey = 'recent_tracks_v1';
   static const String _kProgressMapKey = 'track_progress_sec_v1';
   static const String _kPlayCountMapKey = 'track_play_counts_v1';
+  static const String _kOnboardingKey = 'has_seen_onboarding_v1';
   static const MethodChannel _widgetChannel =
       MethodChannel('com.musikm3u.player/media_store');
 
@@ -74,6 +75,8 @@ class MusicProvider extends ChangeNotifier {
   int _currentIndex = -1;
   bool _isPlaying = false;
   bool _isBuffering = false;
+  bool _miniPlayerDismissed = false;
+  bool _hasSeenOnboarding = false;
   bool _shuffleEnabled = false;
   RepeatCycleMode _repeatMode = RepeatCycleMode.off;
   double _playbackSpeed = 1.0;
@@ -118,6 +121,8 @@ class MusicProvider extends ChangeNotifier {
 
   bool get isPlaying => _isPlaying;
   bool get isBuffering => _isBuffering;
+  bool get isMiniPlayerVisible => currentTrack != null && !_miniPlayerDismissed;
+  bool get hasSeenOnboarding => _hasSeenOnboarding;
   bool get shuffleEnabled => _shuffleEnabled;
   RepeatCycleMode get repeatMode => _repeatMode;
   double get playbackSpeed => _playbackSpeed;
@@ -433,6 +438,7 @@ class MusicProvider extends ChangeNotifier {
         List<String>.from(prefs.getStringList(_kCustomDirsKey) ?? const []);
     _favoriteIds =
         Set<String>.from(prefs.getStringList(_kFavoritesKey) ?? const []);
+    _hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
 
     try {
       final rawRecents = prefs.getStringList(_kRecentTracksKey) ?? const [];
@@ -1073,8 +1079,40 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> markOnboardingSeen() async {
+    _hasSeenOnboarding = true;
+    await _prefs?.setBool(_kOnboardingKey, true);
+    notifyListeners();
+  }
+
+  void hideMiniPlayer() {
+    if (_miniPlayerDismissed) return;
+    _miniPlayerDismissed = true;
+    notifyListeners();
+  }
+
+  void showMiniPlayer() {
+    if (currentTrack != null && _miniPlayerDismissed) {
+      _miniPlayerDismissed = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopPlayback() async {
+    try {
+      await _player.stop();
+    } catch (_) {}
+    _isPlaying = false;
+    _isBuffering = false;
+    _positionNotifier.value = Duration.zero;
+    _miniPlayerDismissed = true;
+    _syncHomeWidgets();
+    notifyListeners();
+  }
+
   Future<void> jumpToQueueIndex(int index) async {
     if (index < 0 || index >= _queue.length) return;
+    _miniPlayerDismissed = false;
     if (_player.sequence.length == _queue.length) {
       _currentIndex = index;
       _positionNotifier.value = Duration.zero;
@@ -1100,6 +1138,7 @@ class MusicProvider extends ChangeNotifier {
 
     final int requestToken = ++_loadRequestToken;
     _currentIndex = index;
+    _miniPlayerDismissed = false;
     _positionNotifier.value = Duration.zero;
     _bufferedPositionNotifier.value = Duration.zero;
     _duration = Duration.zero;
@@ -1313,6 +1352,7 @@ class MusicProvider extends ChangeNotifier {
     if (_player.sequence.length == _queue.length) {
       // Queue auto-advance and LoopMode.one/all are handled natively by just_audio.
       _isPlaying = false;
+      _miniPlayerDismissed = true;
       _syncHomeWidgets();
       notifyListeners();
       return;
@@ -1341,6 +1381,7 @@ class MusicProvider extends ChangeNotifier {
       _setQueueAndPlay(0);
     } else {
       _isPlaying = false;
+      _miniPlayerDismissed = true;
       _syncHomeWidgets();
       notifyListeners();
     }

@@ -12,13 +12,19 @@ class MiniPlayerBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<MusicProvider>();
     final track = provider.currentTrack;
-    if (track == null) return const SizedBox.shrink();
+    if (!provider.isMiniPlayerVisible || track == null) {
+      return const SizedBox.shrink();
+    }
 
     final totalMs = provider.duration.inMilliseconds;
 
-    return GestureDetector(
-      onTap: () => NowPlayingSheet.show(context),
-      child: Container(
+    return Dismissible(
+      key: ValueKey('mini_player_${track.id}'),
+      direction: DismissDirection.horizontal,
+      onDismissed: (_) => provider.hideMiniPlayer(),
+      child: GestureDetector(
+        onTap: () => NowPlayingSheet.show(context),
+        child: Container(
         margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -141,6 +147,16 @@ class MiniPlayerBar extends StatelessWidget {
                       ),
                       onPressed: provider.playNext,
                     ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Sembunyikan Play Bar',
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      onPressed: provider.hideMiniPlayer,
+                    ),
                   ],
                 ),
               ),
@@ -164,6 +180,7 @@ class MiniPlayerBar extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

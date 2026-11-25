@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.5.0/M3UMusik-v1.5.0-arm64-v8a.apk",
-    "build_number":  9,
-    "version":  "1.5.0",
-    "release_date":  "2026-11-25 13:46:57",
-    "changelog":  "Update v1.5.0: Notifikasi Media \u0026 Lockscreen Controls + 3 Ukuran Widget Layar Utama (2x1, 4x1, 4x2)"
+    "download_url":  "/release/1.6.0/M3UMusik-v1.6.0-arm64-v8a.apk",
+    "build_number":  10,
+    "version":  "1.6.0",
+    "release_date":  "2026-11-25 14:18:25",
+    "changelog":  "Update v1.6.0: Play Bar Otomatis Hilang \u0026 Bisa Di-Hide + Panduan Onboarding Pengguna Baru"
 }
