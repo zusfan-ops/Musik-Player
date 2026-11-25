@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../providers/profile_jellyfin_provider.dart';
+import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/track_tile.dart';
 import '../widgets/user_avatar_widget.dart';
@@ -194,6 +195,59 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
+        // In-App GitHub Release Update Banner (when newer APK exists)
+        SliverToBoxAdapter(
+          child: ValueListenableBuilder<AppRelease?>(
+            valueListenable:
+                UpdateCheckerService.instance.availableUpdateNotifier,
+            builder: (ctx, rel, _) {
+              if (rel == null) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.spotifyGreen.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.system_update_rounded,
+                      color: AppColors.spotifyGreen,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Update v${rel.versionClean} tersedia!',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => UpdateCheckerService.instance
+                          .checkAndShowUpdateDialog(ctx, isManualCheck: true),
+                      child: const Text(
+                        'Unduh',
+                        style: TextStyle(
+                          color: AppColors.spotifyGreen,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
 
         // 1. NETFLIX CINEMA HERO BILLBOARD
         SliverToBoxAdapter(

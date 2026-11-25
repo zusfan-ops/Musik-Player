@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/jellyfin_movies_screen.dart';
 import 'screens/playlists_screen.dart';
 import 'screens/profile_settings_screen.dart';
+import 'services/update_checker_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/mini_player_bar.dart';
 
@@ -51,7 +52,7 @@ class MusikM3uApp extends StatelessWidget {
         title: 'M3U Musik',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const AppBootstrapGate(),
+        home: AppBootstrapGate(autoCheckUpdates: autoScanOnInit),
       ),
     );
   }
@@ -59,7 +60,12 @@ class MusikM3uApp extends StatelessWidget {
 
 /// Branded Splash Screen using `logo2.png` while library & settings initialize.
 class AppBootstrapGate extends StatefulWidget {
-  const AppBootstrapGate({super.key});
+  final bool autoCheckUpdates;
+
+  const AppBootstrapGate({
+    super.key,
+    this.autoCheckUpdates = true,
+  });
 
   @override
   State<AppBootstrapGate> createState() => _AppBootstrapGateState();
@@ -127,12 +133,17 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
         ),
       );
     }
-    return const MainNavigationShell();
+    return MainNavigationShell(autoCheckUpdates: widget.autoCheckUpdates);
   }
 }
 
 class MainNavigationShell extends StatefulWidget {
-  const MainNavigationShell({super.key});
+  final bool autoCheckUpdates;
+
+  const MainNavigationShell({
+    super.key,
+    this.autoCheckUpdates = true,
+  });
 
   @override
   State<MainNavigationShell> createState() => _MainNavigationShellState();
@@ -140,6 +151,18 @@ class MainNavigationShell extends StatefulWidget {
 
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoCheckUpdates) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          UpdateCheckerService.instance.checkAndShowUpdateDialog(context);
+        }
+      });
+    }
+  }
 
   void _switchTab(int index) {
     setState(() => _selectedIndex = index.clamp(0, 4));

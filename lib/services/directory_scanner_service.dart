@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -16,6 +17,9 @@ class DirectoryScanResult {
 }
 
 class DirectoryScannerService {
+  static const MethodChannel _mediaStoreChannel =
+      MethodChannel('com.musikm3u.player/media_store');
+
   static const Set<String> supportedAudioExtensions = {
     '.mp3',
     '.flac',
@@ -38,8 +42,26 @@ class DirectoryScannerService {
     '/storage/emulated/0/Download',
     '/storage/emulated/0/Audio',
     '/storage/emulated/0/Podcasts',
-    '/storage/emulated/0/Ringtones',
+    '/storage/emulated/0/Documents',
+    '/storage/emulated/0/Lagu',
+    '/storage/emulated/0/Musik',
   ];
+
+  static bool isSystemTonePath(String filePath, Set<String> customRoots) {
+    final normalized = p.normalize(filePath).replaceAll('\\', '/').toLowerCase();
+    for (final root in customRoots) {
+      final normRoot = p.normalize(root).replaceAll('\\', '/').toLowerCase();
+      if (normalized == normRoot || normalized.startsWith('$normRoot/')) {
+        return false; // Explicitly requested by user
+      }
+    }
+    return normalized.contains('/ringtones/') ||
+        normalized.contains('/notifications/') ||
+        normalized.contains('/alarms/') ||
+        normalized.endsWith('/ringtones') ||
+        normalized.endsWith('/notifications') ||
+        normalized.endsWith('/alarms');
+  }
 
   /// Non-interactive check of current permission status (never pops system dialogs).
   static Future<bool> checkAudioAndDirectoryPermission() async {
@@ -97,7 +119,6 @@ class DirectoryScannerService {
     }
     if (uri.scheme == 'content') {
       final decoded = Uri.decodeFull(uri.toString());
-      // Extract document or tree component (e.g. primary:Music/MyPlaylist.m3u)
       String? token;
       final docIdx = decoded.indexOf('/document/');
       final treeIdx = decoded.indexOf('/tree/');
@@ -135,7 +156,66 @@ class DirectoryScannerService {
     return null;
   }
 
-  /// Scans default + user-selected root directories and groups audio files by their folder.
+  /// Queries Android's MediaStore via native platform channel (works on Android 11–15+ with READ_MEDIA_AUDIO).
+  static Future<List<TrackItem>> _queryNativeMediaStore(
+    Set<String> customSet,
+  ) async {
+    if (!Platform.isAndroid) return const [];
+    try {
+      final rawList = await _mediaStoreChannel
+          .invokeListMethod<Map<dynamic, dynamic>>('queryAllAudio')
+          .timeout(const Duration(seconds: 12));
+      if (rawList == null || rawList.isEmpty) return const [];
+
+      final List<TrackItem> results = [];
+      for (final row in rawList) {
+        final rawPath = row['path'] as String?;
+        if (rawPath == null || rawPath.isEmpty) continue;
+        final filePath = p.normalize(rawPath);
+
+        if (isSystemTonePath(filePath, customSet)) continue;
+
+        final ext = p.extension(filePath).toLowerCase();
+        if (!supportedAudioExtensions.contains(ext)) continue;
+
+        final parentDir = p.dirname(filePath);
+        final folderName = p.basename(parentDir);
+        final parsedFallback = _parseFilenameMetadata(filePath, folderName);
+
+        final rawTitle = (row['title'] as String?)?.trim();
+        final rawArtist = (row['artist'] as String?)?.trim();
+        final rawAlbum = (row['album'] as String?)?.trim();
+        final durationSec = (row['durationSec'] as num?)?.toInt();
+
+        results.add(
+          TrackItem(
+            id: TrackItem.generateId(filePath),
+            title: (rawTitle != null && rawTitle.isNotEmpty)
+                ? rawTitle
+                : parsedFallback.title,
+            artist: (rawArtist != null && rawArtist.isNotEmpty)
+                ? rawArtist
+                : parsedFallback.artist,
+            album: (rawAlbum != null && rawAlbum.isNotEmpty)
+                ? rawAlbum
+                : (folderName.isEmpty ? 'Local Folder' : folderName),
+            sourceType: TrackSourceType.localFile,
+            pathOrUrl: filePath,
+            localFileAvailable: true,
+            directoryPath: parentDir,
+            directoryName: folderName.isEmpty ? 'Musik' : folderName,
+            durationSeconds: durationSec,
+          ),
+        );
+      }
+      return results;
+    } catch (_) {
+      // Safe fallback in unit tests or if channel is unavailable
+      return const [];
+    }
+  }
+
+  /// Scans Android MediaStore + default/user-selected directories and groups audio files by their folder.
   static Future<DirectoryScanResult> scanDirectories({
     required List<String> customDirectories,
     bool includeDefaultAndroidDirs = true,
@@ -169,6 +249,15 @@ class DirectoryScannerService {
     final Set<String> seenFilePaths = {};
     final Set<String> discoveredM3u = {};
 
+    // 1. Query Android MediaStore first (discovers ALL music across ALL directories even without All-Files access)
+    final mediaStoreTracks = await _queryNativeMediaStore(customSet);
+    for (final track in mediaStoreTracks) {
+      if (seenFilePaths.add(track.pathOrUrl)) {
+        groupedTracks.putIfAbsent(track.directoryPath, () => []).add(track);
+      }
+    }
+
+    // 2. Walk directories via dart:io (discovers .m3u/.m3u8 files + unindexed custom folders)
     for (final rootPath in rootCandidates) {
       final dir = Directory(rootPath);
       bool exists = false;
@@ -183,6 +272,7 @@ class DirectoryScannerService {
         dir: dir,
         depth: 0,
         maxDepth: 6,
+        customSet: customSet,
         seenFilePaths: seenFilePaths,
         groupedTracks: groupedTracks,
         discoveredM3u: discoveredM3u,
@@ -225,6 +315,7 @@ class DirectoryScannerService {
     required Directory dir,
     required int depth,
     required int maxDepth,
+    required Set<String> customSet,
     required Set<String> seenFilePaths,
     required Map<String, List<TrackItem>> groupedTracks,
     required Set<String> discoveredM3u,
@@ -233,9 +324,12 @@ class DirectoryScannerService {
 
     final baseName = p.basename(dir.path);
     if (baseName.startsWith('.') && depth > 0) return;
-    final normalizedDir = p.normalize(dir.path);
+    final normalizedDir = p.normalize(dir.path).replaceAll('\\', '/');
     if (normalizedDir.contains('/Android/data') ||
         normalizedDir.contains('/Android/obb')) {
+      return;
+    }
+    if (isSystemTonePath(normalizedDir, customSet)) {
       return;
     }
 
@@ -252,6 +346,7 @@ class DirectoryScannerService {
           }
 
           if (!supportedAudioExtensions.contains(ext)) continue;
+          if (isSystemTonePath(filePath, customSet)) continue;
           if (!seenFilePaths.add(filePath)) continue;
 
           final parentDir = p.dirname(filePath);
@@ -276,6 +371,7 @@ class DirectoryScannerService {
             dir: entity,
             depth: depth + 1,
             maxDepth: maxDepth,
+            customSet: customSet,
             seenFilePaths: seenFilePaths,
             groupedTracks: groupedTracks,
             discoveredM3u: discoveredM3u,

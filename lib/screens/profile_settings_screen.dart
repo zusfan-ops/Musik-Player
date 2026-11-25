@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/jellyfin_profile_models.dart';
 import '../providers/music_provider.dart';
 import '../providers/profile_jellyfin_provider.dart';
+import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/user_avatar_widget.dart';
 
@@ -611,6 +612,46 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                               requestInteractive: true,
                               requestAllFiles: true,
                             ),
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.system_update_rounded,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    title: const Text(
+                      'Cek Pembaruan Aplikasi',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      'Versi terpasang: ${UpdateCheckerService.instance.fullVersionString}',
+                    ),
+                    trailing: ValueListenableBuilder<AppRelease?>(
+                      valueListenable:
+                          UpdateCheckerService.instance.availableUpdateNotifier,
+                      builder: (_, rel, _) => rel != null
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.spotifyGreen,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'v${rel.versionClean}',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.chevron_right_rounded),
+                    ),
+                    onTap: () => UpdateCheckerService.instance
+                        .checkAndShowUpdateDialog(context, isManualCheck: true),
                   ),
                   const Divider(height: 1, color: AppColors.surfaceHighlight),
                   const ListTile(

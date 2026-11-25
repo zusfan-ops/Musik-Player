@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.3.0/M3UMusik-v1.3.0-arm64-v8a.apk",
-    "build_number":  7,
-    "version":  "1.3.0",
-    "release_date":  "2026-11-25 11:06:56",
-    "changelog":  "v1.3.0: Info developer, rename Hallsem Cinema, README lengkap"
+    "download_url":  "/release/1.4.0/M3UMusik-v1.4.0-arm64-v8a.apk",
+    "build_number":  8,
+    "version":  "1.4.0",
+    "release_date":  "2026-11-25 13:29:10",
+    "changelog":  "Update v1.4.0: Perbaikan scan direktori Android MediaStore (bebas Ringtones) + Notifikasi \u0026 Download Update APK otomatis dari GitHub Releases"
 }

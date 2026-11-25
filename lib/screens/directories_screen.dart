@@ -142,6 +142,43 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
             ),
           ),
 
+          if (!provider.hasStoragePermission)
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.netflixRed.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.netflixRed.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.lock_open_rounded,
+                      color: AppColors.netflixRed,
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Izinkan akses Musik & Audio agar seluruh folder musik di perangkat Anda terdeteksi otomatis.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => provider.refreshPermissionsAndScan(
+                        requestInteractive: true,
+                        requestAllFiles: false,
+                      ),
+                      child: const Text('Izinkan'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           // Auto-discovered M3U files inside scanned folders!
           if (provider.discoveredM3uFiles.isNotEmpty)
             SliverToBoxAdapter(

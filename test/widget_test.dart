@@ -5,6 +5,7 @@ import 'package:musik_m3u_player/models/music_models.dart';
 import 'package:musik_m3u_player/services/directory_scanner_service.dart';
 import 'package:musik_m3u_player/services/jellyfin_service.dart';
 import 'package:musik_m3u_player/services/m3u_service.dart';
+import 'package:musik_m3u_player/services/update_checker_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -87,6 +88,55 @@ https://live.example.com/tvone/index.m3u8
         DirectoryScannerService.resolveAndroidSafUriToPath(treeUri),
         '/storage/emulated/0/Music/Rock',
       );
+    });
+
+    test('Filters out system Ringtones/Notifications/Alarms unless user explicitly adds them', () {
+      expect(
+        DirectoryScannerService.isSystemTonePath(
+          '/storage/emulated/0/Ringtones/bell.mp3',
+          const {},
+        ),
+        isTrue,
+      );
+      expect(
+        DirectoryScannerService.isSystemTonePath(
+          '/storage/emulated/0/Music/Pop/lagu.mp3',
+          const {},
+        ),
+        isFalse,
+      );
+      expect(
+        DirectoryScannerService.isSystemTonePath(
+          '/storage/emulated/0/Ringtones/bell.mp3',
+          const {'/storage/emulated/0/Ringtones'},
+        ),
+        isFalse,
+      );
+    });
+
+    test('Compares semantic versions and selects matching ABI APK from GitHub Release assets', () {
+      expect(UpdateCheckerService.isNewerVersion('v1.4.0', '1.3.0'), isTrue);
+      expect(UpdateCheckerService.isNewerVersion('1.3.1', '1.3.0'), isTrue);
+      expect(UpdateCheckerService.isNewerVersion('1.3.0', '1.3.0'), isFalse);
+      expect(UpdateCheckerService.isNewerVersion('1.2.9', '1.3.0'), isFalse);
+
+      final assets = [
+        {
+          'name': 'M3UMusik-v1.4.0-armeabi-v7a.apk',
+          'browser_download_url':
+              'https://github.com/zusfan-ops/Musik-Player/releases/download/v1.4.0/M3UMusik-v1.4.0-armeabi-v7a.apk',
+          'size': 18500000,
+        },
+        {
+          'name': 'M3UMusik-v1.4.0-arm64-v8a.apk',
+          'browser_download_url':
+              'https://github.com/zusfan-ops/Musik-Player/releases/download/v1.4.0/M3UMusik-v1.4.0-arm64-v8a.apk',
+          'size': 21000000,
+        },
+      ];
+      final picked =
+          UpdateCheckerService.selectBestApkAsset(assets, const ['arm64-v8a']);
+      expect(picked?['name'], 'M3UMusik-v1.4.0-arm64-v8a.apk');
     });
 
     test('Normalizes Jellyfin URLs, validates API keys, builds clean stream URIs, and scrubs secrets', () {
