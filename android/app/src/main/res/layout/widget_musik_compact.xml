@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_dark"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <ImageView
+        android:id="@+id/widget_logo"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="#FFFFFFFF"
+        android:contentDescription="Logo"
+        android:padding="2dp"
+        android:scaleType="fitCenter"
+        android:src="@mipmap/ic_launcher" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:layout_marginEnd="4dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="M3U Musik"
+            android:textColor="#FFF8FAFC"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Siap Putar"
+            android:textColor="#FF94A3B8"
+            android:textSize="10.5sp" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btn_play_pause"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:background="@drawable/widget_btn_green"
+        android:contentDescription="Play/Pause"
+        android:src="@android:drawable/ic_media_play"
+        android:tint="#FF000000" />
+
+    <ImageButton
+        android:id="@+id/btn_next"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/widget_btn_subtle"
+        android:contentDescription="Next"
+        android:src="@android:drawable/ic_media_next"
+        android:tint="#FFFFFFFF" />
+</LinearLayout>

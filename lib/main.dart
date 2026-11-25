@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/music_provider.dart';
@@ -13,8 +14,17 @@ import 'services/update_checker_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/mini_player_bar.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.musikm3u.player.channel.audio',
+      androidNotificationChannelName: 'Pemutaran Musik M3U',
+      androidNotificationOngoing: true,
+    );
+  } catch (_) {
+    // Safe fallback if native audio background service is unavailable (e.g. tests)
+  }
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

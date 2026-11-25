@@ -1,27 +1,31 @@
 package com.musikm3u.player.musik_m3u_player
 
+import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.util.concurrent.Executors
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     companion object {
         private const val CHANNEL = "com.musikm3u.player/media_store"
     }
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var methodChannel: MethodChannel? = null
+    private var pendingWidgetAction: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        methodChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "queryAllAudio" -> {
                         executor.execute {
@@ -38,9 +42,47 @@ class MainActivity : FlutterActivity() {
                     "getSupportedAbis" -> {
                         result.success(Build.SUPPORTED_ABIS.toList())
                     }
+                    "consumePendingWidgetAction" -> {
+                        val action = pendingWidgetAction
+                        pendingWidgetAction = null
+                        result.success(action)
+                    }
+                    "updateHomeWidget" -> {
+                        val title = call.argument<String>("title") ?: "M3U Musik"
+                        val subtitle = call.argument<String>("subtitle") ?: "Siap Putar Offline"
+                        val badge = call.argument<String>("badge") ?: "M3U MUSIK • OFFLINE"
+                        val isPlaying = call.argument<Boolean>("isPlaying") ?: false
+                        val progress = call.argument<Int>("progress") ?: 0
+                        val hasActiveSession = call.argument<Boolean>("hasActiveSession") ?: false
+                        MusikWidgetHelper.saveStateAndRefresh(
+                            context = applicationContext,
+                            title = title,
+                            subtitle = subtitle,
+                            badge = badge,
+                            isPlaying = isPlaying,
+                            progressPercent = progress,
+                            hasActiveSession = hasActiveSession,
+                        )
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
+
+        captureWidgetAction(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        captureWidgetAction(intent)
+    }
+
+    private fun captureWidgetAction(intent: Intent?) {
+        val action = intent?.getStringExtra(MusikWidgetHelper.EXTRA_WIDGET_ACTION) ?: return
+        intent.removeExtra(MusikWidgetHelper.EXTRA_WIDGET_ACTION)
+        pendingWidgetAction = action
+        methodChannel?.invokeMethod("onWidgetAction", action)
     }
 
     override fun onDestroy() {
@@ -100,11 +142,9 @@ class MainActivity : FlutterActivity() {
                     continue
                 }
 
-                // Skip tiny UI sound effects (< 3 sec) if duration is known
                 val durationMs = if (durationIdx >= 0) cursor.getLong(durationIdx) else 0L
                 if (durationMs in 1..2999) continue
 
-                // Verify file exists/accessible
                 if (!File(path).exists()) continue
 
                 val title = if (titleIdx >= 0) cursor.getString(titleIdx) else null

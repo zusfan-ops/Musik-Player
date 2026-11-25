@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.4.0/M3UMusik-v1.4.0-arm64-v8a.apk",
-    "build_number":  8,
-    "version":  "1.4.0",
-    "release_date":  "2026-11-25 13:29:10",
-    "changelog":  "Update v1.4.0: Perbaikan scan direktori Android MediaStore (bebas Ringtones) + Notifikasi \u0026 Download Update APK otomatis dari GitHub Releases"
+    "download_url":  "/release/1.5.0/M3UMusik-v1.5.0-arm64-v8a.apk",
+    "build_number":  9,
+    "version":  "1.5.0",
+    "release_date":  "2026-11-25 13:46:57",
+    "changelog":  "Update v1.5.0: Notifikasi Media \u0026 Lockscreen Controls + 3 Ukuran Widget Layar Utama (2x1, 4x1, 4x2)"
 }

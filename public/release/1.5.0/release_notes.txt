@@ -1,0 +1,1 @@
+﻿Update v1.5.0: Notifikasi Media & Lockscreen Controls + 3 Ukuran Widget Layar Utama (2x1, 4x1, 4x2)

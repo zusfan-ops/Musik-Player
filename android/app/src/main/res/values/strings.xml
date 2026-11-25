@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_compact_desc">M3U Musik Mini (2x1) — Judul, Play/Pause &amp; Next</string>
+    <string name="widget_bar_desc">M3U Musik Strip (4x1) — Kontrol Pemutar &amp; Info Direktori</string>
+    <string name="widget_full_desc">M3U Musik Full Card (4x2) — Lengkap dengan Progress &amp; Kontrol</string>
+</resources>

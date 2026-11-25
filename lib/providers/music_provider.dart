@@ -6,8 +6,11 @@ import 'dart:math';
 import 'package:audio_session/audio_session.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/music_models.dart';
@@ -27,6 +30,8 @@ class MusicProvider extends ChangeNotifier {
   static const String _kRecentTracksKey = 'recent_tracks_v1';
   static const String _kProgressMapKey = 'track_progress_sec_v1';
   static const String _kPlayCountMapKey = 'track_play_counts_v1';
+  static const MethodChannel _widgetChannel =
+      MethodChannel('com.musikm3u.player/media_store');
 
   final bool autoScanOnInit;
   final AudioPlayer _player = AudioPlayer();
@@ -264,6 +269,13 @@ class MusicProvider extends ChangeNotifier {
     if (_initialized) return;
 
     _attachPlayerListeners();
+    if (Platform.isAndroid) {
+      _widgetChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onWidgetAction') {
+          await _handleWidgetAction(call.arguments as String?);
+        }
+      });
+    }
     _prefs = await SharedPreferences.getInstance();
     _loadPersistedData();
     _invalidateLibraryCache();
@@ -274,7 +286,27 @@ class MusicProvider extends ChangeNotifier {
     unawaited(_configureAudioSession());
 
     if (autoScanOnInit) {
-      unawaited(refreshPermissionsAndScan(requestInteractive: false));
+      unawaited(
+        refreshPermissionsAndScan(requestInteractive: false).then((_) async {
+          if (Platform.isAndroid) {
+            final pending = await _widgetChannel
+                .invokeMethod<String>('consumePendingWidgetAction')
+                .catchError((_) => null);
+            await _handleWidgetAction(pending);
+          }
+        }),
+      );
+    }
+  }
+
+  Future<void> _handleWidgetAction(String? action) async {
+    if (action == null || action.isEmpty) return;
+    if (action == 'com.musikm3u.player.WIDGET_PLAY_PAUSE') {
+      await togglePlayPause();
+    } else if (action == 'com.musikm3u.player.WIDGET_NEXT') {
+      await playNext();
+    } else if (action == 'com.musikm3u.player.WIDGET_PREV') {
+      await playPrevious();
     }
   }
 
@@ -305,6 +337,7 @@ class MusicProvider extends ChangeNotifier {
         onError: (Object error, StackTrace stackTrace) {
           _isBuffering = false;
           _isPlaying = false;
+          _syncHomeWidgets();
           _lastError = 'Gangguan pemutaran audio: $error';
           notifyListeners();
         },
@@ -312,9 +345,27 @@ class MusicProvider extends ChangeNotifier {
     );
 
     _subscriptions.add(
+      _player.currentIndexStream.listen((idx) {
+        if (idx != null &&
+            idx >= 0 &&
+            idx < _queue.length &&
+            idx != _currentIndex) {
+          _currentIndex = idx;
+          _positionNotifier.value = Duration.zero;
+          _bufferedPositionNotifier.value = Duration.zero;
+          _duration = _player.duration ?? Duration.zero;
+          _recordTrackPlayed(_queue[idx]);
+          _syncHomeWidgets();
+          notifyListeners();
+        }
+      }),
+    );
+
+    _subscriptions.add(
       _player.playingStream.listen((playing) {
         if (_isPlaying != playing) {
           _isPlaying = playing;
+          _syncHomeWidgets();
           notifyListeners();
         }
       }),
@@ -329,6 +380,7 @@ class MusicProvider extends ChangeNotifier {
             DateTime.now().difference(_lastProgressPersist).inSeconds >= 5) {
           _lastProgressPersist = DateTime.now();
           _trackProgressSeconds[active.id] = pos.inSeconds;
+          _syncHomeWidgets();
           unawaited(_persistProgressMap());
         }
       }),
@@ -926,6 +978,67 @@ class MusicProvider extends ChangeNotifier {
 
   // ==================== PLAYBACK ENGINE ====================
 
+  bool _notificationPermissionChecked = false;
+
+  Future<void> _ensureNotificationPermissionOnce() async {
+    if (!Platform.isAndroid || _notificationPermissionChecked) return;
+    _notificationPermissionChecked = true;
+    try {
+      if (await Permission.notification.isDenied) {
+        await Permission.notification.request();
+      }
+    } catch (_) {
+      // Safe fallback in test or unsupported environments
+    }
+  }
+
+  LoopMode _toJustAudioLoopMode(RepeatCycleMode mode) {
+    switch (mode) {
+      case RepeatCycleMode.off:
+        return LoopMode.off;
+      case RepeatCycleMode.all:
+        return LoopMode.all;
+      case RepeatCycleMode.one:
+        return LoopMode.one;
+    }
+  }
+
+  AudioSource _buildAudioSource(TrackItem track) {
+    final mediaTag = MediaItem(
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.directoryName,
+      duration: track.durationSeconds != null && track.durationSeconds! > 0
+          ? Duration(seconds: track.durationSeconds!)
+          : null,
+      artUri: track.hasValidNetworkArtwork
+          ? Uri.tryParse(track.artworkUrl!)
+          : null,
+    );
+
+    if (track.playsFromLocalFile) {
+      final filePath = track.playableSource;
+      if (File(filePath).existsSync()) {
+        return AudioSource.file(filePath, tag: mediaTag);
+      }
+      if (!track.isLocalFile) {
+        return AudioSource.uri(
+          Uri.parse(track.pathOrUrl),
+          headers: track.httpHeaders,
+          tag: mediaTag,
+        );
+      }
+      return AudioSource.file(filePath, tag: mediaTag);
+    }
+
+    return AudioSource.uri(
+      Uri.parse(track.playableSource),
+      headers: track.httpHeaders,
+      tag: mediaTag,
+    );
+  }
+
   Future<void> playTrackList(
     List<TrackItem> tracks, {
     int initialIndex = 0,
@@ -941,7 +1054,7 @@ class MusicProvider extends ChangeNotifier {
       targetIndex = _random.nextInt(_queue.length);
     }
 
-    await _loadAndPlayAtIndex(targetIndex);
+    await _setQueueAndPlay(targetIndex);
   }
 
   Future<void> playSingleTrack(TrackItem track) async {
@@ -954,15 +1067,35 @@ class MusicProvider extends ChangeNotifier {
       return;
     }
     _queue.add(track);
+    unawaited(
+      _player.addAudioSource(_buildAudioSource(track)).catchError((_) {}),
+    );
     notifyListeners();
   }
 
   Future<void> jumpToQueueIndex(int index) async {
     if (index < 0 || index >= _queue.length) return;
-    await _loadAndPlayAtIndex(index);
+    if (_player.sequence.length == _queue.length) {
+      _currentIndex = index;
+      _positionNotifier.value = Duration.zero;
+      _bufferedPositionNotifier.value = Duration.zero;
+      _duration = Duration.zero;
+      _lastError = null;
+      notifyListeners();
+      try {
+        await _player.seek(Duration.zero, index: index);
+        await _player.play();
+        _recordTrackPlayed(_queue[index]);
+        _syncHomeWidgets();
+        return;
+      } catch (_) {
+        // Fallback to full queue reload below
+      }
+    }
+    await _setQueueAndPlay(index);
   }
 
-  Future<void> _loadAndPlayAtIndex(int index) async {
+  Future<void> _setQueueAndPlay(int index) async {
     if (index < 0 || index >= _queue.length) return;
 
     final int requestToken = ++_loadRequestToken;
@@ -974,43 +1107,29 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
 
     final track = _queue[index];
+    unawaited(_ensureNotificationPermissionOnce());
+
     try {
       await _player.stop();
       if (requestToken != _loadRequestToken) return;
 
-      if (track.playsFromLocalFile) {
-        final filePath = track.playableSource;
-        final file = File(filePath);
-        if (!await file.exists()) {
-          // If offline cache was cleared externally, fall back to remote stream if available
-          if (!track.isLocalFile) {
-            final uri = Uri.parse(track.pathOrUrl);
-            await _player.setAudioSource(
-              AudioSource.uri(uri, headers: track.httpHeaders),
-            );
-          } else {
-            throw FileSystemException(
-              'File audio offline tidak ditemukan di penyimpanan',
-              filePath,
-            );
-          }
-        } else {
-          await _player.setFilePath(filePath);
-        }
-      } else {
-        final uri = Uri.parse(track.playableSource);
-        await _player.setAudioSource(
-          AudioSource.uri(uri, headers: track.httpHeaders),
-        );
-      }
+      final sources = _queue.map(_buildAudioSource).toList(growable: false);
+      await _player.setAudioSources(
+        sources,
+        initialIndex: index,
+        initialPosition: Duration.zero,
+      );
 
       if (requestToken != _loadRequestToken) return;
+      await _player.setShuffleModeEnabled(_shuffleEnabled);
+      await _player.setLoopMode(_toJustAudioLoopMode(_repeatMode));
       await _player.setSpeed(_playbackSpeed);
       unawaited(
         _player.play().catchError((Object e) {
           if (requestToken == _loadRequestToken) {
             _isBuffering = false;
             _isPlaying = false;
+            _syncHomeWidgets();
             _lastError = 'Tidak dapat memutar "${track.title}": $e';
             notifyListeners();
           }
@@ -1018,10 +1137,12 @@ class MusicProvider extends ChangeNotifier {
       );
 
       _recordTrackPlayed(track);
+      _syncHomeWidgets();
     } catch (e) {
       if (requestToken != _loadRequestToken) return;
       _isBuffering = false;
       _isPlaying = false;
+      _syncHomeWidgets();
       _lastError = 'Tidak dapat memutar "${track.title}": $e';
       notifyListeners();
     }
@@ -1070,43 +1191,73 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> seekTo(Duration target) async {
     await _player.seek(target);
+    _syncHomeWidgets();
   }
 
   Future<void> playNext() async {
     if (_queue.isEmpty) return;
+    if (_player.sequence.length == _queue.length) {
+      if (_player.hasNext) {
+        await _player.seekToNext();
+        if (!_player.playing) await _player.play();
+        return;
+      }
+      if (_repeatMode == RepeatCycleMode.all) {
+        await _player.seek(Duration.zero, index: 0);
+        if (!_player.playing) await _player.play();
+        return;
+      }
+    }
+
     if (_shuffleEnabled && _queue.length > 1) {
       int nextIdx = _currentIndex;
       for (int attempt = 0; attempt < 5 && nextIdx == _currentIndex; attempt++) {
         nextIdx = _random.nextInt(_queue.length);
       }
-      await _loadAndPlayAtIndex(nextIdx);
+      await _setQueueAndPlay(nextIdx);
       return;
     }
 
     if (_currentIndex + 1 < _queue.length) {
-      await _loadAndPlayAtIndex(_currentIndex + 1);
+      await _setQueueAndPlay(_currentIndex + 1);
     } else if (_repeatMode == RepeatCycleMode.all) {
-      await _loadAndPlayAtIndex(0);
+      await _setQueueAndPlay(0);
     }
   }
 
   Future<void> playPrevious() async {
     if (_queue.isEmpty) return;
     if (_positionNotifier.value.inSeconds > 3) {
-      await _player.seek(Duration.zero);
+      await seekTo(Duration.zero);
       return;
     }
+    if (_player.sequence.length == _queue.length) {
+      if (_player.hasPrevious) {
+        await _player.seekToPrevious();
+        if (!_player.playing) await _player.play();
+        return;
+      }
+      if (_repeatMode == RepeatCycleMode.all) {
+        await _player.seek(Duration.zero, index: _queue.length - 1);
+        if (!_player.playing) await _player.play();
+        return;
+      }
+      await seekTo(Duration.zero);
+      return;
+    }
+
     if (_currentIndex - 1 >= 0) {
-      await _loadAndPlayAtIndex(_currentIndex - 1);
+      await _setQueueAndPlay(_currentIndex - 1);
     } else if (_repeatMode == RepeatCycleMode.all) {
-      await _loadAndPlayAtIndex(_queue.length - 1);
+      await _setQueueAndPlay(_queue.length - 1);
     } else {
-      await _player.seek(Duration.zero);
+      await seekTo(Duration.zero);
     }
   }
 
   void toggleShuffle() {
     _shuffleEnabled = !_shuffleEnabled;
+    unawaited(_player.setShuffleModeEnabled(_shuffleEnabled).catchError((_) {}));
     notifyListeners();
   }
 
@@ -1122,6 +1273,9 @@ class MusicProvider extends ChangeNotifier {
         _repeatMode = RepeatCycleMode.off;
         break;
     }
+    unawaited(
+      _player.setLoopMode(_toJustAudioLoopMode(_repeatMode)).catchError((_) {}),
+    );
     notifyListeners();
   }
 
@@ -1156,12 +1310,21 @@ class MusicProvider extends ChangeNotifier {
       unawaited(_persistProgressMap());
     }
 
+    if (_player.sequence.length == _queue.length) {
+      // Queue auto-advance and LoopMode.one/all are handled natively by just_audio.
+      _isPlaying = false;
+      _syncHomeWidgets();
+      notifyListeners();
+      return;
+    }
+
     if (_repeatMode == RepeatCycleMode.one && _currentIndex >= 0) {
       _player
           .seek(Duration.zero)
           .then((_) => _player.play())
           .catchError((Object e) {
         _lastError = 'Gagal mengulang lagu: $e';
+        _syncHomeWidgets();
         notifyListeners();
       });
       return;
@@ -1173,13 +1336,37 @@ class MusicProvider extends ChangeNotifier {
     }
 
     if (_currentIndex + 1 < _queue.length) {
-      _loadAndPlayAtIndex(_currentIndex + 1);
+      _setQueueAndPlay(_currentIndex + 1);
     } else if (_repeatMode == RepeatCycleMode.all && _queue.isNotEmpty) {
-      _loadAndPlayAtIndex(0);
+      _setQueueAndPlay(0);
     } else {
       _isPlaying = false;
+      _syncHomeWidgets();
       notifyListeners();
     }
+  }
+
+  void _syncHomeWidgets() {
+    if (!Platform.isAndroid) return;
+    final track = currentTrack;
+    final totalMs = _duration.inMilliseconds;
+    final posMs = _positionNotifier.value.inMilliseconds;
+    final progressPct = totalMs > 0 ? ((posMs * 100) ~/ totalMs).clamp(0, 100) : 0;
+
+    unawaited(
+      _widgetChannel.invokeMethod<bool>('updateHomeWidget', {
+        'title': track?.title ?? 'M3U Musik',
+        'subtitle': track != null
+            ? '${track.artist} • ${track.directoryName}'
+            : 'Ketuk untuk memutar musik',
+        'badge': track == null
+            ? 'M3U MUSIK • OFFLINE'
+            : (track.isOfflineReady ? 'OFFLINE • ${track.directoryName}' : 'LIVE LINK • ${track.directoryName}'),
+        'isPlaying': _isPlaying,
+        'progress': progressPct,
+        'hasActiveSession': track != null,
+      }).catchError((_) => false),
+    );
   }
 
   @override
