@@ -1,10 +1,22 @@
 package com.musikm3u.player.musik_m3u_player
 
+import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.Settings
+import android.util.Rational
+import androidx.mediarouter.app.MediaRouteChooserDialog
+import com.google.android.gms.cast.MediaInfo
+import com.google.android.gms.cast.MediaLoadRequestData
+import com.google.android.gms.cast.MediaMetadata
+import com.google.android.gms.cast.framework.CastContext
+import com.google.android.gms.cast.framework.CastSession
+import com.google.android.gms.cast.framework.SessionManagerListener
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -20,6 +32,54 @@ class MainActivity : AudioServiceActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var methodChannel: MethodChannel? = null
     private var pendingWidgetAction: String? = null
+    private var castContext: CastContext? = null
+    private var castListenerRegistered = false
+
+    private val castSessionListener = object : SessionManagerListener<CastSession> {
+        override fun onSessionStarting(session: CastSession) {}
+        override fun onSessionStarted(session: CastSession, sessionId: String) {
+            notifyCastSession(true, session.castDevice?.friendlyName ?: "Chromecast / Nest")
+        }
+        override fun onSessionStartFailed(session: CastSession, error: Int) {
+            notifyCastSession(false, null)
+        }
+        override fun onSessionEnding(session: CastSession) {}
+        override fun onSessionEnded(session: CastSession, error: Int) {
+            notifyCastSession(false, null)
+        }
+        override fun onSessionResuming(session: CastSession, sessionId: String) {}
+        override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
+            notifyCastSession(true, session.castDevice?.friendlyName ?: "Chromecast / Nest")
+        }
+        override fun onSessionResumeFailed(session: CastSession, error: Int) {
+            notifyCastSession(false, null)
+        }
+        override fun onSessionSuspended(session: CastSession, reason: Int) {}
+    }
+
+    private fun notifyCastSession(connected: Boolean, deviceName: String?) {
+        mainHandler.post {
+            methodChannel?.invokeMethod(
+                "onCastSessionChanged",
+                mapOf("connected" to connected, "deviceName" to deviceName),
+            )
+        }
+    }
+
+    private fun ensureCastContext(): CastContext? {
+        if (castContext != null) return castContext
+        return try {
+            val ctx = CastContext.getSharedInstance(this)
+            if (!castListenerRegistered) {
+                ctx.sessionManager.addSessionManagerListener(castSessionListener, CastSession::class.java)
+                castListenerRegistered = true
+            }
+            castContext = ctx
+            ctx
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -47,6 +107,93 @@ class MainActivity : AudioServiceActivity() {
                         pendingWidgetAction = null
                         result.success(action)
                     }
+                    "enterPictureInPicture" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            try {
+                                val params = PictureInPictureParams.Builder()
+                                    .setAspectRatio(Rational(16, 9))
+                                    .build()
+                                result.success(enterPictureInPictureMode(params))
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        } else {
+                            result.success(false)
+                        }
+                    }
+                    "openCastDialog" -> {
+                        val ctx = ensureCastContext()
+                        if (ctx == null) {
+                            try {
+                                startActivity(Intent(Settings.ACTION_CAST_SETTINGS))
+                            } catch (_: Exception) {}
+                            result.success(false)
+                        } else {
+                            val selector = ctx.mergedSelector
+                            if (selector != null) {
+                                val dialog = MediaRouteChooserDialog(this)
+                                dialog.routeSelector = selector
+                                dialog.show()
+                                result.success(true)
+                            } else {
+                                result.success(false)
+                            }
+                        }
+                    }
+                    "castPlayMedia" -> {
+                        val url = call.argument<String>("url")
+                        val title = call.argument<String>("title") ?: "M3U Musik"
+                        val subtitle = call.argument<String>("subtitle") ?: ""
+                        val mimeType = call.argument<String>("mimeType") ?: "audio/mpeg"
+                        val positionMs = (call.argument<Number>("positionMs")?.toLong()) ?: 0L
+                        val session = ensureCastContext()?.sessionManager?.currentCastSession
+                        val client = session?.remoteMediaClient
+                        if (url == null || client == null) {
+                            result.success(false)
+                        } else {
+                            val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
+                                putString(MediaMetadata.KEY_TITLE, title)
+                                if (subtitle.isNotEmpty()) {
+                                    putString(MediaMetadata.KEY_ARTIST, subtitle)
+                                }
+                            }
+                            val mediaInfo = MediaInfo.Builder(url)
+                                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                                .setContentType(mimeType)
+                                .setMetadata(metadata)
+                                .build()
+                            val loadReq = MediaLoadRequestData.Builder()
+                                .setMediaInfo(mediaInfo)
+                                .setAutoplay(true)
+                                .setCurrentTime(positionMs)
+                                .build()
+                            client.load(loadReq)
+                            result.success(true)
+                        }
+                    }
+                    "castControl" -> {
+                        val action = call.argument<String>("action")
+                        val positionMs = (call.argument<Number>("positionMs")?.toLong()) ?: 0L
+                        val client = ensureCastContext()?.sessionManager?.currentCastSession?.remoteMediaClient
+                        if (client == null) {
+                            result.success(false)
+                        } else {
+                            when (action) {
+                                "play" -> client.play()
+                                "pause" -> client.pause()
+                                "stop" -> client.stop()
+                                "seek" -> client.seek(positionMs)
+                            }
+                            result.success(true)
+                        }
+                    }
+                    "disconnectCast" -> {
+                        try {
+                            ensureCastContext()?.sessionManager?.endCurrentSession(true)
+                        } catch (_: Exception) {}
+                        notifyCastSession(false, null)
+                        result.success(true)
+                    }
                     "updateHomeWidget" -> {
                         val title = call.argument<String>("title") ?: "M3U Musik"
                         val subtitle = call.argument<String>("subtitle") ?: "Siap Putar Offline"
@@ -72,6 +219,27 @@ class MainActivity : AudioServiceActivity() {
         captureWidgetAction(intent)
     }
 
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        methodChannel?.invokeMethod("onPipChanged", isInPictureInPictureMode)
+    }
+
+    override fun onDestroy() {
+        if (castListenerRegistered) {
+            try {
+                castContext?.sessionManager?.removeSessionManagerListener(
+                    castSessionListener,
+                    CastSession::class.java,
+                )
+            } catch (_: Exception) {}
+        }
+        executor.shutdown()
+        super.onDestroy()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -83,11 +251,6 @@ class MainActivity : AudioServiceActivity() {
         intent.removeExtra(MusikWidgetHelper.EXTRA_WIDGET_ACTION)
         pendingWidgetAction = action
         methodChannel?.invokeMethod("onWidgetAction", action)
-    }
-
-    override fun onDestroy() {
-        executor.shutdown()
-        super.onDestroy()
     }
 
     private fun queryMediaStoreAudio(): List<Map<String, Any?>> {

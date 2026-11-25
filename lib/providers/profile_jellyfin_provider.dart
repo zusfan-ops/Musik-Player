@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,7 @@ class ProfileJellyfinProvider extends ChangeNotifier {
   static const String _kAvatarPresetKey = 'profile_avatar_preset_v1';
   static const String _kCustomAvatarPathKey = 'profile_custom_avatar_path_v1';
   static const String _kJfMovieProgressKey = 'jellyfin_movie_progress_sec_v1';
+  static const String _kDownloadedMoviesKey = 'jellyfin_downloaded_movies_v1';
 
   final bool autoConnectOnInit;
   SharedPreferences? _prefs;
@@ -46,6 +48,9 @@ class ProfileJellyfinProvider extends ChangeNotifier {
   ];
   List<JellyfinMovieItem> _movies = [];
   Map<String, int> _movieWatchSeconds = {};
+  Map<String, String> _downloadedMoviePaths = {};
+  final Set<String> _downloadingMovieIds = {};
+  final Map<String, double> _movieDownloadProgress = {};
 
   bool _isLoadingMovies = false;
   bool _isConnected = true;
@@ -110,6 +115,17 @@ class ProfileJellyfinProvider extends ChangeNotifier {
     return _movies.where((m) => movieProgressRatio(m) > 0.02).toList();
   }
 
+  bool isMovieOfflineReady(String movieId) =>
+      _downloadedMoviePaths.containsKey(movieId);
+
+  bool isMovieDownloading(String movieId) =>
+      _downloadingMovieIds.contains(movieId);
+
+  double movieDownloadProgress(String movieId) =>
+      _movieDownloadProgress[movieId] ?? 0.0;
+
+  String? offlineMoviePath(String movieId) => _downloadedMoviePaths[movieId];
+
   Future<void> initialize() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
@@ -158,6 +174,23 @@ class ProfileJellyfinProvider extends ChangeNotifier {
       }
     } catch (_) {
       _movieWatchSeconds = {};
+    }
+
+    try {
+      final rawDownloads = prefs.getString(_kDownloadedMoviesKey);
+      if (rawDownloads != null && rawDownloads.isNotEmpty) {
+        final decoded = jsonDecode(rawDownloads) as Map<String, dynamic>;
+        final verified = <String, String>{};
+        for (final entry in decoded.entries) {
+          final path = entry.value.toString();
+          if (await File(path).exists()) {
+            verified[entry.key] = path;
+          }
+        }
+        _downloadedMoviePaths = verified;
+      }
+    } catch (_) {
+      _downloadedMoviePaths = {};
     }
   }
 
@@ -357,5 +390,106 @@ class ProfileJellyfinProvider extends ChangeNotifier {
       apiKey: _apiKey,
       playSessionId: playSessionId,
     );
+  }
+
+  Future<bool> downloadMovieOffline(JellyfinMovieItem movie) async {
+    if (!hasCredentials || _downloadingMovieIds.contains(movie.id)) {
+      return false;
+    }
+
+    _downloadingMovieIds.add(movie.id);
+    _movieDownloadProgress[movie.id] = 0.0;
+    notifyListeners();
+
+    final client = http.Client();
+    IOSink? sink;
+    File? tempFile;
+
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final moviesDir = Directory(p.join(docsDir.path, 'offline_movies'));
+      if (!await moviesDir.exists()) {
+        await moviesDir.create(recursive: true);
+      }
+
+      final safeId = sha1.convert(utf8.encode(movie.id)).toString().substring(0, 16);
+      final targetPath = p.join(moviesDir.path, '$safeId.mp4');
+      tempFile = File('$targetPath.part');
+
+      final uri = buildMovieStreamUri(
+        movie,
+        useHlsTranscode: false,
+        playSessionId: 'dl_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final request = http.Request('GET', uri)..headers.addAll(authHeaders);
+      final response = await client.send(request);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException('HTTP ${response.statusCode}');
+      }
+
+      final totalBytes = response.contentLength ?? 0;
+      int received = 0;
+      DateTime lastNotify = DateTime.now();
+      sink = tempFile.openWrite();
+
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (totalBytes > 0) {
+          _movieDownloadProgress[movie.id] =
+              (received / totalBytes).clamp(0.0, 1.0);
+          if (DateTime.now().difference(lastNotify).inMilliseconds >= 350) {
+            lastNotify = DateTime.now();
+            notifyListeners();
+          }
+        }
+      }
+
+      await sink.flush();
+      await sink.close();
+      sink = null;
+
+      final finalFile = File(targetPath);
+      if (await finalFile.exists()) {
+        await finalFile.delete();
+      }
+      await tempFile.rename(targetPath);
+
+      _downloadedMoviePaths[movie.id] = targetPath;
+      await _prefs?.setString(
+        _kDownloadedMoviesKey,
+        jsonEncode(_downloadedMoviePaths),
+      );
+      return true;
+    } catch (e) {
+      _errorMessage = JellyfinService.sanitizeErrorMessage(e, _apiKey);
+      try {
+        await sink?.close();
+        if (tempFile != null && await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+      return false;
+    } finally {
+      client.close();
+      _downloadingMovieIds.remove(movie.id);
+      _movieDownloadProgress.remove(movie.id);
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeOfflineMovie(String movieId) async {
+    final path = _downloadedMoviePaths.remove(movieId);
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    await _prefs?.setString(
+      _kDownloadedMoviesKey,
+      jsonEncode(_downloadedMoviePaths),
+    );
+    notifyListeners();
   }
 }

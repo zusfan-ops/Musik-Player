@@ -6,5 +6,9 @@
 -dontwarn androidx.media3.**
 -dontwarn com.google.android.exoplayer2.**
 
+# Keep Google Cast OptionsProvider
+-keep class com.musikm3u.player.musik_m3u_player.MusikCastOptionsProvider { *; }
+-dontwarn com.google.android.gms.cast.**
+
 # Flutter Play Core optional deferred-components references
 -dontwarn com.google.android.play.core.**

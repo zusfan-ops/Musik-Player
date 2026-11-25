@@ -77,11 +77,13 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   late int _currentIndex;
   bool _isInitializing = true;
   bool _showControls = true;
+  bool _isInPipMode = false;
   bool _isFullscreenLandscape = false;
   bool _isZoomCrop = false;
   double _playbackSpeed = 1.0;
   String? _errorMessage;
   String _channelFilter = '';
+  StreamSubscription<bool>? _pipSub;
 
   TrackItem get _currentItem => widget.playlistItems[_currentIndex];
 
@@ -112,6 +114,13 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     if (music.isPlaying) {
       unawaited(music.pause());
     }
+    _pipSub = music.pipModeStream.listen((inPip) {
+      if (!mounted) return;
+      setState(() {
+        _isInPipMode = inPip;
+        if (inPip) _showControls = false;
+      });
+    });
 
     unawaited(_loadChannelAtIndex(_currentIndex));
   }
@@ -304,6 +313,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   void dispose() {
     _initToken++;
     _hideControlsTimer?.cancel();
+    _pipSub?.cancel();
     _channelSearchCtrl.dispose();
     final ctrl = _controller;
     final listener = _controllerListener;
@@ -489,7 +499,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                 ),
 
               // 2. Interactive OSD Controls
-              if (_showControls)
+              if (_showControls && !_isInPipMode)
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -552,6 +562,20 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                                 ),
                                 onPressed: () =>
                                     _loadChannelAtIndex(_currentIndex),
+                              ),
+                              IconButton(
+                                tooltip: 'Mode Picture-in-Picture (PiP)',
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(
+                                  Icons.picture_in_picture_alt_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  context
+                                      .read<MusicProvider>()
+                                      .enterPictureInPicture();
+                                },
                               ),
                               IconButton(
                                 tooltip: 'Rasio Layar (Fit / Zoom)',

@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.6.0/M3UMusik-v1.6.0-arm64-v8a.apk",
-    "build_number":  10,
-    "version":  "1.6.0",
-    "release_date":  "2026-11-25 14:18:25",
-    "changelog":  "Update v1.6.0: Play Bar Otomatis Hilang \u0026 Bisa Di-Hide + Panduan Onboarding Pengguna Baru"
+    "download_url":  "/release/1.7.0/M3UMusik-v1.7.0-arm64-v8a.apk",
+    "build_number":  11,
+    "version":  "1.7.0",
+    "release_date":  "2026-11-25 15:42:07",
+    "changelog":  "Update v1.7.0: Equalizer 5-Band + Bass Boost, Lirik .lrc, IPTV Favorit \u0026 Link Checker, PiP, Continue Watching, Unduh Film Offline, Google Cast/Nest \u0026 NewTube Background Player"
 }

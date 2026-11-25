@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   bool _triedAutoFallback = false;
   bool _isInitializing = true;
   bool _showControls = true;
+  bool _isInPipMode = false;
   bool _isZoomCrop = false;
   bool _isLandscapeLocked = true;
   double _playbackSpeed = 1.0;
@@ -42,6 +44,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   DateTime _lastProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
   late final String _playSessionId;
   late final ProfileJellyfinProvider _jfProvider;
+  StreamSubscription<bool>? _pipSub;
 
   @override
   void initState() {
@@ -55,6 +58,13 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
     if (music.isPlaying) {
       unawaited(music.pause());
     }
+    _pipSub = music.pipModeStream.listen((inPip) {
+      if (!mounted) return;
+      setState(() {
+        _isInPipMode = inPip;
+        if (inPip) _showControls = false;
+      });
+    });
 
     _enterCinemaFullscreen(landscape: true);
     unawaited(_initController(resumeFromSaved: true));
@@ -120,16 +130,22 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
       _hlsWasStarted = true;
     }
 
-    final uri = _jfProvider.buildMovieStreamUri(
-      widget.movie,
-      useHlsTranscode: _useHls,
-      playSessionId: _playSessionId,
-    );
+    final offlinePath = _jfProvider.offlineMoviePath(widget.movie.id);
+    final VideoPlayerController nextController;
+    if (offlinePath != null && await File(offlinePath).exists()) {
+      nextController = VideoPlayerController.file(File(offlinePath));
+    } else {
+      final uri = _jfProvider.buildMovieStreamUri(
+        widget.movie,
+        useHlsTranscode: _useHls,
+        playSessionId: _playSessionId,
+      );
 
-    final nextController = VideoPlayerController.networkUrl(
-      uri,
-      httpHeaders: _jfProvider.authHeaders,
-    );
+      nextController = VideoPlayerController.networkUrl(
+        uri,
+        httpHeaders: _jfProvider.authHeaders,
+      );
+    }
 
     try {
       await nextController.initialize().timeout(const Duration(seconds: 35));
@@ -288,6 +304,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   void dispose() {
     _initToken++;
     _hideControlsTimer?.cancel();
+    _pipSub?.cancel();
     final ctrl = _controller;
     final listener = _controllerListener;
     if (ctrl != null) {
@@ -422,7 +439,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
               ),
 
             // Netflix Cinema OSD Overlay
-            if (_showControls)
+            if (_showControls && !_isInPipMode)
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -480,6 +497,19 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Mode Picture-in-Picture (PiP)',
+                              icon: const Icon(
+                                Icons.picture_in_picture_alt_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                context
+                                    .read<MusicProvider>()
+                                    .enterPictureInPicture();
+                              },
                             ),
                             TextButton.icon(
                               onPressed: () => _switchStreamMode(!_useHls),

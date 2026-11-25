@@ -528,22 +528,38 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
 
     final playlist = provider.playlists[idx];
+    final deadInPlaylist = playlist.tracks
+        .where((t) => provider.isTrackDead(t.id))
+        .length;
+    final favInPlaylist = playlist.tracks
+        .where((t) => provider.isFavorite(t.id))
+        .length;
     final groups = <String>{
       'Semua',
+      if (favInPlaylist > 0) 'Favorit',
       ...playlist.tracks
           .map((t) => t.groupTitle)
           .whereType<String>()
           .where((g) => g.isNotEmpty),
     }.toList();
 
+    final effectiveGroup =
+        groups.contains(_selectedGroup) ? _selectedGroup : 'Semua';
+
     final tracks = playlist.tracks.where((t) {
-      if (_selectedGroup != 'Semua' && t.groupTitle != _selectedGroup) {
+      if (provider.hideDeadLinks && provider.isTrackDead(t.id)) {
+        return false;
+      }
+      if (effectiveGroup == 'Favorit') {
+        if (!provider.isFavorite(t.id)) return false;
+      } else if (effectiveGroup != 'Semua' && t.groupTitle != effectiveGroup) {
         return false;
       }
       if (_search.trim().isEmpty) return true;
       final q = _search.toLowerCase();
       return t.title.toLowerCase().contains(q) ||
-          t.artist.toLowerCase().contains(q);
+          t.artist.toLowerCase().contains(q) ||
+          (t.groupTitle?.toLowerCase().contains(q) ?? false);
     }).toList();
 
     return Scaffold(
@@ -555,6 +571,42 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             pinned: true,
             backgroundColor: AppColors.surface,
             actions: [
+              IconButton(
+                tooltip: 'Cek Kesehatan Link M3U (Auto-Hide Link Mati)',
+                icon: provider.isCheckingLinks
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.spotifyGreen,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.health_and_safety_rounded,
+                        color: AppColors.spotifyGreen,
+                      ),
+                onPressed: provider.isCheckingLinks
+                    ? null
+                    : () async {
+                        final res =
+                            await provider.checkPlaylistLinks(playlist.id);
+                        if (!provider.hideDeadLinks && res.deadCount > 0) {
+                          await provider.setHideDeadLinks(true);
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Selesai cek ${res.totalChecked} link: '
+                                '${res.onlineCount} aktif, '
+                                '${res.deadCount} mati (otomatis disembunyikan).',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+              ),
               if (playlist.isUrlSource)
                 IconButton(
                   tooltip: 'Unduh Semua Lagu untuk Offline',
@@ -680,7 +732,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         child: TextField(
                           onChanged: (v) => setState(() => _search = v),
                           decoration: InputDecoration(
-                            hintText: 'Cari lagu di playlist M3U...',
+                            hintText: 'Cari channel IPTV, lagu, atau grup...',
                             prefixIcon: const Icon(Icons.search_rounded),
                             filled: true,
                             fillColor: AppColors.surface,
@@ -719,6 +771,72 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                     ],
                   ),
+                  if (provider.isCheckingLinks) ...[
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: provider.linkCheckTotal > 0
+                          ? provider.linkCheckDone / provider.linkCheckTotal
+                          : null,
+                      color: AppColors.spotifyGreen,
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Memeriksa kesehatan link (${provider.linkCheckDone}/${provider.linkCheckTotal})...',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                  if (deadInPlaylist > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceHighlight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            provider.hideDeadLinks
+                                ? Icons.visibility_off_rounded
+                                : Icons.warning_amber_rounded,
+                            size: 16,
+                            color: provider.hideDeadLinks
+                                ? AppColors.neonCyan
+                                : Colors.amber,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              provider.hideDeadLinks
+                                  ? '$deadInPlaylist link mati otomatis disembunyikan'
+                                  : '$deadInPlaylist link mati sedang ditampilkan',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => provider
+                                .setHideDeadLinks(!provider.hideDeadLinks),
+                            child: Text(
+                              provider.hideDeadLinks
+                                  ? 'Tampilkan'
+                                  : 'Sembunyikan',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (groups.length > 1) ...[
                     const SizedBox(height: 10),
                     SizedBox(

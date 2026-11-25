@@ -12,6 +12,7 @@ import 'directories_screen.dart';
 import 'jellyfin_movies_screen.dart';
 import 'library_search_screen.dart';
 import 'm3u_video_player_screen.dart';
+import 'newtube_screen.dart';
 import 'playlists_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -90,6 +91,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           actions: [
+            IconButton(
+              tooltip: 'NewTube (YouTube Background Play)',
+              icon: const Icon(
+                Icons.smart_display_rounded,
+                color: AppColors.netflixRed,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NewTubeScreen(),
+                  ),
+                );
+              },
+            ),
             IconButton(
               tooltip: 'Cari Lagu & Koleksi Favorit',
               icon: const Icon(Icons.search_rounded),
@@ -267,6 +283,34 @@ class _HomeScreenState extends State<HomeScreen> {
             onNavigateTab: widget.onNavigateTab,
           ),
         ),
+
+        // 2a. CONTINUE WATCHING (HALLSEM CINEMA)
+        if (jfProvider.continueWatchingMovies.isNotEmpty &&
+            _selectedChip == 'Semua') ...[
+          SliverToBoxAdapter(
+            child: _SectionHeader(
+              badge: 'LANJUTKAN MENONTON',
+              title: 'Lanjutkan Menonton Film',
+              actionLabel: 'Buka Cinema',
+              onAction: () => widget.onNavigateTab(3),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 158,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: jfProvider.continueWatchingMovies.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (_, idx) {
+                  final movie = jfProvider.continueWatchingMovies[idx];
+                  return JellyfinContinueWatchingCard(movie: movie);
+                },
+              ),
+            ),
+          ),
+        ],
 
         // 2b. HALLSEM CINEMA MOVIES SWIMLANE
         if (jfProvider.movies.isNotEmpty && _selectedChip == 'Semua') ...[

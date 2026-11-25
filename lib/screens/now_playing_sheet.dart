@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,10 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
+import '../services/lyrics_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/equalizer_sheet.dart';
 import 'm3u_video_player_screen.dart';
 
-class NowPlayingSheet extends StatelessWidget {
+class NowPlayingSheet extends StatefulWidget {
   const NowPlayingSheet({super.key});
 
   static void show(BuildContext context) {
@@ -18,6 +21,53 @@ class NowPlayingSheet extends StatelessWidget {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const NowPlayingSheet(),
+    );
+  }
+
+  @override
+  State<NowPlayingSheet> createState() => _NowPlayingSheetState();
+}
+
+class _NowPlayingSheetState extends State<NowPlayingSheet> {
+  bool _showLyrics = false;
+  String? _loadedLyricsTrackId;
+  List<LyricLine> _lyrics = const [];
+  bool _loadingLyrics = false;
+  int _lastActiveLyricIdx = -1;
+  final ScrollController _lyricsScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _lyricsScrollController.dispose();
+    super.dispose();
+  }
+
+  void _ensureLyricsLoaded(TrackItem track) {
+    if (_loadedLyricsTrackId == track.id) return;
+    _loadedLyricsTrackId = track.id;
+    _lastActiveLyricIdx = -1;
+    _loadingLyrics = true;
+    unawaited(
+      LyricsService.loadLyricsForTrack(track).then((lines) {
+        if (!mounted || _loadedLyricsTrackId != track.id) return;
+        setState(() {
+          _lyrics = lines;
+          _loadingLyrics = false;
+        });
+      }),
+    );
+  }
+
+  void _scrollToLyricIndex(int index) {
+    if (!_lyricsScrollController.hasClients || index < 0) return;
+    final targetOffset = (index * 44.0 - 70.0).clamp(
+      0.0,
+      _lyricsScrollController.position.maxScrollExtent,
+    );
+    _lyricsScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -42,6 +92,8 @@ class NowPlayingSheet extends StatelessWidget {
     if (track == null) {
       return const SizedBox.shrink();
     }
+
+    _ensureLyricsLoaded(track);
 
     final maxMs = provider.duration.inMilliseconds > 0
         ? provider.duration.inMilliseconds.toDouble()
@@ -129,26 +181,62 @@ class NowPlayingSheet extends StatelessWidget {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Buka Layar Video / TV Player',
-                              icon: const Icon(
-                                Icons.ondemand_video_rounded,
-                                color: AppColors.netflixRed,
+                              tooltip: provider.isCastConnected
+                                  ? 'Terhubung ke ${provider.castDeviceName ?? 'Cast'}'
+                                  : 'Putar ke Chromecast / Google Nest',
+                              icon: Icon(
+                                provider.isCastConnected
+                                    ? Icons.cast_connected_rounded
+                                    : Icons.cast_rounded,
+                                color: provider.isCastConnected
+                                    ? AppColors.spotifyGreen
+                                    : Colors.white,
                               ),
                               onPressed: () {
-                                final q = provider.queue.isNotEmpty
-                                    ? provider.queue
-                                    : [track];
-                                final idx = provider.currentIndex >= 0
-                                    ? provider.currentIndex
-                                    : 0;
-                                Navigator.pop(context);
-                                M3uPlaybackLauncher.playItemList(
-                                  context,
-                                  q,
-                                  initialIndex: idx,
-                                  forceVideoPlayer: true,
-                                );
+                                if (provider.isCastConnected) {
+                                  showDialog<void>(
+                                    context: context,
+                                    builder: (dCtx) => AlertDialog(
+                                      backgroundColor: AppColors.surface,
+                                      title: const Text('Google Cast / Speaker'),
+                                      content: Text(
+                                        'Audio sedang diputar ke "${provider.castDeviceName ?? 'Perangkat Cast'}".',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dCtx),
+                                          child: const Text('Tutup'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(dCtx);
+                                            provider.disconnectCast();
+                                          },
+                                          child: const Text(
+                                            'Putuskan',
+                                            style: TextStyle(color: AppColors.netflixRed),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                } else {
+                                  provider.openCastPicker();
+                                }
                               },
+                            ),
+                            IconButton(
+                              tooltip: 'Lirik Lagu (.lrc)',
+                              icon: Icon(
+                                Icons.lyrics_rounded,
+                                color: _showLyrics
+                                    ? AppColors.spotifyGreen
+                                    : (_lyrics.isNotEmpty
+                                        ? AppColors.neonCyan
+                                        : AppColors.textSecondary),
+                              ),
+                              onPressed: () =>
+                                  setState(() => _showLyrics = !_showLyrics),
                             ),
                             IconButton(
                               tooltip: 'Antrean Putar',
@@ -162,8 +250,115 @@ class NowPlayingSheet extends StatelessWidget {
 
                     const SizedBox(height: 12),
 
-                    // Centerpiece Artwork / Logo with Neon Aura
-                    if (track.hasValidNetworkArtwork)
+                    // Centerpiece: Synchronized LRC Lyrics OR Artwork
+                    if (_showLyrics)
+                      Container(
+                        width: double.infinity,
+                        height: artSize,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: _loadingLyrics
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.spotifyGreen,
+                                ),
+                              )
+                            : _lyrics.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.lyrics_outlined,
+                                          size: 40,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const Text(
+                                          'File lirik (.lrc) tidak ditemukan',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Letakkan file .lrc dengan nama yang sama di folder lagu untuk lirik sinkron otomatis.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary
+                                                .withValues(alpha: 0.85),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ValueListenableBuilder<Duration>(
+                                    valueListenable: provider.positionListenable,
+                                    builder: (_, pos, _) {
+                                      final activeIdx =
+                                          LyricsService.activeLineIndex(
+                                        _lyrics,
+                                        pos,
+                                      );
+                                      if (activeIdx != _lastActiveLyricIdx &&
+                                          activeIdx >= 0) {
+                                        _lastActiveLyricIdx = activeIdx;
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            _scrollToLyricIndex(activeIdx);
+                                          }
+                                        });
+                                      }
+                                      return ListView.builder(
+                                        controller: _lyricsScrollController,
+                                        itemCount: _lyrics.length,
+                                        itemBuilder: (_, i) {
+                                          final line = _lyrics[i];
+                                          final isActive = i == activeIdx;
+                                          return InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            onTap: () =>
+                                                provider.seekTo(line.timestamp),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: 8,
+                                                horizontal: 6,
+                                              ),
+                                              child: Text(
+                                                line.text,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: isActive
+                                                      ? AppColors.spotifyGreen
+                                                      : AppColors.textSecondary
+                                                          .withValues(
+                                                              alpha: 0.72),
+                                                  fontSize: isActive ? 17 : 14,
+                                                  fontWeight: isActive
+                                                      ? FontWeight.w900
+                                                      : FontWeight.w500,
+                                                  height: 1.35,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                      )
+                    else if (track.hasValidNetworkArtwork)
                       Container(
                         width: artSize,
                         height: artSize,
@@ -438,6 +633,27 @@ class NowPlayingSheet extends StatelessWidget {
                           alignment: WrapAlignment.spaceBetween,
                           spacing: 8,
                           children: [
+                            TextButton.icon(
+                              onPressed: () => EqualizerSheet.show(context),
+                              icon: Icon(
+                                Icons.equalizer_rounded,
+                                size: 18,
+                                color: provider.equalizerEnabled
+                                    ? AppColors.spotifyGreen
+                                    : AppColors.textSecondary,
+                              ),
+                              label: Text(
+                                provider.equalizerEnabled ? 'EQ On' : 'EQ',
+                                style: TextStyle(
+                                  color: provider.equalizerEnabled
+                                      ? AppColors.spotifyGreen
+                                      : AppColors.textSecondary,
+                                  fontWeight: provider.equalizerEnabled
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
                             TextButton.icon(
                               onPressed: () =>
                                   _showSpeedDialog(context, provider),

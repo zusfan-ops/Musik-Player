@@ -4,6 +4,7 @@ import 'package:musik_m3u_player/main.dart';
 import 'package:musik_m3u_player/models/music_models.dart';
 import 'package:musik_m3u_player/services/directory_scanner_service.dart';
 import 'package:musik_m3u_player/services/jellyfin_service.dart';
+import 'package:musik_m3u_player/services/lyrics_service.dart';
 import 'package:musik_m3u_player/services/m3u_service.dart';
 import 'package:musik_m3u_player/services/update_checker_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,6 +181,26 @@ https://live.example.com/tvone/index.m3u8
         'secretToken999',
       );
       expect(scrubbed, isNot(contains('secretToken999')));
+    });
+
+    test('Parses LRC timestamps and resolves active lyric line accurately', () {
+      const sampleLrc = '''
+[00:12.50]Baris pertama lagu
+[00:25.00][01:10.00]Reffrain yang sama
+[00:40.250]Baris ketiga
+''';
+      final lines = LyricsService.parseLrc(sampleLrc);
+      expect(lines.length, 4);
+      expect(lines.first.text, 'Baris pertama lagu');
+      expect(lines.last.timestamp, const Duration(minutes: 1, seconds: 10));
+
+      expect(LyricsService.activeLineIndex(lines, const Duration(seconds: 5)), -1);
+      expect(LyricsService.activeLineIndex(lines, const Duration(seconds: 15)), 0);
+      expect(LyricsService.activeLineIndex(lines, const Duration(seconds: 42)), 2);
+      expect(
+        LyricsService.activeLineIndex(lines, const Duration(minutes: 1, seconds: 12)),
+        3,
+      );
     });
   });
 

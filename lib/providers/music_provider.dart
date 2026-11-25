@@ -14,7 +14,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/music_models.dart';
+import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
+import '../services/link_checker_service.dart';
 import '../services/m3u_service.dart';
 
 enum RepeatCycleMode {
@@ -31,11 +33,23 @@ class MusicProvider extends ChangeNotifier {
   static const String _kProgressMapKey = 'track_progress_sec_v1';
   static const String _kPlayCountMapKey = 'track_play_counts_v1';
   static const String _kOnboardingKey = 'has_seen_onboarding_v1';
+  static const String _kDeadLinksKey = 'dead_m3u_track_ids_v1';
+  static const String _kHideDeadLinksKey = 'hide_dead_m3u_links_v1';
+  static const String _kEqEnabledKey = 'eq_enabled_v1';
+  static const String _kEqGainsKey = 'eq_band_gains_v1';
+  static const String _kEqPresetKey = 'eq_preset_v1';
+  static const String _kBassBoostKey = 'eq_bass_boost_v1';
+  static const String _kLoudnessDbKey = 'eq_loudness_db_v1';
   static const MethodChannel _widgetChannel =
       MethodChannel('com.musikm3u.player/media_store');
 
   final bool autoScanOnInit;
-  final AudioPlayer _player = AudioPlayer();
+  late final AndroidEqualizer? _androidEqualizer;
+  late final AndroidLoudnessEnhancer? _androidLoudness;
+  late final AudioPlayer _player;
+  final CastMediaServer _castServer = CastMediaServer();
+  final StreamController<bool> _pipController =
+      StreamController<bool>.broadcast();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   final Random _random = Random();
 
@@ -88,7 +102,42 @@ class MusicProvider extends ChangeNotifier {
   Timer? _sleepTimer;
   DateTime? _sleepEndTime;
 
-  MusicProvider({this.autoScanOnInit = true});
+  // Equalizer & audio effects state
+  bool _equalizerEnabled = false;
+  List<double> _eqBandGains = [0.0, 0.0, 0.0, 0.0, 0.0];
+  List<String> _eqBandLabels = ['60Hz', '230Hz', '910Hz', '3.6kHz', '14kHz'];
+  double _eqMinDecibels = -15.0;
+  double _eqMaxDecibels = 15.0;
+  String _activeEqPreset = 'Flat';
+  double _bassBoostStrength = 0.0; // 0.0..1.0
+  double _loudnessGainDb = 0.0; // 0.0..10.0 dB
+
+  // Link checker state
+  Set<String> _deadTrackIds = {};
+  bool _hideDeadLinks = true;
+  bool _isCheckingLinks = false;
+  int _linkCheckDone = 0;
+  int _linkCheckTotal = 0;
+
+  // Cast & PiP state
+  bool _isCastConnected = false;
+  String? _castDeviceName;
+
+  MusicProvider({this.autoScanOnInit = true}) {
+    if (Platform.isAndroid) {
+      _androidEqualizer = AndroidEqualizer();
+      _androidLoudness = AndroidLoudnessEnhancer();
+      _player = AudioPlayer(
+        audioPipeline: AudioPipeline(
+          androidAudioEffects: [_androidEqualizer!, _androidLoudness!],
+        ),
+      );
+    } else {
+      _androidEqualizer = null;
+      _androidLoudness = null;
+      _player = AudioPlayer();
+    }
+  }
 
   // Getters
   bool get initialized => _initialized;
@@ -126,6 +175,29 @@ class MusicProvider extends ChangeNotifier {
   bool get shuffleEnabled => _shuffleEnabled;
   RepeatCycleMode get repeatMode => _repeatMode;
   double get playbackSpeed => _playbackSpeed;
+
+  // Equalizer getters
+  bool get equalizerEnabled => _equalizerEnabled;
+  List<double> get eqBandGains => List.unmodifiable(_eqBandGains);
+  List<String> get eqBandLabels => List.unmodifiable(_eqBandLabels);
+  double get eqMinDecibels => _eqMinDecibels;
+  double get eqMaxDecibels => _eqMaxDecibels;
+  String get activeEqPreset => _activeEqPreset;
+  double get bassBoostStrength => _bassBoostStrength;
+  double get loudnessGainDb => _loudnessGainDb;
+
+  // Link checker getters
+  Set<String> get deadTrackIds => Set.unmodifiable(_deadTrackIds);
+  bool get hideDeadLinks => _hideDeadLinks;
+  bool get isCheckingLinks => _isCheckingLinks;
+  int get linkCheckDone => _linkCheckDone;
+  int get linkCheckTotal => _linkCheckTotal;
+  bool isTrackDead(String trackId) => _deadTrackIds.contains(trackId);
+
+  // Cast & PiP getters
+  bool get isCastConnected => _isCastConnected;
+  String? get castDeviceName => _castDeviceName;
+  Stream<bool> get pipModeStream => _pipController.stream;
 
   Duration? get sleepTimerRemaining {
     if (_sleepEndTime == null) return null;
@@ -278,11 +350,22 @@ class MusicProvider extends ChangeNotifier {
       _widgetChannel.setMethodCallHandler((call) async {
         if (call.method == 'onWidgetAction') {
           await _handleWidgetAction(call.arguments as String?);
+        } else if (call.method == 'onPipChanged') {
+          final inPip = call.arguments == true;
+          if (!_pipController.isClosed) {
+            _pipController.add(inPip);
+          }
+        } else if (call.method == 'onCastSessionChanged') {
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          final connected = args?['connected'] == true;
+          final devName = args?['deviceName'] as String?;
+          _onCastSessionUpdated(connected, devName);
         }
       });
     }
     _prefs = await SharedPreferences.getInstance();
     _loadPersistedData();
+    unawaited(_syncAudioEffectsToPipeline());
     _invalidateLibraryCache();
 
     _initialized = true;
@@ -439,6 +522,19 @@ class MusicProvider extends ChangeNotifier {
     _favoriteIds =
         Set<String>.from(prefs.getStringList(_kFavoritesKey) ?? const []);
     _hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
+    _deadTrackIds =
+        Set<String>.from(prefs.getStringList(_kDeadLinksKey) ?? const []);
+    _hideDeadLinks = prefs.getBool(_kHideDeadLinksKey) ?? true;
+    _equalizerEnabled = prefs.getBool(_kEqEnabledKey) ?? false;
+    _activeEqPreset = prefs.getString(_kEqPresetKey) ?? 'Flat';
+    _bassBoostStrength = prefs.getDouble(_kBassBoostKey) ?? 0.0;
+    _loudnessGainDb = prefs.getDouble(_kLoudnessDbKey) ?? 0.0;
+    try {
+      final rawEq = prefs.getStringList(_kEqGainsKey);
+      if (rawEq != null && rawEq.length == 5) {
+        _eqBandGains = rawEq.map((e) => double.tryParse(e) ?? 0.0).toList();
+      }
+    } catch (_) {}
 
     try {
       final rawRecents = prefs.getStringList(_kRecentTracksKey) ?? const [];
@@ -1177,6 +1273,9 @@ class MusicProvider extends ChangeNotifier {
 
       _recordTrackPlayed(track);
       _syncHomeWidgets();
+      if (_isCastConnected) {
+        unawaited(_pushCurrentTrackToCast(positionMs: 0));
+      }
     } catch (e) {
       if (requestToken != _loadRequestToken) return;
       _isBuffering = false;
@@ -1217,6 +1316,12 @@ class MusicProvider extends ChangeNotifier {
           await _player.seek(Duration.zero);
         }
         await _player.play();
+        if (_isCastConnected) {
+          unawaited(
+            _widgetChannel.invokeMethod('castControl', {'action': 'play'})
+                .catchError((_) => false),
+          );
+        }
       }
     } catch (e) {
       _lastError = 'Gagal mengubah status putar: $e';
@@ -1226,11 +1331,25 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> pause() async {
     await _player.pause();
+    if (_isCastConnected) {
+      unawaited(
+        _widgetChannel.invokeMethod('castControl', {'action': 'pause'})
+            .catchError((_) => false),
+      );
+    }
   }
 
   Future<void> seekTo(Duration target) async {
     await _player.seek(target);
     _syncHomeWidgets();
+    if (_isCastConnected) {
+      unawaited(
+        _widgetChannel.invokeMethod('castControl', {
+          'action': 'seek',
+          'positionMs': target.inMilliseconds,
+        }).catchError((_) => false),
+      );
+    }
   }
 
   Future<void> playNext() async {
@@ -1410,6 +1529,207 @@ class MusicProvider extends ChangeNotifier {
     );
   }
 
+  static const Map<String, List<double>> eqPresets = {
+    'Flat': [0.0, 0.0, 0.0, 0.0, 0.0],
+    'Bass Boost': [6.5, 4.5, 0.0, 0.5, 1.0],
+    'Pop': [-1.0, 2.5, 4.0, 2.0, -1.0],
+    'Rock': [4.5, 2.5, -1.0, 3.0, 4.5],
+    'Jazz': [3.0, 1.5, -1.5, 2.0, 3.5],
+    'Vocal': [-2.0, -1.0, 4.5, 3.5, 1.0],
+  };
+
+  Future<void> setEqualizerEnabled(bool enabled) async {
+    _equalizerEnabled = enabled;
+    await _prefs?.setBool(_kEqEnabledKey, enabled);
+    await _syncAudioEffectsToPipeline();
+    notifyListeners();
+  }
+
+  Future<void> setEqBandGain(int index, double gainDb) async {
+    if (index < 0 || index >= _eqBandGains.length) return;
+    _eqBandGains[index] = gainDb.clamp(_eqMinDecibels, _eqMaxDecibels);
+    _activeEqPreset = 'Custom';
+    await _prefs?.setString(_kEqPresetKey, _activeEqPreset);
+    await _prefs?.setStringList(
+      _kEqGainsKey,
+      _eqBandGains.map((g) => g.toStringAsFixed(2)).toList(),
+    );
+    await _syncAudioEffectsToPipeline();
+    notifyListeners();
+  }
+
+  Future<void> applyEqPreset(String presetName) async {
+    final values = eqPresets[presetName];
+    if (values == null) return;
+    _activeEqPreset = presetName;
+    _eqBandGains = List<double>.from(values);
+    _equalizerEnabled = presetName != 'Flat' || _bassBoostStrength > 0;
+    await _prefs?.setString(_kEqPresetKey, presetName);
+    await _prefs?.setBool(_kEqEnabledKey, _equalizerEnabled);
+    await _prefs?.setStringList(
+      _kEqGainsKey,
+      _eqBandGains.map((g) => g.toStringAsFixed(2)).toList(),
+    );
+    await _syncAudioEffectsToPipeline();
+    notifyListeners();
+  }
+
+  Future<void> setBassBoost(double strength) async {
+    _bassBoostStrength = strength.clamp(0.0, 1.0);
+    if (_bassBoostStrength > 0 && !_equalizerEnabled) {
+      _equalizerEnabled = true;
+      await _prefs?.setBool(_kEqEnabledKey, true);
+    }
+    await _prefs?.setDouble(_kBassBoostKey, _bassBoostStrength);
+    await _syncAudioEffectsToPipeline();
+    notifyListeners();
+  }
+
+  Future<void> setLoudnessGain(double gainDb) async {
+    _loudnessGainDb = gainDb.clamp(0.0, 10.0);
+    await _prefs?.setDouble(_kLoudnessDbKey, _loudnessGainDb);
+    await _syncAudioEffectsToPipeline();
+    notifyListeners();
+  }
+
+  Future<void> _syncAudioEffectsToPipeline() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final eq = _androidEqualizer;
+      if (eq != null) {
+        await eq.setEnabled(_equalizerEnabled);
+        final params = await eq.parameters;
+        _eqMinDecibels = params.minDecibels;
+        _eqMaxDecibels = params.maxDecibels;
+        final bands = params.bands;
+        final labels = <String>[];
+        for (int i = 0; i < bands.length && i < _eqBandGains.length; i++) {
+          final hz = bands[i].centerFrequency.round();
+          labels.add(hz >= 1000 ? '${(hz / 1000).toStringAsFixed(1)}kHz' : '${hz}Hz');
+          final bassExtra = (i == 0 ? _bassBoostStrength * 6.0 : (i == 1 ? _bassBoostStrength * 3.5 : 0.0));
+          final targetGain = (_eqBandGains[i] + bassExtra).clamp(
+            params.minDecibels,
+            params.maxDecibels,
+          );
+          await bands[i].setGain(targetGain);
+        }
+        if (labels.length == 5) {
+          _eqBandLabels = labels;
+        }
+      }
+
+      final loudness = _androidLoudness;
+      if (loudness != null) {
+        await loudness.setEnabled(_loudnessGainDb > 0.05);
+        await loudness.setTargetGain(_loudnessGainDb / 10.0);
+      }
+    } catch (_) {
+      // Safe fallback when pipeline isn't attached to an active session yet
+    }
+  }
+
+  Future<LinkCheckResult> checkPlaylistLinks(String playlistId) async {
+    final idx = _playlists.indexWhere((p) => p.id == playlistId);
+    if (idx < 0) {
+      return const LinkCheckResult(totalChecked: 0, onlineCount: 0, deadTrackIds: {});
+    }
+    final playlist = _playlists[idx];
+    _isCheckingLinks = true;
+    _linkCheckDone = 0;
+    _linkCheckTotal = playlist.tracks.where((t) => !t.isLocalFile).length;
+    notifyListeners();
+
+    try {
+      final res = await LinkCheckerService.checkTracks(
+        playlist.tracks,
+        onProgress: (done, total) {
+          _linkCheckDone = done;
+          _linkCheckTotal = total;
+          notifyListeners();
+        },
+      );
+      final playlistTrackIds = playlist.tracks.map((t) => t.id).toSet();
+      _deadTrackIds.removeWhere(playlistTrackIds.contains);
+      _deadTrackIds.addAll(res.deadTrackIds);
+      await _prefs?.setStringList(_kDeadLinksKey, _deadTrackIds.toList());
+      return res;
+    } finally {
+      _isCheckingLinks = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setHideDeadLinks(bool hide) async {
+    _hideDeadLinks = hide;
+    await _prefs?.setBool(_kHideDeadLinksKey, hide);
+    notifyListeners();
+  }
+
+  Future<void> unhideAllLinks() async {
+    _deadTrackIds.clear();
+    await _prefs?.setStringList(_kDeadLinksKey, const []);
+    notifyListeners();
+  }
+
+  Future<bool> enterPictureInPicture() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final ok = await _widgetChannel.invokeMethod<bool>('enterPictureInPicture');
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> openCastPicker() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _widgetChannel.invokeMethod<bool>('openCastDialog');
+    } catch (_) {}
+  }
+
+  Future<void> disconnectCast() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _widgetChannel.invokeMethod<bool>('disconnectCast');
+    } catch (_) {}
+    _isCastConnected = false;
+    _castDeviceName = null;
+    notifyListeners();
+  }
+
+  void _onCastSessionUpdated(bool connected, String? deviceName) {
+    _isCastConnected = connected;
+    _castDeviceName = deviceName;
+    notifyListeners();
+    if (connected && currentTrack != null) {
+      unawaited(_pushCurrentTrackToCast(positionMs: _positionNotifier.value.inMilliseconds));
+    }
+  }
+
+  Future<void> _pushCurrentTrackToCast({int positionMs = 0}) async {
+    final track = currentTrack;
+    if (track == null || !_isCastConnected || !Platform.isAndroid) return;
+    try {
+      String? url;
+      String mime = 'audio/mpeg';
+      if (track.playsFromLocalFile) {
+        url = await _castServer.serveLocalFile(track.playableSource);
+        mime = CastMediaServer.mimeTypeForPath(track.playableSource);
+      } else {
+        url = track.playableSource;
+      }
+      if (url == null || url.isEmpty) return;
+      await _widgetChannel.invokeMethod<bool>('castPlayMedia', {
+        'url': url,
+        'title': track.title,
+        'subtitle': '${track.artist} • ${track.directoryName}',
+        'mimeType': mime,
+        'positionMs': positionMs,
+      });
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _sleepTimer?.cancel();
@@ -1417,6 +1737,8 @@ class MusicProvider extends ChangeNotifier {
       sub.cancel();
     }
     _subscriptions.clear();
+    _pipController.close();
+    unawaited(_castServer.dispose());
     _positionNotifier.dispose();
     _bufferedPositionNotifier.dispose();
     _player.dispose();

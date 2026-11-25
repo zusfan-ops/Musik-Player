@@ -265,7 +265,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                   separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (ctx, idx) {
                     final m = continueWatching[idx];
-                    return _ContinueWatchingMovieCard(
+                    return JellyfinContinueWatchingCard(
                       movie: m,
                       progress: jf.movieProgressRatio(m),
                     );
@@ -557,18 +557,20 @@ class _MovieHeroBanner extends StatelessWidget {
   }
 }
 
-class _ContinueWatchingMovieCard extends StatelessWidget {
+class JellyfinContinueWatchingCard extends StatelessWidget {
   final JellyfinMovieItem movie;
-  final double progress;
+  final double? progress;
 
-  const _ContinueWatchingMovieCard({
+  const JellyfinContinueWatchingCard({
+    super.key,
     required this.movie,
-    required this.progress,
+    this.progress,
   });
 
   @override
   Widget build(BuildContext context) {
     final jf = context.watch<ProfileJellyfinProvider>();
+    final effectiveProgress = progress ?? jf.movieProgressRatio(movie);
 
     return GestureDetector(
       onTap: () {
@@ -623,7 +625,7 @@ class _ContinueWatchingMovieCard extends StatelessWidget {
                 ),
               ),
               LinearProgressIndicator(
-                value: progress,
+                value: effectiveProgress,
                 minHeight: 3,
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -1010,6 +1012,80 @@ class JellyfinMovieDetailSheet extends StatelessWidget {
                       label: const Text('Mode HLS'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Consumer<ProfileJellyfinProvider>(
+                  builder: (ctx, jfWatch, _) {
+                    final isOffline = jfWatch.isMovieOfflineReady(movie.id);
+                    final isDownloading = jfWatch.isMovieDownloading(movie.id);
+                    final dlProgress = jfWatch.movieDownloadProgress(movie.id);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (isDownloading) ...[
+                          LinearProgressIndicator(
+                            value: dlProgress > 0 ? dlProgress : null,
+                            color: AppColors.spotifyGreen,
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.1),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Mengunduh film offline (${(dlProgress * 100).round()}%)...',
+                            style: const TextStyle(
+                              color: AppColors.spotifyGreen,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ] else if (isOffline)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.spotifyGreen,
+                              side: BorderSide(
+                                color: AppColors.spotifyGreen
+                                    .withValues(alpha: 0.5),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await jfWatch.removeOfflineMovie(movie.id);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Film offline dihapus dari penyimpanan.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.offline_pin_rounded),
+                            label: const Text('Tersimpan Offline (Ketuk Hapus)'),
+                          )
+                        else
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.neonCyan,
+                              side: BorderSide(
+                                color: AppColors.neonCyan
+                                    .withValues(alpha: 0.45),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              jfWatch.downloadMovieOffline(movie);
+                            },
+                            icon: const Icon(Icons.download_for_offline_rounded),
+                            label: const Text('Unduh Film untuk Nonton Offline'),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Text(
