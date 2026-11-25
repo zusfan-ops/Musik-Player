@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.2.1/M3UMusik-v1.2.1-arm64-v8a.apk",
-    "build_number":  4,
-    "version":  "1.2.1",
-    "release_date":  "2026-11-25 10:28:31",
-    "changelog":  "Update v1.1.1: Tambah M3U Video \u0026 Live TV Player otomatis (Portrait Split + Fullscreen Landscape) \u0026 dukungan header IPTV"
+    "download_url":  "/release/1.2.2/M3UMusik-v1.2.2-arm64-v8a.apk",
+    "build_number":  5,
+    "version":  "1.2.2",
+    "release_date":  "2026-11-25 10:38:30",
+    "changelog":  "Fix autentikasi Jellyfin 10.11+ (Authorization: MediaBrowser)"
 }

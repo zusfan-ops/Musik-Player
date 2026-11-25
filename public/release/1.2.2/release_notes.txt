@@ -1,0 +1,1 @@
+﻿Fix autentikasi Jellyfin 10.11+ (Authorization: MediaBrowser)
