@@ -1,0 +1,1 @@
+﻿Update v1.1.0: Logo2 branding, Halaman Profil & Avatar, serta Pemutar Film Jellyfin

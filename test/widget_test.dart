@@ -1,0 +1,198 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:musik_m3u_player/main.dart';
+import 'package:musik_m3u_player/models/music_models.dart';
+import 'package:musik_m3u_player/services/directory_scanner_service.dart';
+import 'package:musik_m3u_player/services/jellyfin_service.dart';
+import 'package:musik_m3u_player/services/m3u_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  group('M3uService, DirectoryScanner & JellyfinService Unit Tests', () {
+    test('Parses Extended M3U with local relative/absolute paths and HTTP URLs', () {
+      const sampleM3u = '''
+#EXTM3U
+#PLAYLIST:Koleksi Hits Offline & Stream
+#EXTINF:245 group-title="Pop Indonesia" tvg-logo="https://img.example.com/1.jpg",Tulus - Hati-Hati di Jalan
+subfolder/hati_hati_di_jalan.mp3
+#EXTINF:198 group-title="Rock",Dewa 19 - Kangen
+/storage/emulated/0/Music/Rock/dewa19_kangen.flac
+#EXTINF:-1 group-title="Radio Live",Prambors FM - Live Stream
+https://stream.example.com/live.mp3
+''';
+
+      final result = M3uService.parseM3uContent(
+        content: sampleM3u,
+        playlistId: 'pl_test_1',
+        fallbackPlaylistName: 'Fallback Name',
+        baseDirectoryPath: '/storage/emulated/0/Playlists',
+      );
+
+      expect(result.embeddedTitle, 'Koleksi Hits Offline & Stream');
+      expect(result.tracks.length, 3);
+      expect(result.tracks[0].artist, 'Tulus');
+      expect(result.tracks[0].isOfflineReady, isTrue);
+      expect(result.tracks[0].isVideo, isFalse);
+      expect(result.tracks[2].sourceType, TrackSourceType.remoteStream);
+      expect(result.tracks[2].isOfflineReady, isFalse);
+    });
+
+    test('Detects IPTV / Video M3U streams, parses #EXTVLCOPT headers, and cleans Undefined groups', () {
+      const iptvM3u = '''
+#EXTM3U
+#EXTINF:-1 tvg-id="tvone.id" tvg-logo="https://img.example.com/tvone.png" group-title="Undefined",tvOne HD (720p)
+#EXTVLCOPT:http-user-agent=VLC/3.0.20
+#EXTVLCOPT:http-referrer=https://tvone.example.com/
+https://live.example.com/tvone/index.m3u8
+''';
+
+      final parsed = M3uService.parseM3uContent(
+        content: iptvM3u,
+        playlistId: 'pl_iptv',
+        fallbackPlaylistName: 'TV Nasional',
+      );
+
+      expect(parsed.tracks.length, 1);
+      final ch = parsed.tracks.first;
+      expect(ch.title, 'tvOne HD (720p)');
+      expect(ch.isVideo, isTrue);
+      expect(ch.groupTitle, isNull);
+      expect(ch.directoryName, 'TV Nasional');
+      expect(ch.httpHeaders?['User-Agent'], 'VLC/3.0.20');
+      expect(ch.httpHeaders?['Referer'], 'https://tvone.example.com/');
+    });
+
+    test('Generates short deterministic filename stems (< 48 chars) preventing ENAMETOOLONG', () {
+      final veryLongUrl =
+          'https://cdn.example.com/music/${'a' * 400}/track_with_very_long_query.mp3?token=${'x' * 200}';
+      final id = TrackItem.generateId(veryLongUrl, playlistId: 'playlist_long');
+      final stem = M3uService.safeCacheFileStem(veryLongUrl, prefix: 'aud');
+
+      expect(id.length, lessThan(48));
+      expect(stem.length, lessThan(48));
+    });
+
+    test('Resolves Android SAF content:// tree and document URIs accurately', () {
+      final docUri = Uri.parse(
+        'content://com.android.externalstorage.documents/document/primary%3AMusic%2FIndo%2Fhits.m3u8',
+      );
+      final treeUri = Uri.parse(
+        'content://com.android.externalstorage.documents/tree/primary%3AMusic%2FRock',
+      );
+      expect(
+        DirectoryScannerService.resolveAndroidSafUriToPath(docUri),
+        '/storage/emulated/0/Music/Indo/hits.m3u8',
+      );
+      expect(
+        DirectoryScannerService.resolveAndroidSafUriToPath(treeUri),
+        '/storage/emulated/0/Music/Rock',
+      );
+    });
+
+    test('Normalizes Jellyfin URLs, validates API keys, builds clean stream URIs, and scrubs secrets', () {
+      expect(
+        JellyfinService.normalizeServerUrl('192.168.1.50:8096///'),
+        'http://192.168.1.50:8096',
+      );
+      expect(
+        JellyfinService.validateApiKey('  abcdef1234567890  '),
+        'abcdef1234567890',
+      );
+      expect(
+        () => JellyfinService.validateApiKey('short'),
+        throwsFormatException,
+      );
+
+      final directUri = JellyfinService.buildDirectStreamUri(
+        serverUrl: 'https://jf.example.com',
+        itemId: 'movie123',
+        mediaSourceId: 'ms456',
+      );
+      expect(directUri.toString(), contains('/Videos/movie123/stream'));
+      expect(directUri.toString(), isNot(contains('api_key')));
+
+      final hlsUri = JellyfinService.buildHlsStreamUri(
+        serverUrl: 'https://jf.example.com',
+        itemId: 'movie123',
+        mediaSourceId: null,
+        playSessionId: 'ps_1',
+      );
+      expect(hlsUri.queryParameters['MediaSourceId'], 'movie123');
+      expect(hlsUri.queryParameters['DeviceId'], JellyfinService.defaultDeviceId);
+      expect(hlsUri.queryParameters['SegmentContainer'], 'ts');
+
+      final headers = JellyfinService.buildAuthHeaders('testkey123456');
+      expect(headers['Authorization'], startsWith('MediaBrowser '));
+      expect(headers['Authorization'], contains('Token="testkey123456"'));
+
+      final scrubbed = JellyfinService.sanitizeErrorMessage(
+        'Failed with key secretToken999 and api_key=secretToken999',
+        'secretToken999',
+      );
+      expect(scrubbed, isNot(contains('secretToken999')));
+    });
+  });
+
+  testWidgets(
+      'MusikM3uApp renders logo2 splash, navigates to Film Jellyfin and Profil & Setting',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const MusikM3uApp(autoScanOnInit: false));
+
+    // Initial splash screen with M3U MUSIK branding
+    expect(find.text('M3U MUSIK'), findsOneWidget);
+
+    // Advance past splash gate timer and settle provider initialization
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump(const Duration(seconds: 3));
+
+    // Main 5-tab Netflix x Spotify shell should be visible
+    expect(find.text('M3U Musik'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Film'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Profil'),
+      ),
+      findsOneWidget,
+    );
+
+    // Open Film Jellyfin tab
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Film'),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Input API Code Jellyfin di Setting'), findsOneWidget);
+
+    // Open Profil & Setting tab
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Profil'),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Profil & Setting'), findsOneWidget);
+    expect(find.text('Pilih Karakter Avatar Preset'), findsOneWidget);
+
+    // Scroll down inside ProfileSettingsScreen ListView to verify Jellyfin API section
+    await tester.scrollUntilVisible(
+      find.text('Integrasi Server & API Code Jellyfin'),
+      250,
+      scrollable: find.descendant(
+        of: find.byType(Scaffold).last,
+        matching: find.byType(Scrollable).first,
+      ),
+    );
+    expect(find.text('Integrasi Server & API Code Jellyfin'), findsOneWidget);
+  });
+}
