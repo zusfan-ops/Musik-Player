@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../screens/now_playing_sheet.dart';
 import '../theme/app_theme.dart';
@@ -53,7 +56,7 @@ class MiniPlayerBar extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
                 child: Row(
                   children: [
-                    const AppLogo(size: 42, borderRadius: 10),
+                    _MiniArtwork(track: track),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -177,5 +180,40 @@ class MiniPlayerBar extends StatelessWidget {
       ),
     ),
     );
+  }
+}
+
+class _MiniArtwork extends StatelessWidget {
+  final TrackItem track;
+
+  const _MiniArtwork({required this.track});
+
+  @override
+  Widget build(BuildContext context) {
+    if (track.hasLocalArtwork) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          File(track.artworkUrl!),
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const AppLogo(size: 42, borderRadius: 10),
+        ),
+      );
+    }
+    if (track.hasValidNetworkArtwork) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          track.artworkUrl!,
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const AppLogo(size: 42, borderRadius: 10),
+        ),
+      );
+    }
+    return const AppLogo(size: 42, borderRadius: 10);
   }
 }

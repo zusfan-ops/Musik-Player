@@ -354,7 +354,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
               _StatMiniCard(
                 value: '${music.playlists.length}',
-                label: 'M3U',
+                label: 'TV',
                 color: AppColors.neonPurple,
               ),
               _StatMiniCard(
@@ -501,7 +501,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
               ),
               subtitle: const Text(
-                'Cara scan musik, import M3U, Hallsem Cinema & Widget',
+                'Cara scan musik, import TV, Hallsem Cinema & Widget',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
@@ -635,7 +635,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: const Text(
-                      'Segarkan pengelompokan folder lokal & deteksi M3U',
+                      'Segarkan pengelompokan folder lokal & deteksi playlist TV',
                     ),
                     trailing: music.isScanning
                         ? const SizedBox(
@@ -753,7 +753,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(
-                      'Offline M3U, Direktori, IPTV Video & Hallsem Cinema',
+                      'Musik Offline, Direktori, TV & IPTV, dan Hallsem Cinema',
                     ),
                   ),
                 ],

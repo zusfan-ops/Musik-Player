@@ -38,15 +38,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ],
     ),
     _OnboardingSlide(
-      badge: 'LANGKAH 2 • PLAYLIST M3U',
-      title: 'Import Playlist M3U & IPTV',
+      badge: 'LANGKAH 2 • PLAYLIST TV',
+      title: 'Import Playlist TV & IPTV',
       description:
-          'Masuk ke tab M3U lalu tempel URL playlist (.m3u / .m3u8) atau pilih file lokal dari perangkat Anda.\n\nLagu dari M3U dapat diunduh lewat tombol "Simpan Offline" agar tetap bisa diputar tanpa kuota internet.',
-      icon: Icons.queue_music_rounded,
+          'Masuk ke tab TV lalu tempel URL playlist (.m3u / .m3u8) atau pilih file lokal dari perangkat Anda.\n\nSaluran TV Indonesia sudah tersedia otomatis dan dapat ditambah atau diganti kapan saja.',
+      icon: Icons.live_tv_rounded,
       accentColor: AppColors.neonCyan,
       tips: [
-        'Saluran video/IPTV di dalam file M3U otomatis terdeteksi & diputar di pemutar video.',
-        'Atur playlist aktif/nonaktif dengan mudah lewat tombol switch.',
+        'Saluran video/IPTV di dalam file playlist TV otomatis terdeteksi & diputar di pemutar video.',
+        'Atur playlist TV aktif/nonaktif dengan mudah lewat tombol switch.',
       ],
     ),
     _OnboardingSlide(

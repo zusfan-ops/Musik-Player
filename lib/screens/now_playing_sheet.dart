@@ -163,7 +163,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                 children: [
                                   Text(
                                     track.playlistId != null
-                                        ? 'MEMUTAR DARI PLAYLIST M3U'
+                                        ? 'MEMUTAR DARI PLAYLIST TV'
                                         : 'MEMUTAR DARI DIREKTORI',
                                     style: const TextStyle(
                                       color: AppColors.spotifyGreen,

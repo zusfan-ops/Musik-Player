@@ -774,35 +774,64 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                                 music.isYouTubeVideoDownloaded(item.videoId);
                             final isBusy =
                                 music.isYouTubeVideoDownloading(item.videoId);
-                            return _NewTubeChipBtn(
-                              icon: isDone
-                                  ? Icons.download_done_rounded
-                                  : (isBusy
-                                      ? Icons.downloading_rounded
-                                      : Icons.download_rounded),
-                              label: isDone
-                                  ? 'Offline'
-                                  : (isBusy ? 'Mengunduh...' : 'Unduh'),
-                              color: isDone
-                                  ? const Color(0xFF1D8F52)
-                                  : AppColors.neonPurple,
-                              onTap: () async {
-                                if (isBusy) return;
-                                final messenger = ScaffoldMessenger.of(ctx);
-                                final ok =
-                                    await music.downloadNewTubeTrack(item);
-                                if (!ctx.mounted) return;
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? 'Disimpan ke Direktori "Lagu Offline": ${item.title}'
-                                          : (music.lastError ??
-                                              'Gagal mengunduh "${item.title}".'),
-                                    ),
+                            return Wrap(
+                              spacing: 6,
+                              children: [
+                                _NewTubeChipBtn(
+                                  icon: isDone
+                                      ? Icons.download_done_rounded
+                                      : (isBusy
+                                          ? Icons.downloading_rounded
+                                          : Icons.download_rounded),
+                                  label: isDone
+                                      ? 'Offline'
+                                      : (isBusy ? 'Mengunduh...' : 'Unduh'),
+                                  color: isDone
+                                      ? const Color(0xFF1D8F52)
+                                      : AppColors.neonPurple,
+                                  onTap: () async {
+                                    if (isBusy || isDone) return;
+                                    final messenger = ScaffoldMessenger.of(ctx);
+                                    final ok =
+                                        await music.downloadNewTubeTrack(item);
+                                    if (!ctx.mounted) return;
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Disimpan ke Direktori "Lagu Offline": ${item.title}'
+                                              : (music.lastError ??
+                                                  'Gagal mengunduh "${item.title}".'),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                if (isDone)
+                                  _NewTubeChipBtn(
+                                    icon: Icons.delete_outline_rounded,
+                                    label: 'Hapus',
+                                    color: AppColors.netflixRed,
+                                    onTap: () async {
+                                      final messenger =
+                                          ScaffoldMessenger.of(ctx);
+                                      final ok = await music
+                                          .deleteDownloadedYouTubeByVideoId(
+                                        item.videoId,
+                                      );
+                                      if (!ctx.mounted) return;
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            ok
+                                                ? 'File dihapus: ${item.title}'
+                                                : 'Gagal menghapus file.',
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
+                              ],
                             );
                           },
                         ),

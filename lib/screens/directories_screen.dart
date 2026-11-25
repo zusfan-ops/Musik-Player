@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -443,17 +446,41 @@ class _DirectoryGridTile extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.neonCyan.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.folder_copy_rounded,
-                    color: AppColors.neonCyan,
-                    size: 28,
-                  ),
+                Builder(
+                  builder: (_) {
+                    TrackItem? artTrack;
+                    for (final t in group.tracks) {
+                      if (t.hasLocalArtwork || t.hasValidNetworkArtwork) {
+                        artTrack = t;
+                        break;
+                      }
+                    }
+                    if (artTrack != null && artTrack.hasLocalArtwork) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(artTrack.artworkUrl!),
+                          width: 46,
+                          height: 46,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _defaultFolderIcon(),
+                        ),
+                      );
+                    }
+                    if (artTrack != null && artTrack.hasValidNetworkArtwork) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          artTrack.artworkUrl!,
+                          width: 46,
+                          height: 46,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _defaultFolderIcon(),
+                        ),
+                      );
+                    }
+                    return _defaultFolderIcon();
+                  },
                 ),
                 GestureDetector(
                   onTap: () => provider.playTrackList(group.tracks),
@@ -525,6 +552,21 @@ class _DirectoryGridTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _defaultFolderIcon() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.neonCyan.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.folder_copy_rounded,
+        color: AppColors.neonCyan,
+        size: 28,
+      ),
+    );
+  }
 }
 
 class DirectoryDetailScreen extends StatefulWidget {
@@ -543,12 +585,64 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
   String _filter = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          context.read<MusicProvider>().autoFetchMissingArtworkForTracks(
+                widget.group.tracks,
+                maxFetch: 30,
+              ),
+        );
+      }
+    });
+  }
+
+  Widget _buildHeaderArtwork(TrackItem? artTrack) {
+    if (artTrack != null && artTrack.hasLocalArtwork) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.file(
+          File(artTrack.artworkUrl!),
+          width: 92,
+          height: 92,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              const AppLogo(size: 92, borderRadius: 20, showGlow: true),
+        ),
+      );
+    }
+    if (artTrack != null && artTrack.hasValidNetworkArtwork) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.network(
+          artTrack.artworkUrl!,
+          width: 92,
+          height: 92,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              const AppLogo(size: 92, borderRadius: 20, showGlow: true),
+        ),
+      );
+    }
+    return const AppLogo(size: 92, borderRadius: 20, showGlow: true);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicProvider>();
     final liveGroup = provider.combinedDirectoryGroups.firstWhere(
       (g) => g.directoryPath == widget.group.directoryPath,
       orElse: () => widget.group,
     );
+    TrackItem? folderArtTrack;
+    for (final t in liveGroup.tracks) {
+      if (t.hasLocalArtwork || t.hasValidNetworkArtwork) {
+        folderArtTrack = t;
+        break;
+      }
+    }
     final tracks = _filter.trim().isEmpty
         ? liveGroup.tracks
         : liveGroup.tracks
@@ -566,7 +660,15 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
             backgroundColor: AppColors.surface,
             actions: [
               IconButton(
-                tooltip: 'Jadikan Playlist M3U Offline',
+                tooltip: 'Cari Artwork Otomatis',
+                icon: const Icon(Icons.image_search_rounded),
+                onPressed: () => provider.autoFetchMissingArtworkForTracks(
+                  liveGroup.tracks,
+                  maxFetch: 40,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Jadikan Playlist TV Offline',
                 icon: const Icon(Icons.playlist_add_check_circle_outlined),
                 onPressed: () async {
                   final pl = await provider.createOfflinePlaylistFromTracks(
@@ -577,7 +679,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Playlist M3U "${pl.name}" berhasil dibuat!',
+                          'Playlist TV "${pl.name}" berhasil dibuat!',
                         ),
                       ),
                     );
@@ -586,55 +688,87 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppColors.spotifyHeroGradient,
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 88, 20, 20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const AppLogo(size: 92, borderRadius: 20, showGlow: true),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'DIREKTORI LOKAL',
-                            style: TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            liveGroup.directoryName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            liveGroup.directoryPath,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11.5,
-                            ),
-                          ),
-                        ],
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (folderArtTrack != null && folderArtTrack.hasLocalArtwork)
+                    Opacity(
+                      opacity: 0.25,
+                      child: Image.file(
+                        File(folderArtTrack.artworkUrl!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    )
+                  else if (folderArtTrack != null &&
+                      folderArtTrack.hasValidNetworkArtwork)
+                    Opacity(
+                      opacity: 0.25,
+                      child: Image.network(
+                        folderArtTrack.artworkUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ),
-                  ],
-                ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.spotifyGreen.withValues(alpha: 0.84),
+                          AppColors.darkNav.withValues(alpha: 0.72),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 88, 20, 20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildHeaderArtwork(folderArtTrack),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'DIREKTORI LOKAL',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                liveGroup.directoryName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                liveGroup.directoryPath,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -689,14 +823,40 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
             delegate: SliverChildBuilderDelegate(
               (ctx, idx) {
                 final track = tracks[idx];
-                return TrackTile(
-                  track: track,
-                  indexNumber: idx + 1,
-                  showDirectoryBadge: false,
-                  onTap: () => provider.playTrackList(
-                    tracks,
-                    initialIndex: idx,
-                  ),
+                final isYtOffline = provider.isYouTubeOfflineTrack(track);
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TrackTile(
+                        track: track,
+                        indexNumber: idx + 1,
+                        showDirectoryBadge: false,
+                        onTap: () => provider.playTrackList(
+                          tracks,
+                          initialIndex: idx,
+                        ),
+                      ),
+                    ),
+                    if (isYtOffline)
+                      IconButton(
+                        tooltip: 'Hapus File YouTube',
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.netflixRed,
+                          size: 20,
+                        ),
+                        onPressed: () async {
+                          final ok = await provider.deleteDownloadedTrack(track);
+                          if (ctx.mounted && ok) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Dihapus: ${track.title}'),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                  ],
                 );
               },
               childCount: tracks.length,

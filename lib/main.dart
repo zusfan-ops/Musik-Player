@@ -130,7 +130,7 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Offline Music • Multi-M3U • Hallsem Cinema',
+                'Offline Music • TV & IPTV • Hallsem Cinema',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12.5,
@@ -336,7 +336,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       icon: Icons.menu_book_rounded,
                       color: AppColors.neonCyan,
                       title: 'Panduan Penggunaan',
-                      subtitle: 'Cara pakai musik lokal, M3U, YouTube & Widget',
+                      subtitle: 'Cara pakai musik lokal, TV, YouTube & Widget',
                       selected: false,
                       onTap: () {
                         Navigator.pop(sheetCtx);
@@ -463,9 +463,9 @@ class _ModernBottomNavBar extends StatelessWidget {
       label: 'Folder',
     ),
     (
-      icon: Icons.queue_music_outlined,
-      selectedIcon: Icons.queue_music_rounded,
-      label: 'M3U',
+      icon: Icons.live_tv_outlined,
+      selectedIcon: Icons.live_tv_rounded,
+      label: 'TV',
     ),
     (
       icon: Icons.smart_display_outlined,

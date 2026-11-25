@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<TrackItem> previewTracks = switch (_selectedChip) {
       'Offline Ready' => allTracks.where((t) => t.isOfflineReady).toList(),
       'Direktori' => [for (final g in directories) ...g.tracks],
-      'Playlist M3U' => [
+      'TV' => [
           for (final pl in playlists)
             if (pl.isEnabled) ...pl.tracks,
         ],
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             IconButton(
               visualDensity: VisualDensity.compact,
-              tooltip: 'Tambah Playlist M3U (File / Link)',
+              tooltip: 'Tambah Playlist TV (File / Link)',
               icon: const Icon(Icons.playlist_add_circle_outlined),
               onPressed: () => AddM3uBottomSheet.show(context),
             ),
@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   for (final label in const [
                     'Semua',
                     'Direktori',
-                    'Playlist M3U',
+                    'TV',
                     'Offline Ready',
                   ])
                     Padding(
@@ -312,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // 2a-bis. M3U & CHANNEL FAVORIT ROW
         if (provider.favoriteTracks.any((t) => t.playlistId != null) &&
-            (_selectedChip == 'Semua' || _selectedChip == 'Playlist M3U')) ...[
+            (_selectedChip == 'Semua' || _selectedChip == 'TV')) ...[
           Builder(
             builder: (ctx) {
               final m3uFavs = provider.favoriteTracks
@@ -323,9 +323,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SectionHeader(
-                      badge: 'M3U FAVORIT',
-                      title: 'Favorit M3U & Channel (${m3uFavs.length})',
-                      actionLabel: 'Buka M3U',
+                      badge: 'TV FAVORIT',
+                      title: 'Favorit TV & Channel (${m3uFavs.length})',
+                      actionLabel: 'Buka TV',
                       onAction: () => widget.onNavigateTab(2),
                     ),
                     SizedBox(
@@ -548,28 +548,28 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
 
-        // 5. MULTI-M3U PLAYLISTS SWIMLANE (FILE & LINK)
+        // 5. TV & IPTV PLAYLISTS SWIMLANE (FILE & LINK)
         if (_selectedChip == 'Semua' ||
-            _selectedChip == 'Playlist M3U' ||
+            _selectedChip == 'TV' ||
             _selectedChip == 'Offline Ready') ...[
           SliverToBoxAdapter(
             child: _SectionHeader(
-              badge: 'MULTI M3U',
-              title: 'Playlist M3U File & Link (${playlists.length})',
-              actionLabel: '+ Tambah M3U',
+              badge: 'PLAYLIST TV',
+              title: 'TV File & Link (${playlists.length})',
+              actionLabel: '+ Tambah TV',
               onAction: () => AddM3uBottomSheet.show(context),
             ),
           ),
           if (playlists.isEmpty)
             SliverToBoxAdapter(
               child: _EmptyCalloutCard(
-                icon: Icons.queue_music_rounded,
-                title: 'Tambahkan Banyak Playlist M3U',
+                icon: Icons.live_tv_rounded,
+                title: 'Tambahkan Banyak Playlist TV',
                 subtitle:
                     'Dukung banyak file .m3u/.m3u8 offline maupun alamat link URL sekaligus.',
-                primaryLabel: 'Impor File M3U',
+                primaryLabel: 'Impor File TV',
                 onPrimary: provider.pickAndImportM3uFiles,
-                secondaryLabel: 'Tambah Link M3U',
+                secondaryLabel: 'Tambah Link TV',
                 onSecondary: () =>
                     AddM3uBottomSheet.show(context, startWithUrlTab: true),
               ),
@@ -743,7 +743,7 @@ class _NetflixHeroBillboard extends StatelessWidget {
     final String heroTitle = featuredTrack?.title ?? 'MediaCenter & Direktori';
     final String heroSubtitle = featuredTrack != null
         ? '${featuredTrack.artist} • ${featuredTrack.directoryName}'
-        : 'Pemutar Musik Offline, Pengelompokan Direktori & Multi-Playlist M3U (File/Link)';
+        : 'Pemutar Musik Offline, Pengelompokan Direktori & Multi-Playlist TV (File/Link)';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
@@ -762,15 +762,40 @@ class _NetflixHeroBillboard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Subtle oversized background logo watermark
-          Positioned(
-            right: -30,
-            top: -20,
-            child: Opacity(
-              opacity: 0.16,
-              child: const AppLogo(size: 230, borderRadius: 48),
+          // Subtle oversized background artwork/logo watermark
+          if (featuredTrack != null && featuredTrack.hasLocalArtwork)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Opacity(
+                opacity: 0.24,
+                child: Image.file(
+                  File(featuredTrack.artworkUrl!),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            )
+          else if (featuredTrack != null && featuredTrack.hasValidNetworkArtwork)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Opacity(
+                opacity: 0.24,
+                child: Image.network(
+                  featuredTrack.artworkUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            )
+          else
+            Positioned(
+              right: -30,
+              top: -20,
+              child: Opacity(
+                opacity: 0.16,
+                child: const AppLogo(size: 230, borderRadius: 48),
+              ),
             ),
-          ),
           // Subtle warm gradient vignette at bottom for crisp text legibility
           Container(
             decoration: BoxDecoration(
@@ -815,7 +840,7 @@ class _NetflixHeroBillboard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${directories.length} Direktori • ${playlists.length} M3U • ${allTracks.length} Lagu',
+                        '${directories.length} Direktori • ${playlists.length} TV • ${allTracks.length} Lagu',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -831,7 +856,39 @@ class _NetflixHeroBillboard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const AppLogo(size: 74, borderRadius: 18, showGlow: true),
+                    if (featuredTrack != null && featuredTrack.hasLocalArtwork)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.file(
+                          File(featuredTrack.artworkUrl!),
+                          width: 74,
+                          height: 74,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const AppLogo(
+                            size: 74,
+                            borderRadius: 18,
+                            showGlow: true,
+                          ),
+                        ),
+                      )
+                    else if (featuredTrack != null &&
+                        featuredTrack.hasValidNetworkArtwork)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(
+                          featuredTrack.artworkUrl!,
+                          width: 74,
+                          height: 74,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const AppLogo(
+                            size: 74,
+                            borderRadius: 18,
+                            showGlow: true,
+                          ),
+                        ),
+                      )
+                    else
+                      const AppLogo(size: 74, borderRadius: 18, showGlow: true),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -932,12 +989,12 @@ class _NetflixHeroBillboard extends StatelessWidget {
                         ),
                         onPressed: () => AddM3uBottomSheet.show(context),
                         icon: const Icon(
-                          Icons.playlist_add_rounded,
+                          Icons.live_tv_rounded,
                           color: AppColors.neonCyan,
                           size: 22,
                         ),
                         label: const Text(
-                          '+ Playlist M3U',
+                          '+ Playlist TV',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13.5,
@@ -995,7 +1052,7 @@ class _SpotifyQuickGrid extends StatelessWidget {
         onTap: openLibrary,
       ),
       (
-        title: 'M3U Favorit',
+        title: 'TV Favorit',
         subtitle: '${m3uFavTracks.length} channel & lagu',
         icon: Icons.star_rounded,
         accent: AppColors.neonPurple,
@@ -1015,9 +1072,9 @@ class _SpotifyQuickGrid extends StatelessWidget {
         onTap: () => onNavigateTab(1),
       ),
       (
-        title: 'Playlist M3U',
+        title: 'Playlist TV',
         subtitle: '${playlists.length} file & link',
-        icon: Icons.queue_music_rounded,
+        icon: Icons.live_tv_rounded,
         accent: AppColors.neonPurple,
         onTap: () => onNavigateTab(2),
       ),
@@ -1835,18 +1892,37 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.spotifyGreen.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.library_music_rounded,
-                  color: AppColors.spotifyGreen,
-                  size: 26,
-                ),
+              Builder(
+                builder: (_) {
+                  final artTrack = isPlayingOffline
+                      ? activeTrack
+                      : (offlineTracks.isNotEmpty ? offlineTracks.first : null);
+                  if (artTrack != null && artTrack.hasLocalArtwork) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.file(
+                        File(artTrack.artworkUrl!),
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _offlineDefaultThumb(),
+                      ),
+                    );
+                  }
+                  if (artTrack != null && artTrack.hasValidNetworkArtwork) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.network(
+                        artTrack.artworkUrl!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _offlineDefaultThumb(),
+                      ),
+                    );
+                  }
+                  return _offlineDefaultThumb();
+                },
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1960,6 +2036,22 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _offlineDefaultThumb() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppColors.spotifyGreen.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(
+        Icons.library_music_rounded,
+        color: AppColors.spotifyGreen,
+        size: 26,
       ),
     );
   }
@@ -2240,6 +2332,19 @@ class _YouTubeOfflineSection extends StatelessWidget {
                           ],
                         ),
                       ),
+                      IconButton(
+                        tooltip: 'Hapus Folder Ini',
+                        icon: const Icon(
+                          Icons.delete_sweep_rounded,
+                          color: AppColors.netflixRed,
+                        ),
+                        onPressed: () async {
+                          await provider.deleteOfflineFolder(
+                            folder.directoryPath,
+                          );
+                          if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                        },
+                      ),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.spotifyGreen,
@@ -2260,19 +2365,54 @@ class _YouTubeOfflineSection extends StatelessWidget {
                 ),
                 const Divider(height: 1, color: AppColors.surfaceHighlight),
                 Expanded(
-                  child: ListView.builder(
-                    controller: scrollCtrl,
-                    itemCount: folder.tracks.length,
-                    itemBuilder: (_, i) {
-                      final t = folder.tracks[i];
-                      return TrackTile(
-                        track: t,
-                        indexNumber: i + 1,
-                        onTap: () {
-                          Navigator.pop(sheetCtx);
-                          provider.playTrackList(
-                            folder.tracks,
-                            initialIndex: i,
+                  child: Consumer<MusicProvider>(
+                    builder: (_, liveProv, _) {
+                      final liveFolder = liveProv.youTubeOfflineFolders
+                          .cast<MusicDirectoryGroup?>()
+                          .firstWhere(
+                            (g) => g?.directoryPath == folder.directoryPath,
+                            orElse: () => null,
+                          );
+                      final list = liveFolder?.tracks ?? const [];
+                      if (list.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Semua lagu di folder ini telah dihapus.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        controller: scrollCtrl,
+                        itemCount: list.length,
+                        itemBuilder: (_, i) {
+                          final t = list[i];
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: TrackTile(
+                                  track: t,
+                                  indexNumber: i + 1,
+                                  onTap: () {
+                                    Navigator.pop(sheetCtx);
+                                    liveProv.playTrackList(
+                                      list,
+                                      initialIndex: i,
+                                    );
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Hapus Lagu',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.netflixRed,
+                                  size: 20,
+                                ),
+                                onPressed: () =>
+                                    liveProv.deleteDownloadedTrack(t),
+                              ),
+                            ],
                           );
                         },
                       );

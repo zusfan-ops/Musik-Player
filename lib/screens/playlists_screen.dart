@@ -35,7 +35,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Playlist M3U (File & Link)',
+                'TV & IPTV (File & Link)',
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -43,7 +43,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Tambah Playlist M3U',
+            tooltip: 'Tambah Playlist TV',
             icon: const Icon(Icons.add_circle_outline_rounded),
             onPressed: () => AddM3uBottomSheet.show(context),
           ),
@@ -51,7 +51,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Dual Source Action Cards (File M3U + Link URL M3U)
+          // Dual Source Action Cards (File TV + Link URL TV)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -63,7 +63,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       Expanded(
                         child: _QuickM3uSourceButton(
                           icon: Icons.upload_file_rounded,
-                          title: 'Impor File M3U',
+                          title: 'Impor File TV',
                           subtitle: 'Bisa pilih banyak file',
                           color: AppColors.spotifyGreen,
                           onTap: () async {
@@ -73,7 +73,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '$count file playlist M3U berhasil ditambahkan!',
+                                    '$count file playlist TV berhasil ditambahkan!',
                                   ),
                                 ),
                               );
@@ -85,7 +85,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       Expanded(
                         child: _QuickM3uSourceButton(
                           icon: Icons.add_link_rounded,
-                          title: 'Tambah Link M3U',
+                          title: 'Tambah Link TV',
                           subtitle: 'Satu / banyak URL',
                           color: AppColors.neonPurple,
                           onTap: () => AddM3uBottomSheet.show(
@@ -1068,9 +1068,9 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                 maxLines: 4,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
-                  labelText: 'Alamat Link M3U (Satu per baris untuk banyak link)',
+                  labelText: 'Alamat Link TV (.m3u / .m3u8, satu per baris)',
                   hintText:
-                      'https://server.com/playlist1.m3u\nhttps://server.com/playlist2.m3u8',
+                      'https://iptv-org.github.io/iptv/countries/id.m3u\nhttps://server.com/playlist2.m3u8',
                   filled: true,
                   fillColor: AppColors.surfaceElevated,
                   border: OutlineInputBorder(
@@ -1101,7 +1101,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '$added link playlist M3U berhasil ditambahkan!',
+                                    '$added link playlist TV berhasil ditambahkan!',
                                   ),
                                 ),
                               );
@@ -1129,14 +1129,14 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                         )
                       : const Icon(Icons.cloud_download_rounded),
                   label: Text(
-                    _submitting ? 'Mengimpor Link M3U...' : 'Simpan Link M3U',
+                    _submitting ? 'Mengimpor Link TV...' : 'Simpan Link TV',
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
             ] else ...[
               const Text(
-                'Buat File Playlist M3U Offline dari Koleksi Lokal',
+                'Buat File Playlist TV Offline dari Koleksi Lokal',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
               ),
               const SizedBox(height: 6),
@@ -1151,7 +1151,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: 'Nama Playlist M3U Offline',
+                  labelText: 'Nama Playlist TV Offline',
                   hintText: 'Contoh: Favorit Perjalanan Offline',
                   filled: true,
                   fillColor: AppColors.surfaceElevated,
@@ -1186,7 +1186,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Playlist M3U offline "$title" berhasil dibuat!',
+                                    'Playlist TV offline "$title" berhasil dibuat!',
                                   ),
                                 ),
                               );
@@ -1207,7 +1207,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                         },
                   icon: const Icon(Icons.save_rounded),
                   label: const Text(
-                    'Buat & Simpan File M3U Offline',
+                    'Buat & Simpan File TV Offline',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),

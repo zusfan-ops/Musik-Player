@@ -15,6 +15,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/music_models.dart';
+import '../services/artwork_service.dart';
 import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
 import '../services/link_checker_service.dart';
@@ -43,6 +44,9 @@ class MusicProvider extends ChangeNotifier {
   static const String _kBassBoostKey = 'eq_bass_boost_v1';
   static const String _kLoudnessDbKey = 'eq_loudness_db_v1';
   static const String _kAutoSyncYtPlaylistsKey = 'auto_sync_yt_playlists_v1';
+  static const String _kSeededDefaultTvKey = 'seeded_default_tv_v1';
+  static const String defaultTvPlaylistUrl =
+      'https://iptv-org.github.io/iptv/countries/id.m3u';
   static const MethodChannel _widgetChannel =
       MethodChannel('com.musikm3u.player/media_store');
 
@@ -414,6 +418,7 @@ class MusicProvider extends ChangeNotifier {
     }
     _prefs = await SharedPreferences.getInstance();
     _loadPersistedData();
+    unawaited(ArtworkService.warmCacheFromDisk());
     unawaited(_syncAudioEffectsToPipeline());
     _invalidateLibraryCache();
 
@@ -424,6 +429,7 @@ class MusicProvider extends ChangeNotifier {
     unawaited(_prepareDefaultArtworkUri());
 
     if (autoScanOnInit) {
+      unawaited(_seedDefaultTvPlaylistIfNeeded());
       unawaited(
         refreshPermissionsAndScan(requestInteractive: false).then((_) async {
           if (Platform.isAndroid) {
@@ -434,6 +440,21 @@ class MusicProvider extends ChangeNotifier {
           }
         }),
       );
+    }
+  }
+
+  Future<void> _seedDefaultTvPlaylistIfNeeded() async {
+    try {
+      final alreadySeeded = _prefs?.getBool(_kSeededDefaultTvKey) ?? false;
+      if (alreadySeeded || _playlists.isNotEmpty) return;
+      await _prefs?.setBool(_kSeededDefaultTvKey, true);
+      await addM3uFromUrls(
+        rawUrlsInput: defaultTvPlaylistUrl,
+        customName: 'TV Indonesia',
+      );
+    } catch (_) {
+      // Allow retry next launch if offline on first launch
+      await _prefs?.setBool(_kSeededDefaultTvKey, false);
     }
   }
 
@@ -715,6 +736,7 @@ class MusicProvider extends ChangeNotifier {
       );
       _discoveredM3uFiles = result.discoveredM3uFiles;
       _invalidateLibraryCache();
+      unawaited(autoFetchMissingArtworkForTracks(allTracks, maxFetch: 24));
     } catch (e) {
       _lastError = 'Gagal memindai direktori musik: $e';
     } finally {
@@ -1186,6 +1208,10 @@ class MusicProvider extends ChangeNotifier {
                 (meta['durationSeconds'] as num?)?.toInt() ?? t.durationSeconds,
           );
         }
+        final cachedArt = ArtworkService.getCachedLocalPath(t.id);
+        if (cachedArt != null) {
+          return t.copyWith(artworkUrl: cachedArt);
+        }
         return t;
       }).toList();
       return MusicDirectoryGroup(
@@ -1453,6 +1479,106 @@ class MusicProvider extends ChangeNotifier {
     _ytOfflineMeta.clear();
     _downloadedYouTubeIds.clear();
     await refreshPermissionsAndScan(requestInteractive: false);
+  }
+
+  bool isYouTubeOfflineTrack(TrackItem track) {
+    final root = _youTubeOfflineRootPath;
+    if (root == null || root.isEmpty) return false;
+    return p
+        .normalize(track.directoryPath)
+        .toLowerCase()
+        .startsWith(p.normalize(root).toLowerCase());
+  }
+
+  Future<bool> deleteDownloadedTrack(TrackItem track) async {
+    try {
+      final f = File(track.playableSource);
+      if (await f.exists()) {
+        await f.delete();
+      }
+      final match = _ytFilenameIdRegex.firstMatch(p.basename(f.path));
+      final videoId = match?.group(1);
+      if (videoId != null) {
+        _downloadedYouTubeIds.remove(videoId);
+        _ytOfflineMeta.remove(videoId);
+        final offlineRoot = await _getYouTubeOfflineRootDir();
+        final artFile = File(p.join(offlineRoot.path, '.art', '$videoId.jpg'));
+        if (await artFile.exists()) {
+          await artFile.delete();
+        }
+        await _saveYouTubeOfflineMeta(offlineRoot);
+      }
+      await refreshPermissionsAndScan(requestInteractive: false);
+      return true;
+    } catch (e) {
+      _lastError = 'Gagal menghapus file unduhan: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteDownloadedYouTubeByVideoId(String videoId) async {
+    try {
+      final offlineRoot = await _getYouTubeOfflineRootDir();
+      if (await offlineRoot.exists()) {
+        await for (final entity
+            in offlineRoot.list(recursive: true, followLinks: false)) {
+          if (entity is File &&
+              p.basename(entity.path).contains('[$videoId]')) {
+            await entity.delete();
+          }
+        }
+      }
+      _downloadedYouTubeIds.remove(videoId);
+      _ytOfflineMeta.remove(videoId);
+      await _saveYouTubeOfflineMeta(offlineRoot);
+      await refreshPermissionsAndScan(requestInteractive: false);
+      return true;
+    } catch (e) {
+      _lastError = 'Gagal menghapus lagu YouTube: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Automatically searches and caches album/track artwork for directory tracks missing artwork.
+  Future<void> autoFetchMissingArtworkForTracks(
+    List<TrackItem> tracks, {
+    int maxFetch = 24,
+  }) async {
+    if (tracks.isEmpty) return;
+    final updatedMap = await ArtworkService.enrichTracksBatch(
+      tracks,
+      maxFetch: maxFetch,
+    );
+    if (updatedMap.isEmpty) return;
+
+    bool anyChanged = false;
+    _directoryGroups = _directoryGroups.map((group) {
+      bool groupChanged = false;
+      final newTracks = group.tracks.map((t) {
+        final artPath = updatedMap[t.id];
+        if (artPath != null && artPath != t.artworkUrl) {
+          groupChanged = true;
+          anyChanged = true;
+          return t.copyWith(artworkUrl: artPath);
+        }
+        return t;
+      }).toList();
+      if (!groupChanged) return group;
+      return MusicDirectoryGroup(
+        directoryPath: group.directoryPath,
+        directoryName: group.directoryName,
+        parentPath: group.parentPath,
+        tracks: newTracks,
+        isCustomRoot: group.isCustomRoot,
+      );
+    }).toList();
+
+    if (anyChanged) {
+      _invalidateLibraryCache();
+      notifyListeners();
+    }
   }
 
   void _updateTrackOfflineCache(String rawSourceUrl, String offlinePath) {
