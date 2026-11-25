@@ -39,7 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingSlide(
       badge: 'LANGKAH 2 • PLAYLIST M3U',
-      title: 'Import M3U Musik & IPTV',
+      title: 'Import Playlist M3U & IPTV',
       description:
           'Masuk ke tab M3U lalu tempel URL playlist (.m3u / .m3u8) atau pilih file lokal dari perangkat Anda.\n\nLagu dari M3U dapat diunduh lewat tombol "Simpan Offline" agar tetap bisa diputar tanpa kuota internet.',
       icon: Icons.queue_music_rounded,
@@ -69,7 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.widgets_rounded,
       accentColor: AppColors.spotifyGreen,
       tips: [
-        'Tahan layar utama HP -> pilih Widget -> cari "M3U Musik".',
+        'Tahan layar utama HP -> pilih Widget -> cari "MediaCenter".',
         'Panduan ini dapat dibuka kembali kapan saja di menu Profil & Setting.',
       ],
     ),
@@ -117,7 +117,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
-                      'Panduan M3U Musik',
+                      'Panduan MediaCenter',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

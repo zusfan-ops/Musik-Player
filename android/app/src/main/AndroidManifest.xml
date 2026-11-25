@@ -32,7 +32,7 @@
         tools:ignore="ScopedStorage" />
 
     <application
-        android:label="M3U Musik"
+        android:label="MediaCenter"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
@@ -85,7 +85,7 @@
         <receiver
             android:name=".MusikWidgetCompactProvider"
             android:exported="true"
-            android:label="M3U Musik Mini (2x1)">
+            android:label="MediaCenter Mini (2x1)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -97,7 +97,7 @@
         <receiver
             android:name=".MusikWidgetBarProvider"
             android:exported="true"
-            android:label="M3U Musik Strip (4x1)">
+            android:label="MediaCenter Strip (4x1)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -109,7 +109,7 @@
         <receiver
             android:name=".MusikWidgetFullProvider"
             android:exported="true"
-            android:label="M3U Musik Full (4x2)">
+            android:label="MediaCenter Full (4x2)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

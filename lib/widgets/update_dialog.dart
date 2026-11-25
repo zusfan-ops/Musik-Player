@@ -203,7 +203,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           SnackBar(
             content: Text(
               result.type == ResultType.permissionDenied
-                  ? 'Harap aktifkan izin "Instal aplikasi tidak dikenal" untuk M3U Musik di Pengaturan Android.'
+                  ? 'Harap aktifkan izin "Instal aplikasi tidak dikenal" untuk MediaCenter di Pengaturan Android.'
                   : 'Installer: ${result.message}',
             ),
             duration: const Duration(seconds: 6),

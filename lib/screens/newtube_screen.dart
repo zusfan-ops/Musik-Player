@@ -204,29 +204,31 @@ class _NewTubeScreenState extends State<NewTubeScreen>
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: SegmentedButton<bool>(
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                padding: WidgetStateProperty.all(
-                  const EdgeInsets.symmetric(horizontal: 8),
-                ),
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceHighlight,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
               ),
-              segments: const [
-                ButtonSegment<bool>(
-                  value: false,
-                  icon: Icon(Icons.headphones_rounded, size: 15),
-                  label: Text('Audio', style: TextStyle(fontSize: 11)),
-                ),
-                ButtonSegment<bool>(
-                  value: true,
-                  icon: Icon(Icons.ondemand_video_rounded, size: 15),
-                  label: Text('Video', style: TextStyle(fontSize: 11)),
-                ),
-              ],
-              selected: {_defaultVideoMode},
-              onSelectionChanged: (s) {
-                setState(() => _defaultVideoMode = s.first);
-              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ModeTogglePill(
+                    icon: Icons.headphones_rounded,
+                    label: 'Audio',
+                    selected: !_defaultVideoMode,
+                    onTap: () => setState(() => _defaultVideoMode = false),
+                  ),
+                  const SizedBox(width: 2),
+                  _ModeTogglePill(
+                    icon: Icons.ondemand_video_rounded,
+                    label: 'Video',
+                    selected: _defaultVideoMode,
+                    onTap: () => setState(() => _defaultVideoMode = true),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -304,6 +306,75 @@ class _NewTubeScreenState extends State<NewTubeScreen>
           const SizedBox(height: 6),
           if (_isSearching)
             const LinearProgressIndicator(color: AppColors.netflixRed),
+          Consumer<MusicProvider>(
+            builder: (ctx, music, _) {
+              if (!music.isDownloadingYouTube) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.spotifyGreen.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.downloading_rounded,
+                          size: 16,
+                          color: AppColors.spotifyGreen,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Mengunduh: ${music.ytDownloadLabel ?? 'Audio YouTube'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${(music.ytDownloadProgress * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.spotifyGreen,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: music.cancelYouTubeDownload,
+                          child: const Icon(Icons.close_rounded, size: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: music.ytDownloadProgress > 0
+                            ? music.ytDownloadProgress
+                            : null,
+                        minHeight: 4,
+                        backgroundColor: Colors.black.withValues(alpha: 0.08),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.spotifyGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -528,6 +599,45 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                             queueOnly: true,
                           ),
                         ),
+                        Builder(
+                          builder: (ctx) {
+                            final music = ctx.watch<MusicProvider>();
+                            final isDone =
+                                music.isYouTubeVideoDownloaded(item.videoId);
+                            final isBusy =
+                                music.isYouTubeVideoDownloading(item.videoId);
+                            return _NewTubeChipBtn(
+                              icon: isDone
+                                  ? Icons.download_done_rounded
+                                  : (isBusy
+                                      ? Icons.downloading_rounded
+                                      : Icons.download_rounded),
+                              label: isDone
+                                  ? 'Offline'
+                                  : (isBusy ? 'Mengunduh...' : 'Unduh'),
+                              color: isDone
+                                  ? const Color(0xFF1D8F52)
+                                  : AppColors.neonPurple,
+                              onTap: () async {
+                                if (isBusy) return;
+                                final messenger = ScaffoldMessenger.of(ctx);
+                                final ok =
+                                    await music.downloadNewTubeTrack(item);
+                                if (!ctx.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Disimpan ke Direktori "Lagu Offline": ${item.title}'
+                                          : (music.lastError ??
+                                              'Gagal mengunduh "${item.title}".'),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ],
                     ),
                 ],
@@ -733,6 +843,36 @@ class _PlaylistListTile extends StatelessWidget {
                 ],
               ),
             ),
+            IconButton(
+              tooltip: 'Unduh Playlist ke Direktori',
+              icon: const Icon(
+                Icons.download_for_offline_rounded,
+                color: AppColors.spotifyGreen,
+              ),
+              onPressed: () async {
+                final music = context.read<MusicProvider>();
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Mulai mengunduh playlist "${playlist.title}"...',
+                    ),
+                  ),
+                );
+                final count = await music.downloadNewTubePlaylist(playlist);
+                if (!context.mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      count > 0
+                          ? '$count lagu disimpan ke Direktori "${playlist.title}"'
+                          : (music.lastError ??
+                              'Tidak ada lagu yang berhasil diunduh.'),
+                    ),
+                  ),
+                );
+              },
+            ),
             const Icon(Icons.chevron_right_rounded),
           ],
         ),
@@ -872,10 +1012,50 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Unduh Playlist Offline',
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.surfaceElevated,
+                    ),
+                    onPressed: _items.isEmpty ||
+                            context.watch<MusicProvider>().isDownloadingYouTube
+                        ? null
+                        : () async {
+                            final music = context.read<MusicProvider>();
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Mengunduh ${_items.length} lagu ke folder "${widget.playlist.title}"...',
+                                ),
+                              ),
+                            );
+                            final count = await music.downloadNewTubePlaylist(
+                              widget.playlist,
+                              _items,
+                            );
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  count > 0
+                                      ? '$count lagu tersimpan di Direktori "${widget.playlist.title}"'
+                                      : (music.lastError ??
+                                          'Gagal mengunduh playlist.'),
+                                ),
+                              ),
+                            );
+                          },
+                    icon: const Icon(
+                      Icons.download_for_offline_rounded,
+                      color: AppColors.spotifyGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.spotifyGreen,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                     ),
                     onPressed: _items.isEmpty || _isStartingPlay
                         ? null
@@ -886,7 +1066,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.black,
+                              color: Colors.white,
                             ),
                           )
                         : const Icon(Icons.play_arrow_rounded),
@@ -947,14 +1127,49 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                                   fontSize: 11.5,
                                 ),
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(
-                                  Icons.ondemand_video_rounded,
-                                  color: AppColors.netflixRed,
-                                  size: 20,
-                                ),
-                                onPressed: () =>
-                                    _playFromPlaylist(i, asVideo: true),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Builder(
+                                    builder: (ctx) {
+                                      final music = ctx.watch<MusicProvider>();
+                                      final isDone = music
+                                          .isYouTubeVideoDownloaded(item.videoId);
+                                      final isBusy = music
+                                          .isYouTubeVideoDownloading(
+                                              item.videoId);
+                                      return IconButton(
+                                        tooltip: isDone
+                                            ? 'Sudah Offline'
+                                            : 'Unduh Lagu',
+                                        icon: Icon(
+                                          isDone
+                                              ? Icons.download_done_rounded
+                                              : (isBusy
+                                                  ? Icons.downloading_rounded
+                                                  : Icons.download_rounded),
+                                          color: isDone
+                                              ? const Color(0xFF1D8F52)
+                                              : AppColors.spotifyGreen,
+                                          size: 20,
+                                        ),
+                                        onPressed: isBusy
+                                            ? null
+                                            : () => music
+                                                .downloadNewTubeTrack(item),
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.ondemand_video_rounded,
+                                      color: AppColors.netflixRed,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        _playFromPlaylist(i, asVideo: true),
+                                  ),
+                                ],
                               ),
                               onTap: () => _playFromPlaylist(
                                 i,
@@ -967,6 +1182,54 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
           ],
         );
       },
+    );
+  }
+}
+
+class _ModeTogglePill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModeTogglePill({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.spotifyGreen : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: selected ? Colors.white : AppColors.textPrimary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : AppColors.textPrimary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

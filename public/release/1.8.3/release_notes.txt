@@ -1,1 +1,0 @@
-﻿Update v1.8.3: Perbaikan Chromecast & Google Nest (Izin Wi-Fi/Nearby, Dialog AppCompat Theme & Proxy HTTP LAN untuk Stream YouTube/Lokal)

@@ -104,9 +104,8 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF16243B),
-            Color(0xFF0E1320),
-            Color(0xFF090B10),
+            Color(0xFF1E1C1A),
+            Color(0xFF141312),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -148,6 +147,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                             IconButton(
                               icon: const Icon(
                                 Icons.keyboard_arrow_down_rounded,
+                                color: Colors.white,
                                 size: 30,
                               ),
                               onPressed: () => Navigator.pop(context),
@@ -160,7 +160,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                         ? 'MEMUTAR DARI PLAYLIST M3U'
                                         : 'MEMUTAR DARI DIREKTORI',
                                     style: const TextStyle(
-                                      color: AppColors.neonCyan,
+                                      color: AppColors.spotifyGreen,
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 1.2,
@@ -172,7 +172,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: AppColors.textPrimary,
+                                      color: Colors.white,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                     ),
@@ -243,15 +243,18 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                 color: _showLyrics
                                     ? AppColors.spotifyGreen
                                     : (_lyrics.isNotEmpty
-                                        ? AppColors.neonCyan
-                                        : AppColors.textSecondary),
+                                        ? AppColors.neonPurple
+                                        : Colors.white70),
                               ),
                               onPressed: () =>
                                   setState(() => _showLyrics = !_showLyrics),
                             ),
                             IconButton(
                               tooltip: 'Antrean Putar',
-                              icon: const Icon(Icons.queue_music_rounded),
+                              icon: const Icon(
+                                Icons.queue_music_rounded,
+                                color: Colors.white,
+                              ),
                               onPressed: () => _showQueueSheet(context),
                             ),
                           ],
@@ -294,6 +297,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                         const Text(
                                           'File lirik (.lrc) tidak ditemukan',
                                           style: TextStyle(
+                                            color: Colors.white,
                                             fontWeight: FontWeight.w700,
                                             fontSize: 14,
                                           ),
@@ -436,9 +440,9 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                         decoration: BoxDecoration(
                                           color: track.isOfflineReady
                                               ? AppColors.spotifyGreen
-                                                  .withValues(alpha: 0.18)
-                                              : AppColors.neonCyan
-                                                  .withValues(alpha: 0.18),
+                                                  .withValues(alpha: 0.22)
+                                              : AppColors.neonPurple
+                                                  .withValues(alpha: 0.22),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
@@ -449,7 +453,7 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                           style: TextStyle(
                                             color: track.isOfflineReady
                                                 ? AppColors.spotifyGreen
-                                                : AppColors.neonCyan,
+                                                : AppColors.neonPurple,
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
                                           ),
@@ -687,8 +691,8 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                 Icons.bedtime_outlined,
                                 size: 18,
                                 color: provider.sleepTimerRemaining != null
-                                    ? AppColors.neonCyan
-                                    : AppColors.textSecondary,
+                                    ? AppColors.neonPurple
+                                    : Colors.white70,
                               ),
                               label: Text(
                                 provider.sleepTimerRemaining != null
@@ -696,8 +700,8 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                     : 'Timer',
                                 style: TextStyle(
                                   color: provider.sleepTimerRemaining != null
-                                      ? AppColors.neonCyan
-                                      : AppColors.textSecondary,
+                                      ? AppColors.neonPurple
+                                      : Colors.white70,
                                 ),
                               ),
                             ),
@@ -742,11 +746,11 @@ class _NowPlayingSheetState extends State<NowPlayingSheet> {
                                 icon: const Icon(
                                   Icons.download_rounded,
                                   size: 18,
-                                  color: AppColors.neonCyan,
+                                  color: AppColors.neonPurple,
                                 ),
                                 label: const Text(
                                   'Simpan Offline',
-                                  style: TextStyle(color: AppColors.neonCyan),
+                                  style: TextStyle(color: AppColors.neonPurple),
                                 ),
                               )
                             else

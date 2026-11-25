@@ -29,26 +29,23 @@ class MiniPlayerBar extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF1A2234),
-              Color(0xFF141A29),
+              Color(0xFF1B1918),
+              Color(0xFF141312),
             ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.09),
-          ),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.55),
+              color: Colors.black.withValues(alpha: 0.22),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -68,7 +65,7 @@ class MiniPlayerBar extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                               fontWeight: FontWeight.w700,
                               fontSize: 13.5,
                             ),
@@ -81,9 +78,7 @@ class MiniPlayerBar extends StatelessWidget {
                                     ? Icons.offline_bolt_rounded
                                     : Icons.wifi_tethering_rounded,
                                 size: 12,
-                                color: track.isOfflineReady
-                                    ? AppColors.spotifyGreen
-                                    : AppColors.neonCyan,
+                                color: AppColors.spotifyGreen,
                               ),
                               const SizedBox(width: 4),
                               Expanded(
@@ -92,7 +87,7 @@ class MiniPlayerBar extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.textMuted,
                                     fontSize: 11.5,
                                   ),
                                 ),

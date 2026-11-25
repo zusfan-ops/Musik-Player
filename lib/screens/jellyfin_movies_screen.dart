@@ -582,12 +582,22 @@ class JellyfinContinueWatchingCard extends StatelessWidget {
       child: Container(
         width: 210,
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF24201E), Color(0xFF141312)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -637,6 +647,7 @@ class JellyfinContinueWatchingCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 12.5,
                   ),

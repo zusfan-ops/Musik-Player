@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.8.3/M3UMusik-v1.8.3-arm64-v8a.apk",
-    "build_number":  18,
-    "version":  "1.8.3",
-    "release_date":  "2026-11-25 17:07:03",
-    "changelog":  "Update v1.8.3: Perbaikan Chromecast \u0026 Google Nest (Izin Wi-Fi/Nearby, Dialog AppCompat Theme \u0026 Proxy HTTP LAN untuk Stream YouTube/Lokal)"
+    "download_url":  "/release/1.9.3/M3UMusik-v1.9.3-arm64-v8a.apk",
+    "build_number":  23,
+    "version":  "1.9.3",
+    "release_date":  "2026-11-25 18:22:45",
+    "changelog":  "Update v1.9.3: Download Musik \u0026 Playlist YouTube ke Direktori + Card Musik Offline dengan Play Control di Beranda"
 }

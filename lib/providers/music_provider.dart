@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,6 +78,13 @@ class MusicProvider extends ChangeNotifier {
   Map<String, int> _trackProgressSeconds = {};
   Map<String, int> _playCounts = {};
   final Set<String> _downloadingTrackIds = {};
+  final Set<String> _downloadingYouTubeIds = {};
+  final Set<String> _downloadedYouTubeIds = {};
+  bool _isDownloadingYouTubePlaylist = false;
+  bool _cancelYouTubeDownloadRequested = false;
+  String? _ytDownloadLabel;
+  double _ytDownloadProgress = 0.0;
+  Map<String, Map<String, dynamic>> _ytOfflineMeta = {};
 
   // Memoized derived collections
   List<TrackItem>? _cachedAllTracks;
@@ -87,7 +95,9 @@ class MusicProvider extends ChangeNotifier {
 
   // Active playback state
   List<TrackItem> _queue = [];
+  int _windowStart = 0;
   int _currentIndex = -1;
+  Uri? _defaultArtUri;
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _miniPlayerDismissed = false;
@@ -213,6 +223,21 @@ class MusicProvider extends ChangeNotifier {
 
   bool isTrackDownloading(String trackId) =>
       _downloadingTrackIds.contains(trackId);
+
+  bool isYouTubeVideoDownloaded(String videoId) =>
+      _downloadedYouTubeIds.contains(videoId);
+
+  bool isYouTubeVideoDownloading(String videoId) =>
+      _downloadingYouTubeIds.contains(videoId);
+
+  bool get isDownloadingYouTube =>
+      _isDownloadingYouTubePlaylist || _downloadingYouTubeIds.isNotEmpty;
+
+  String? get ytDownloadLabel => _ytDownloadLabel;
+  double get ytDownloadProgress => _ytDownloadProgress;
+
+  List<TrackItem> get allOfflineMusicTracks =>
+      allTracks.where((t) => !t.isVideo && t.isOfflineReady).toList();
 
   bool isFavorite(String trackId) => _favoriteIds.contains(trackId);
 
@@ -378,6 +403,7 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
 
     unawaited(_configureAudioSession());
+    unawaited(_prepareDefaultArtworkUri());
 
     if (autoScanOnInit) {
       unawaited(
@@ -440,15 +466,16 @@ class MusicProvider extends ChangeNotifier {
 
     _subscriptions.add(
       _player.currentIndexStream.listen((idx) {
-        if (idx != null &&
-            idx >= 0 &&
-            idx < _queue.length &&
-            idx != _currentIndex) {
-          _currentIndex = idx;
+        if (idx == null) return;
+        final realIdx = _windowStart + idx;
+        if (realIdx >= 0 &&
+            realIdx < _queue.length &&
+            realIdx != _currentIndex) {
+          _currentIndex = realIdx;
           _positionNotifier.value = Duration.zero;
           _bufferedPositionNotifier.value = Duration.zero;
           _duration = _player.duration ?? Duration.zero;
-          _recordTrackPlayed(_queue[idx]);
+          _recordTrackPlayed(_queue[realIdx]);
           _syncHomeWidgets();
           _maybePreloadNextNewTubeTrack();
           notifyListeners();
@@ -633,11 +660,21 @@ class MusicProvider extends ChangeNotifier {
             await DirectoryScannerService.checkAudioAndDirectoryPermission();
       }
 
+      final offlineRoot = await _getYouTubeOfflineRootDir();
+      await _loadYouTubeOfflineMeta(offlineRoot);
+      final scanDirs = <String>[
+        ..._customDirectories,
+        offlineRoot.path,
+      ];
+
       final result = await DirectoryScannerService.scanDirectories(
-        customDirectories: _customDirectories,
+        customDirectories: scanDirs,
         includeDefaultAndroidDirs: true,
       );
-      _directoryGroups = result.directories;
+      _directoryGroups = _enrichScannedGroupsWithYouTubeMeta(
+        result.directories,
+        offlineRoot.path,
+      );
       _discoveredM3uFiles = result.discoveredM3uFiles;
       _invalidateLibraryCache();
     } catch (e) {
@@ -1045,6 +1082,209 @@ class MusicProvider extends ChangeNotifier {
     return success;
   }
 
+  // ==================== YOUTUBE MUSIC & PLAYLIST OFFLINE DOWNLOAD ====================
+
+  static final RegExp _ytFilenameIdRegex = RegExp(r'\[([a-zA-Z0-9_-]{11})\]');
+
+  Future<Directory> _getYouTubeOfflineRootDir() async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final root = Directory(p.join(docDir.path, 'MediaCenterOffline'));
+    if (!await root.exists()) {
+      await root.create(recursive: true);
+    }
+    return root;
+  }
+
+  Future<void> _loadYouTubeOfflineMeta(Directory offlineRoot) async {
+    try {
+      final metaFile = File(p.join(offlineRoot.path, 'offline_meta.json'));
+      if (!await metaFile.exists()) return;
+      final raw = await metaFile.readAsString();
+      if (raw.trim().isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        _ytOfflineMeta = decoded.map(
+          (k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveYouTubeOfflineMeta(Directory offlineRoot) async {
+    try {
+      final metaFile = File(p.join(offlineRoot.path, 'offline_meta.json'));
+      await metaFile.writeAsString(jsonEncode(_ytOfflineMeta));
+    } catch (_) {}
+  }
+
+  List<MusicDirectoryGroup> _enrichScannedGroupsWithYouTubeMeta(
+    List<MusicDirectoryGroup> groups,
+    String offlineRootPath,
+  ) {
+    _downloadedYouTubeIds.clear();
+    final normRoot = p.normalize(offlineRootPath).toLowerCase();
+    return groups.map((group) {
+      final updatedTracks = group.tracks.map((t) {
+        final match = _ytFilenameIdRegex.firstMatch(p.basename(t.pathOrUrl));
+        final videoId = match?.group(1);
+        final isUnderOfflineRoot =
+            p.normalize(t.directoryPath).toLowerCase().startsWith(normRoot);
+        if (videoId != null && isUnderOfflineRoot) {
+          _downloadedYouTubeIds.add(videoId);
+        }
+        final meta = videoId != null ? _ytOfflineMeta[videoId] : null;
+        if (meta != null) {
+          return t.copyWith(
+            title: (meta['title'] as String?) ?? t.title,
+            artist: (meta['artist'] as String?) ?? t.artist,
+            artworkUrl: (meta['artworkUrl'] as String?) ?? t.artworkUrl,
+            durationSeconds:
+                (meta['durationSeconds'] as num?)?.toInt() ?? t.durationSeconds,
+          );
+        }
+        return t;
+      }).toList();
+      return MusicDirectoryGroup(
+        directoryPath: group.directoryPath,
+        directoryName: group.directoryName,
+        parentPath: group.parentPath,
+        tracks: updatedTracks,
+        isCustomRoot: group.isCustomRoot,
+      );
+    }).toList();
+  }
+
+  void _recordYouTubeMeta(NewTubeItem item) {
+    _ytOfflineMeta[item.videoId] = {
+      'title': item.title,
+      'artist': item.author,
+      'artworkUrl': item.thumbnailUrl,
+      if (item.duration != null) 'durationSeconds': item.duration!.inSeconds,
+    };
+  }
+
+  void cancelYouTubeDownload() {
+    _cancelYouTubeDownloadRequested = true;
+    notifyListeners();
+  }
+
+  /// Downloads a single YouTube track into the unified `Lagu Offline` directory.
+  Future<bool> downloadNewTubeTrack(NewTubeItem item) async {
+    if (_downloadingYouTubeIds.contains(item.videoId)) return false;
+    _downloadingYouTubeIds.add(item.videoId);
+    _cancelYouTubeDownloadRequested = false;
+    _ytDownloadLabel = item.title;
+    _ytDownloadProgress = 0.0;
+    notifyListeners();
+
+    try {
+      final offlineRoot = await _getYouTubeOfflineRootDir();
+      await _loadYouTubeOfflineMeta(offlineRoot);
+      final singleDir = Directory(p.join(offlineRoot.path, 'Lagu Offline'));
+
+      await NewTubeService.downloadAudioToDirectory(
+        item: item,
+        targetDir: singleDir,
+        isCancelled: () => _cancelYouTubeDownloadRequested,
+        onProgress: (prog) {
+          _ytDownloadProgress = prog;
+          notifyListeners();
+        },
+      );
+
+      _recordYouTubeMeta(item);
+      _downloadedYouTubeIds.add(item.videoId);
+      await _saveYouTubeOfflineMeta(offlineRoot);
+      await refreshPermissionsAndScan(requestInteractive: false);
+      return true;
+    } catch (e) {
+      _lastError = 'Gagal mengunduh "${item.title}": $e';
+      return false;
+    } finally {
+      _downloadingYouTubeIds.remove(item.videoId);
+      if (_downloadingYouTubeIds.isEmpty && !_isDownloadingYouTubePlaylist) {
+        _ytDownloadLabel = null;
+        _ytDownloadProgress = 0.0;
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Downloads an entire YouTube playlist into a directory named after [playlist.title].
+  Future<int> downloadNewTubePlaylist(
+    NewTubePlaylistItem playlist, [
+    List<NewTubeItem>? preloadedItems,
+  ]) async {
+    if (_isDownloadingYouTubePlaylist) return 0;
+    _isDownloadingYouTubePlaylist = true;
+    _cancelYouTubeDownloadRequested = false;
+    _ytDownloadLabel = 'Memuat playlist ${playlist.title}...';
+    _ytDownloadProgress = 0.0;
+    notifyListeners();
+
+    int successCount = 0;
+    try {
+      final items = (preloadedItems != null && preloadedItems.isNotEmpty)
+          ? preloadedItems
+          : await NewTubeService.fetchPlaylistVideos(playlist.playlistId);
+
+      if (items.isEmpty) {
+        _lastError = 'Playlist "${playlist.title}" tidak memiliki lagu yang dapat diunduh.';
+        return 0;
+      }
+
+      final offlineRoot = await _getYouTubeOfflineRootDir();
+      await _loadYouTubeOfflineMeta(offlineRoot);
+      final folderName = NewTubeService.sanitizeFileName(
+        playlist.title,
+        fallback: 'YouTube Playlist',
+      );
+      final playlistDir = Directory(p.join(offlineRoot.path, folderName));
+
+      for (int i = 0; i < items.length; i++) {
+        if (_cancelYouTubeDownloadRequested) break;
+        final item = items[i];
+        _downloadingYouTubeIds.add(item.videoId);
+        _ytDownloadLabel = '${playlist.title} (${i + 1}/${items.length})';
+        _ytDownloadProgress = i / items.length;
+        notifyListeners();
+
+        try {
+          await NewTubeService.downloadAudioToDirectory(
+            item: item,
+            targetDir: playlistDir,
+            isCancelled: () => _cancelYouTubeDownloadRequested,
+            onProgress: (trackProg) {
+              _ytDownloadProgress =
+                  ((i + trackProg) / items.length).clamp(0.0, 1.0);
+              notifyListeners();
+            },
+          );
+          _recordYouTubeMeta(item);
+          _downloadedYouTubeIds.add(item.videoId);
+          successCount++;
+        } catch (_) {
+          // Continue with remaining tracks in playlist
+        } finally {
+          _downloadingYouTubeIds.remove(item.videoId);
+        }
+      }
+
+      await _saveYouTubeOfflineMeta(offlineRoot);
+      await refreshPermissionsAndScan(requestInteractive: false);
+      return successCount;
+    } catch (e) {
+      _lastError = 'Gagal mengunduh playlist "${playlist.title}": $e';
+      return successCount;
+    } finally {
+      _isDownloadingYouTubePlaylist = false;
+      _cancelYouTubeDownloadRequested = false;
+      _ytDownloadLabel = null;
+      _ytDownloadProgress = 0.0;
+      notifyListeners();
+    }
+  }
+
   void _updateTrackOfflineCache(String rawSourceUrl, String offlinePath) {
     for (int pIdx = 0; pIdx < _playlists.length; pIdx++) {
       final pl = _playlists[pIdx];
@@ -1112,6 +1352,23 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _prepareDefaultArtworkUri() async {
+    try {
+      final supportDir = await getApplicationSupportDirectory();
+      final artFile = File(p.join(supportDir.path, 'default_lockscreen_art.png'));
+      if (!await artFile.exists()) {
+        final data = await rootBundle.load('assets/logo2.png');
+        await artFile.writeAsBytes(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          flush: true,
+        );
+      }
+      _defaultArtUri = Uri.file(artFile.path);
+    } catch (_) {
+      // Safe fallback in test or unsupported environments
+    }
+  }
+
   AudioSource _buildAudioSource(TrackItem track) {
     final mediaTag = MediaItem(
       id: track.id,
@@ -1123,22 +1380,23 @@ class MusicProvider extends ChangeNotifier {
           : null,
       artUri: track.hasValidNetworkArtwork
           ? Uri.tryParse(track.artworkUrl!)
-          : null,
+          : _defaultArtUri,
     );
+
+    if (track.isLocalFile) {
+      return AudioSource.file(track.playableSource, tag: mediaTag);
+    }
 
     if (track.playsFromLocalFile) {
       final filePath = track.playableSource;
       if (File(filePath).existsSync()) {
         return AudioSource.file(filePath, tag: mediaTag);
       }
-      if (!track.isLocalFile) {
-        return AudioSource.uri(
-          Uri.parse(track.pathOrUrl),
-          headers: track.httpHeaders,
-          tag: mediaTag,
-        );
-      }
-      return AudioSource.file(filePath, tag: mediaTag);
+      return AudioSource.uri(
+        Uri.parse(track.pathOrUrl),
+        headers: track.httpHeaders,
+        tag: mediaTag,
+      );
     }
 
     return AudioSource.uri(
@@ -1301,18 +1559,19 @@ class MusicProvider extends ChangeNotifier {
   Future<void> jumpToQueueIndex(int index) async {
     if (index < 0 || index >= _queue.length) return;
     _miniPlayerDismissed = false;
-    if (_player.sequence.length == _queue.length) {
+    final windowIdx = index - _windowStart;
+    if (windowIdx >= 0 && windowIdx < _player.sequence.length) {
       _currentIndex = index;
       _positionNotifier.value = Duration.zero;
       _bufferedPositionNotifier.value = Duration.zero;
       _duration = Duration.zero;
       _lastError = null;
+      _syncHomeWidgets();
       notifyListeners();
       try {
-        await _player.seek(Duration.zero, index: index);
-        await _player.play();
+        await _player.seek(Duration.zero, index: windowIdx);
+        unawaited(_player.play().catchError((_) {}));
         _recordTrackPlayed(_queue[index]);
-        _syncHomeWidgets();
         return;
       } catch (_) {
         // Fallback to full queue reload below
@@ -1340,10 +1599,21 @@ class MusicProvider extends ChangeNotifier {
       await _player.stop();
       if (requestToken != _loadRequestToken) return;
 
-      final sources = _queue.map(_buildAudioSource).toList(growable: false);
+      // Window large queues (max 60 items) so ExoPlayer & notification Next/Prev respond instantly.
+      if (_queue.length <= 80) {
+        _windowStart = 0;
+      } else {
+        _windowStart = (index - 20).clamp(0, _queue.length - 60);
+      }
+      final windowEnd = _queue.length <= 80
+          ? _queue.length
+          : (_windowStart + 60).clamp(0, _queue.length);
+      final windowTracks = _queue.sublist(_windowStart, windowEnd);
+      final sources = windowTracks.map(_buildAudioSource).toList(growable: false);
+
       await _player.setAudioSources(
         sources,
-        initialIndex: index,
+        initialIndex: index - _windowStart,
         initialPosition: Duration.zero,
       );
 
@@ -1446,17 +1716,16 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> playNext() async {
     if (_queue.isEmpty) return;
-    if (_player.sequence.length == _queue.length) {
-      if (_player.hasNext) {
-        await _player.seekToNext();
-        if (!_player.playing) await _player.play();
-        return;
+    if (_player.hasNext) {
+      if (_currentIndex + 1 < _queue.length) {
+        _currentIndex++;
+        _positionNotifier.value = Duration.zero;
+        _syncHomeWidgets();
+        notifyListeners();
       }
-      if (_repeatMode == RepeatCycleMode.all) {
-        await _player.seek(Duration.zero, index: 0);
-        if (!_player.playing) await _player.play();
-        return;
-      }
+      await _player.seekToNext();
+      if (!_player.playing) unawaited(_player.play().catchError((_) {}));
+      return;
     }
 
     if (_shuffleEnabled && _queue.length > 1) {
@@ -1481,18 +1750,15 @@ class MusicProvider extends ChangeNotifier {
       await seekTo(Duration.zero);
       return;
     }
-    if (_player.sequence.length == _queue.length) {
-      if (_player.hasPrevious) {
-        await _player.seekToPrevious();
-        if (!_player.playing) await _player.play();
-        return;
+    if (_player.hasPrevious) {
+      if (_currentIndex - 1 >= 0) {
+        _currentIndex--;
+        _positionNotifier.value = Duration.zero;
+        _syncHomeWidgets();
+        notifyListeners();
       }
-      if (_repeatMode == RepeatCycleMode.all) {
-        await _player.seek(Duration.zero, index: _queue.length - 1);
-        if (!_player.playing) await _player.play();
-        return;
-      }
-      await seekTo(Duration.zero);
+      await _player.seekToPrevious();
+      if (!_player.playing) unawaited(_player.play().catchError((_) {}));
       return;
     }
 
@@ -1607,12 +1873,12 @@ class MusicProvider extends ChangeNotifier {
 
     unawaited(
       _widgetChannel.invokeMethod<bool>('updateHomeWidget', {
-        'title': track?.title ?? 'M3U Musik',
+        'title': track?.title ?? 'MediaCenter',
         'subtitle': track != null
             ? '${track.artist} • ${track.directoryName}'
             : 'Ketuk untuk memutar musik',
         'badge': track == null
-            ? 'M3U MUSIK • OFFLINE'
+            ? 'MEDIACENTER • OFFLINE'
             : (track.isOfflineReady ? 'OFFLINE • ${track.directoryName}' : 'LIVE LINK • ${track.directoryName}'),
         'isPlaying': _isPlaying,
         'progress': progressPct,

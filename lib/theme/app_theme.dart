@@ -1,31 +1,32 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Balanced Warm-Charcoal Studio Canvas (neither pitch-black nor glaring)
-  static const Color background = Color(0xFF161920);
-  static const Color surface = Color(0xFF1F242E);
-  static const Color surfaceElevated = Color(0xFF272D3A);
-  static const Color surfaceHighlight = Color(0xFF313949);
+  // Warm Cream & Sand Editorial Canvas (inspired by reference design)
+  static const Color background = Color(0xFFF6F2ED);
+  static const Color surface = Color(0xFFEDE6DD);
+  static const Color surfaceElevated = Color(0xFFFAF7F4);
+  static const Color surfaceHighlight = Color(0xFFE2D8CC);
+  static const Color darkNav = Color(0xFF141312);
 
-  // Tasteful Studio Accents (Emerald Audio + Cinema Crimson + Calm Studio Slate-Blue & Amber)
-  static const Color spotifyGreen = Color(0xFF22C55E);
-  static const Color neonCyan = Color(0xFF60A5FA);
-  static const Color neonPurple = Color(0xFFF59E0B);
-  static const Color netflixRed = Color(0xFFE53935);
+  // Terracotta Coral, Deep Petrol Ink & Warm Ochre Accents
+  static const Color spotifyGreen = Color(0xFFE8633A);
+  static const Color neonCyan = Color(0xFF18222F);
+  static const Color neonPurple = Color(0xFFE59A28);
+  static const Color netflixRed = Color(0xFFD94A2B);
 
   // Text Hierarchy
-  static const Color textPrimary = Color(0xFFF1F5F9);
-  static const Color textSecondary = Color(0xFFA3B0C2);
-  static const Color textMuted = Color(0xFF707D91);
+  static const Color textPrimary = Color(0xFF1B1918);
+  static const Color textSecondary = Color(0xFF6E675F);
+  static const Color textMuted = Color(0xFF9C948B);
 
   static const LinearGradient brandGradient = LinearGradient(
-    colors: [Color(0xFF272D3A), Color(0xFF1F242E), Color(0xFF182420)],
+    colors: [Color(0xFFE8633A), Color(0xFFD94A2B)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient spotifyHeroGradient = LinearGradient(
-    colors: [Color(0xFF272D3A), Color(0xFF1D222C), Color(0xFF161920)],
+    colors: [Color(0xFFE8633A), Color(0xFFD4522D)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
@@ -33,15 +34,17 @@ class AppColors {
 
 class AppTheme {
   static ThemeData get darkTheme {
-    final base = ThemeData.dark(useMaterial3: true);
+    final base = ThemeData.light(useMaterial3: true);
     return base.copyWith(
       scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: AppColors.spotifyGreen,
         secondary: AppColors.neonCyan,
         tertiary: AppColors.neonPurple,
         surface: AppColors.surface,
         error: AppColors.netflixRed,
+        onPrimary: Colors.white,
+        onSurface: AppColors.textPrimary,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -60,32 +63,46 @@ class AppTheme {
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.spotifyGreen,
+        labelStyle: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+        side: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.surfaceElevated,
-        contentTextStyle: const TextStyle(color: AppColors.textPrimary),
+        backgroundColor: AppColors.darkNav,
+        contentTextStyle: const TextStyle(color: Colors.white),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        backgroundColor: AppColors.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: AppColors.surface,
-        modalBackgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surfaceElevated,
+        modalBackgroundColor: AppColors.surfaceElevated,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: AppColors.spotifyGreen,
-        inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
-        thumbColor: Colors.white,
-        overlayColor: AppColors.spotifyGreen.withValues(alpha: 0.2),
-        trackHeight: 3.5,
+        inactiveTrackColor: AppColors.textMuted.withValues(alpha: 0.28),
+        thumbColor: AppColors.spotifyGreen,
+        overlayColor: AppColors.spotifyGreen.withValues(alpha: 0.18),
+        trackHeight: 4.0,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
     );
@@ -101,55 +118,45 @@ class AppLogo extends StatelessWidget {
   const AppLogo({
     super.key,
     this.size = 44,
-    double? borderRadius,
+    this.borderRadius = 12,
     this.showGlow = false,
-  }) : borderRadius = borderRadius ?? (size * 0.24);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final decodeWidth = (size * dpr).round().clamp(64, 1024);
-
     return Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(size * 0.08),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: showGlow
             ? [
                 BoxShadow(
-                  color: AppColors.netflixRed.withValues(alpha: 0.38),
-                  blurRadius: size * 0.35,
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.25),
+                  blurRadius: 18,
                   spreadRadius: 1,
                 ),
                 BoxShadow(
-                  color: AppColors.spotifyGreen.withValues(alpha: 0.18),
-                  blurRadius: size * 0.45,
-                  offset: const Offset(0, 6),
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ]
-            : null,
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius * 0.8),
-        child: Image.asset(
-          'assets/logo2.png',
-          width: size,
-          height: size,
-          cacheWidth: decodeWidth,
-          fit: BoxFit.contain,
-          errorBuilder: (_, _, _) => Container(
-            color: Colors.white,
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.album_rounded,
-              color: AppColors.netflixRed,
-              size: size * 0.65,
-            ),
-          ),
-        ),
+      clipBehavior: Clip.antiAlias,
+      padding: EdgeInsets.all(size * 0.08),
+      child: Image.asset(
+        'assets/logo2.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
       ),
     );
   }

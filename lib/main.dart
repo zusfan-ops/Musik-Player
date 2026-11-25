@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -24,6 +26,9 @@ Future<void> main() async {
       androidNotificationChannelName: 'Pemutaran Musik M3U',
       androidNotificationIcon: 'drawable/ic_stat_music',
       androidNotificationOngoing: false,
+      preloadArtwork: true,
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
     );
   } catch (_) {
     // Safe fallback if native audio background service is unavailable (e.g. tests)
@@ -31,9 +36,9 @@ Future<void> main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
       systemNavigationBarColor: AppColors.background,
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
   runApp(const MusikM3uApp());
@@ -62,7 +67,7 @@ class MusikM3uApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'M3U Musik',
+        title: 'MediaCenter',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: AppBootstrapGate(autoCheckUpdates: autoScanOnInit),
@@ -114,9 +119,9 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
               const AppLogo(size: 132, borderRadius: 32, showGlow: true),
               const SizedBox(height: 24),
               const Text(
-                'M3U MUSIK',
+                'MEDIACENTER',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 2.0,
@@ -135,9 +140,9 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
                 width: 140,
                 child: LinearProgressIndicator(
                   borderRadius: BorderRadius.circular(8),
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  backgroundColor: AppColors.surfaceHighlight,
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.netflixRed,
+                    AppColors.spotifyGreen,
                   ),
                 ),
               ),
@@ -234,6 +239,180 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           key: const Key('modern_bottom_nav'),
           selectedIndex: _selectedIndex,
           onSelected: _switchTab,
+          onOpenMore: () => _showMoreMenu(context),
+        ),
+      ),
+    );
+  }
+
+  void _showMoreMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated.withValues(alpha: 0.9),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(26)),
+                border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: 0.8)),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textMuted.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Row(
+                      children: [
+                        AppLogo(size: 28, borderRadius: 8),
+                        SizedBox(width: 10),
+                        Text(
+                          'Menu Lainnya',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _MoreMenuTile(
+                      icon: Icons.movie_rounded,
+                      color: AppColors.netflixRed,
+                      title: 'Hallsem Cinema (Film)',
+                      subtitle: 'Nonton & unduh film offline',
+                      selected: _selectedIndex == 4,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        _switchTab(4);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _MoreMenuTile(
+                      icon: Icons.person_rounded,
+                      color: AppColors.spotifyGreen,
+                      title: 'Profil & Setting',
+                      subtitle: 'Avatar, Hallsem Cinema & Info Developer',
+                      selected: _selectedIndex == 5,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        _switchTab(5);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _MoreMenuTile(
+                      icon: Icons.menu_book_rounded,
+                      color: AppColors.neonCyan,
+                      title: 'Panduan Penggunaan',
+                      subtitle: 'Cara pakai musik lokal, M3U, YouTube & Widget',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        OnboardingScreen.show(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MoreMenuTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MoreMenuTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.14)
+              : AppColors.surface.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? color.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+            ),
+          ],
         ),
       ),
     );
@@ -243,126 +422,167 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 class _ModernBottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onOpenMore;
 
   const _ModernBottomNavBar({
     super.key,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onOpenMore,
   });
 
   static const List<({
     IconData icon,
     IconData selectedIcon,
     String label,
-    Color accent,
   })> _items = [
     (
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
       label: 'Beranda',
-      accent: AppColors.spotifyGreen,
     ),
     (
       icon: Icons.folder_outlined,
       selectedIcon: Icons.folder_rounded,
       label: 'Folder',
-      accent: AppColors.spotifyGreen,
     ),
     (
       icon: Icons.queue_music_outlined,
       selectedIcon: Icons.queue_music_rounded,
       label: 'M3U',
-      accent: AppColors.neonCyan,
     ),
     (
       icon: Icons.smart_display_outlined,
       selectedIcon: Icons.smart_display_rounded,
       label: 'YouTube',
-      accent: AppColors.netflixRed,
-    ),
-    (
-      icon: Icons.movie_outlined,
-      selectedIcon: Icons.movie_rounded,
-      label: 'Film',
-      accent: AppColors.netflixRed,
-    ),
-    (
-      icon: Icons.person_outline_rounded,
-      selectedIcon: Icons.person_rounded,
-      label: 'Profil',
-      accent: AppColors.spotifyGreen,
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final isMoreActive = selectedIndex >= 4;
     return SafeArea(
       top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.82),
+                    AppColors.surface.withValues(alpha: 0.78),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  for (int i = 0; i < _items.length; i++)
+                    Expanded(
+                      child: _GlassNavButton(
+                        icon: i == selectedIndex
+                            ? _items[i].selectedIcon
+                            : _items[i].icon,
+                        label: _items[i].label,
+                        selected: i == selectedIndex,
+                        onTap: () => onSelected(i),
+                      ),
+                    ),
+                  Expanded(
+                    child: _GlassNavButton(
+                      icon: isMoreActive
+                          ? Icons.grid_view_rounded
+                          : Icons.grid_view_outlined,
+                      label: 'Lainnya',
+                      selected: isMoreActive,
+                      onTap: onOpenMore,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-        child: Row(
-          children: List.generate(_items.length, (i) {
-            final item = _items[i];
-            final selected = i == selectedIndex;
-            return Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => onSelected(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? item.accent.withValues(alpha: 0.16)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
+      ),
+    );
+  }
+}
+
+class _GlassNavButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _GlassNavButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.spotifyGreen : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.spotifyGreen.withValues(alpha: 0.32),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        selected ? item.selectedIcon : item.icon,
-                        size: 20,
-                        color: selected ? item.accent : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 3),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          item.label,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: selected
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
-                            fontSize: 10.5,
-                            fontWeight:
-                                selected ? FontWeight.w800 : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: selected ? Colors.white : AppColors.textSecondary,
+            ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: selected ? Colors.white : AppColors.textSecondary,
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),
-            );
-          }),
+            ),
+          ],
         ),
       ),
     );

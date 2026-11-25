@@ -219,6 +219,17 @@ https://live.example.com/tvone/index.m3u8
       );
       expect(NewTubeService.extractVideoId('lofi hip hop'), isNull);
     });
+
+    test('Sanitizes YouTube playlist and track filenames safely', () {
+      expect(
+        NewTubeService.sanitizeFileName('Metallica: Best Of / Live? *2025*'),
+        'Metallica Best Of Live 2025',
+      );
+      expect(
+        NewTubeService.sanitizeFileName('   <<<>>>   ', fallback: 'Offline'),
+        'Offline',
+      );
+    });
   });
 
   testWidgets(
@@ -227,15 +238,15 @@ https://live.example.com/tvone/index.m3u8
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MusikM3uApp(autoScanOnInit: false));
 
-    // Initial splash screen with M3U MUSIK branding
-    expect(find.text('M3U MUSIK'), findsOneWidget);
+    // Initial splash screen with MEDIACENTER branding
+    expect(find.text('MEDIACENTER'), findsOneWidget);
 
     // Advance past splash gate timer and settle provider initialization
     await tester.pump(const Duration(milliseconds: 1100));
     await tester.pump(const Duration(seconds: 3));
 
     // Main 5-tab Netflix x Spotify shell should be visible
-    expect(find.text('M3U Musik'), findsOneWidget);
+    expect(find.text('MediaCenter'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
@@ -246,36 +257,34 @@ https://live.example.com/tvone/index.m3u8
     expect(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
-        matching: find.text('Film'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('modern_bottom_nav')),
-        matching: find.text('Profil'),
+        matching: find.text('Lainnya'),
       ),
       findsOneWidget,
     );
 
-    // Open Hallsem Cinema tab (integrated directly, no API input prompt)
+    // Open Hallsem Cinema tab via Lainnya (More) menu
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
-        matching: find.text('Film'),
+        matching: find.text('Lainnya'),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hallsem Cinema (Film)'));
+    await tester.pumpAndSettle();
     expect(find.text('Hallsem Cinema'), findsWidgets);
     expect(find.text('Input API Code Jellyfin di Setting'), findsNothing);
 
-    // Open Profil & Setting tab
+    // Open Profil & Setting tab via Lainnya (More) menu
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
-        matching: find.text('Profil'),
+        matching: find.text('Lainnya'),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil & Setting'));
+    await tester.pumpAndSettle();
     await tester.pump();
     expect(find.text('Profil & Setting'), findsOneWidget);
     expect(find.text('Pilih Karakter Avatar Preset'), findsOneWidget);

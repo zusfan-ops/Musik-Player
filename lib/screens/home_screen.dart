@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Sticky Translucent Netflix + Spotify Header
         SliverAppBar(
           pinned: true,
-          backgroundColor: AppColors.background.withValues(alpha: 0.92),
+          backgroundColor: AppColors.background.withValues(alpha: 0.97),
           titleSpacing: 16,
           title: const Row(
             children: [
@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
               SizedBox(width: 10),
               Flexible(
                 child: Text(
-                  'M3U Musik',
+                  'MediaCenter',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -258,6 +258,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
+        // 2-bis. MUSIK OFFLINE CARD WITH PLAY CONTROLS
+        if (_selectedChip == 'Semua' ||
+            _selectedChip == 'Direktori' ||
+            _selectedChip == 'Offline Ready')
+          SliverToBoxAdapter(
+            child: _OfflineMusicPlayerCard(
+              directoriesCount: directories.length,
+              onOpenDirectories: () => widget.onNavigateTab(1),
+              onOpenYouTube: () => widget.onNavigateTab(3),
+            ),
+          ),
+
         // 2a. CONTINUE WATCHING (HALLSEM CINEMA)
         if (jfProvider.continueWatchingMovies.isNotEmpty &&
             _selectedChip == 'Semua') ...[
@@ -324,10 +336,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 175,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(14),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFBE6DA),
+                                    Color(0xFFF3D4C2),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.08),
+                                  color: AppColors.spotifyGreen
+                                      .withValues(alpha: 0.25),
                                 ),
                               ),
                               child: Column(
@@ -708,7 +728,7 @@ class _NetflixHeroBillboard extends StatelessWidget {
     final featuredTrack = provider.currentTrack ??
         (allTracks.isNotEmpty ? allTracks.first : null);
 
-    final String heroTitle = featuredTrack?.title ?? 'M3U Musik & Direktori';
+    final String heroTitle = featuredTrack?.title ?? 'MediaCenter & Direktori';
     final String heroSubtitle = featuredTrack != null
         ? '${featuredTrack.artist} • ${featuredTrack.directoryName}'
         : 'Pemutar Musik Offline, Pengelompokan Direktori & Multi-Playlist M3U (File/Link)';
@@ -717,22 +737,13 @@ class _NetflixHeroBillboard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       height: 315,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF172B47),
-            Color(0xFF121829),
-            Color(0xFF0B0E17),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(24),
+        gradient: AppColors.spotifyHeroGradient,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppColors.spotifyGreen.withValues(alpha: 0.24),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -744,19 +755,19 @@ class _NetflixHeroBillboard extends StatelessWidget {
             right: -30,
             top: -20,
             child: Opacity(
-              opacity: 0.22,
+              opacity: 0.16,
               child: const AppLogo(size: 230, borderRadius: 48),
             ),
           ),
-          // Cinema bottom gradient vignette
+          // Subtle warm gradient vignette at bottom for crisp text legibility
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(24),
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  AppColors.background.withValues(alpha: 0.65),
-                  AppColors.background.withValues(alpha: 0.96),
+                  Colors.black.withValues(alpha: 0.18),
+                  Colors.black.withValues(alpha: 0.36),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -772,12 +783,12 @@ class _NetflixHeroBillboard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 9,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.netflixRed,
-                        borderRadius: BorderRadius.circular(5),
+                        color: AppColors.darkNav,
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
                         'FEATURED',
@@ -790,12 +801,16 @@ class _NetflixHeroBillboard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      '${directories.length} Direktori • ${playlists.length} M3U • ${allTracks.length} Lagu',
-                      style: const TextStyle(
-                        color: AppColors.neonCyan,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(
+                        '${directories.length} Direktori • ${playlists.length} M3U • ${allTracks.length} Lagu',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -827,8 +842,8 @@ class _NetflixHeroBillboard extends StatelessWidget {
                             heroSubtitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.86),
                               fontSize: 12.5,
                             ),
                           ),
@@ -838,17 +853,17 @@ class _NetflixHeroBillboard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                // Netflix Action Bar (White Play Button + Secondary Dark Pill Buttons)
+                // Editorial Action Bar (Dark Pill Play Button + Translucent Pill)
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: AppColors.darkNav,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         onPressed: () {
@@ -893,14 +908,14 @@ class _NetflixHeroBillboard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           backgroundColor:
-                              AppColors.surfaceElevated.withValues(alpha: 0.85),
-                          foregroundColor: Colors.white,
+                              AppColors.surfaceElevated.withValues(alpha: 0.94),
+                          foregroundColor: AppColors.textPrimary,
                           side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: Colors.black.withValues(alpha: 0.08),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         onPressed: () => AddM3uBottomSheet.show(context),
@@ -1028,13 +1043,16 @@ class _SpotifyQuickGrid extends StatelessWidget {
           final item = tiles[idx];
           return InkWell(
             onTap: item.onTap,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(10),
+                color: Color.alphaBlend(
+                  item.accent.withValues(alpha: 0.11),
+                  AppColors.surfaceElevated,
+                ),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: item.accent.withValues(alpha: 0.22),
                 ),
               ),
               child: Row(
@@ -1277,12 +1295,12 @@ class _DirectoryPosterCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A2338), Color(0xFF111623)],
+            colors: [Color(0xFFE9EFF5), Color(0xFFDDE5EE)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.14)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1293,7 +1311,7 @@ class _DirectoryPosterCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.neonCyan.withValues(alpha: 0.14),
+                    color: AppColors.neonCyan.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -1313,7 +1331,7 @@ class _DirectoryPosterCard extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      color: Colors.black,
+                      color: Colors.white,
                       size: 22,
                     ),
                   ),
@@ -1326,6 +1344,7 @@ class _DirectoryPosterCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
                 height: 1.2,
@@ -1379,13 +1398,16 @@ class _M3uPosterCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isLink
-                ? const [Color(0xFF23183C), Color(0xFF121524)]
-                : const [Color(0xFF142C28), Color(0xFF111622)],
+                ? const [Color(0xFFFBF0DA), Color(0xFFF3DFBA)]
+                : const [Color(0xFFFBE7DC), Color(0xFFF4D5C4)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: (isLink ? AppColors.neonPurple : AppColors.spotifyGreen)
+                .withValues(alpha: 0.24),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1401,8 +1423,8 @@ class _M3uPosterCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isLink
-                        ? AppColors.neonPurple.withValues(alpha: 0.25)
-                        : AppColors.spotifyGreen.withValues(alpha: 0.22),
+                        ? AppColors.neonPurple.withValues(alpha: 0.2)
+                        : AppColors.spotifyGreen.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1424,6 +1446,7 @@ class _M3uPosterCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
                 fontSize: 14.5,
                 height: 1.2,
@@ -1502,7 +1525,7 @@ class _NetflixTop10Card extends StatelessWidget {
                   foreground: Paint()
                     ..style = PaintingStyle.stroke
                     ..strokeWidth = 2.5
-                    ..color = Colors.white.withValues(alpha: 0.45),
+                    ..color = AppColors.textPrimary.withValues(alpha: 0.22),
                 ),
               ),
             ),
@@ -1515,8 +1538,8 @@ class _NetflixTop10Card extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1628,6 +1651,299 @@ class _EmptyCalloutCard extends StatelessWidget {
               OutlinedButton(
                 onPressed: onSecondary,
                 child: Text(secondaryLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineMusicPlayerCard extends StatelessWidget {
+  final int directoriesCount;
+  final VoidCallback onOpenDirectories;
+  final VoidCallback onOpenYouTube;
+
+  const _OfflineMusicPlayerCard({
+    required this.directoriesCount,
+    required this.onOpenDirectories,
+    required this.onOpenYouTube,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<MusicProvider>();
+    final offlineTracks = provider.allOfflineMusicTracks;
+    final activeTrack = provider.currentTrack;
+    final bool isPlayingOffline =
+        activeTrack != null && !activeTrack.isVideo && activeTrack.isOfflineReady;
+    final bool isPlayingNow = isPlayingOffline && provider.isPlaying;
+
+    final String titleText = isPlayingOffline
+        ? activeTrack.title
+        : (offlineTracks.isNotEmpty
+            ? 'Musik Offline Siap Putar'
+            : 'Belum Ada Musik Offline');
+    final String subtitleText = isPlayingOffline
+        ? '${activeTrack.artist} • ${activeTrack.directoryName}'
+        : (offlineTracks.isNotEmpty
+            ? '${offlineTracks.length} lagu offline di $directoriesCount direktori'
+            : 'Unduh lagu/playlist YouTube atau scan direktori HP Anda');
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFAF7F4), Color(0xFFEDE6DD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.spotifyGreen.withValues(alpha: 0.25),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.offline_pin_rounded,
+                      size: 13,
+                      color: AppColors.spotifyGreen,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'MUSIK OFFLINE',
+                      style: TextStyle(
+                        color: AppColors.spotifyGreen,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: onOpenDirectories,
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text(
+                    'Buka Direktori',
+                    style: TextStyle(
+                      color: AppColors.spotifyGreen,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (provider.isDownloadingYouTube) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.spotifyGreen.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.downloading_rounded,
+                        size: 15,
+                        color: AppColors.spotifyGreen,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Mengunduh: ${provider.ytDownloadLabel ?? 'Audio'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${(provider.ytDownloadProgress * 100).round()}%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.spotifyGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: provider.ytDownloadProgress > 0
+                          ? provider.ytDownloadProgress
+                          : null,
+                      minHeight: 3.5,
+                      backgroundColor: Colors.black.withValues(alpha: 0.08),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.spotifyGreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.spotifyGreen.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.library_music_rounded,
+                  color: AppColors.spotifyGreen,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Lagu Sebelumnya',
+                onPressed: isPlayingOffline ? provider.playPrevious : null,
+                icon: const Icon(Icons.skip_previous_rounded, size: 26),
+                color: AppColors.textPrimary,
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () {
+                  if (isPlayingOffline) {
+                    provider.togglePlayPause();
+                  } else if (offlineTracks.isNotEmpty) {
+                    provider.playTrackList(offlineTracks);
+                  } else {
+                    onOpenYouTube();
+                  }
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: const BoxDecoration(
+                    color: AppColors.spotifyGreen,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isPlayingNow
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Lagu Berikutnya',
+                onPressed: isPlayingOffline ? provider.playNext : null,
+                icon: const Icon(Icons.skip_next_rounded, size: 26),
+                color: AppColors.textPrimary,
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(
+                    color: Colors.black.withValues(alpha: 0.14),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onPressed: offlineTracks.isNotEmpty
+                    ? () {
+                        final shuffled = List<TrackItem>.from(offlineTracks)
+                          ..shuffle();
+                        provider.playTrackList(shuffled);
+                      }
+                    : onOpenYouTube,
+                icon: Icon(
+                  offlineTracks.isNotEmpty
+                      ? Icons.shuffle_rounded
+                      : Icons.download_rounded,
+                  size: 16,
+                  color: AppColors.spotifyGreen,
+                ),
+                label: Text(
+                  offlineTracks.isNotEmpty ? 'Acak Offline' : 'Unduh YouTube',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),

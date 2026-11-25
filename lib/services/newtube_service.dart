@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/music_models.dart';
@@ -76,10 +77,12 @@ class NewTubePlaylistItem {
 class NewTubeResolvedStream {
   final String url;
   final Map<String, String> headers;
+  final String extension;
 
   const NewTubeResolvedStream({
     required this.url,
     required this.headers,
+    this.extension = 'm4a',
   });
 }
 
@@ -664,4 +667,171 @@ class NewTubeService {
 
   static Future<String?> resolveVideoStreamUrl(String videoId) async =>
       (await resolveVideoStream(videoId))?.url;
+
+  /// Sanitizes a title or playlist name for safe Android/Windows directory and file names.
+  static String sanitizeFileName(String input, {String fallback = 'Audio'}) {
+    final cleaned = input
+        .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'^\.+|\.+$'), '')
+        .trim();
+    if (cleaned.isEmpty) return fallback;
+    return cleaned.length > 72 ? cleaned.substring(0, 72).trim() : cleaned;
+  }
+
+  /// Resolves an audio-only stream first (`.m4a` / `.opus`) for fast offline music downloads.
+  static Future<NewTubeResolvedStream?> resolveAudioDownloadStream(
+    String videoId,
+  ) async {
+    final yt = YoutubeExplode();
+    try {
+      final clients = [
+        YoutubeApiClient.android,
+        YoutubeApiClient.androidVr,
+        YoutubeApiClient.ios,
+        YoutubeApiClient.tv,
+      ];
+
+      for (final apiClient in clients) {
+        try {
+          final manifest = await yt.videos.streamsClient
+              .getManifest(videoId, ytClients: [apiClient])
+              .timeout(const Duration(seconds: 14));
+
+          final headers = _headersForClient(apiClient);
+          final List<({Uri url, String ext})> candidates = [];
+
+          final mp4Audio = manifest.audioOnly
+              .where((s) => s.container.name.toLowerCase() == 'mp4')
+              .toList()
+            ..sort((a, b) =>
+                b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+          for (final s in mp4Audio) {
+            candidates.add((url: s.url, ext: 'm4a'));
+          }
+
+          if (manifest.audioOnly.isNotEmpty) {
+            final best = manifest.audioOnly.withHighestBitrate();
+            final cname = best.container.name.toLowerCase();
+            final ext = cname == 'mp4'
+                ? 'm4a'
+                : (cname == 'webm' ? 'opus' : 'm4a');
+            candidates.add((url: best.url, ext: ext));
+          }
+
+          if (manifest.muxed.isNotEmpty) {
+            candidates.add((
+              url: manifest.muxed.withHighestBitrate().url,
+              ext: 'm4a',
+            ));
+          }
+
+          for (final c in candidates) {
+            if (await _probePlayableUrl(c.url, headers)) {
+              return NewTubeResolvedStream(
+                url: c.url.toString(),
+                headers: headers,
+                extension: c.ext,
+              );
+            }
+          }
+        } catch (_) {
+          // Try next client
+        }
+      }
+      return null;
+    } finally {
+      yt.close();
+    }
+  }
+
+  /// Downloads a YouTube track's audio stream directly into [targetDir] using a `.part` temp file.
+  static Future<String> downloadAudioToDirectory({
+    required NewTubeItem item,
+    required Directory targetDir,
+    void Function(double progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    if (!await targetDir.exists()) {
+      await targetDir.create(recursive: true);
+    }
+
+    final safeTitle = sanitizeFileName(item.title, fallback: item.videoId);
+    final baseName = '$safeTitle [${item.videoId}]';
+
+    // Reuse existing downloaded file if already present (any supported audio extension)
+    for (final ext in const ['m4a', 'opus', 'mp3', 'aac']) {
+      final existing = File(p.join(targetDir.path, '$baseName.$ext'));
+      if (await existing.exists() && await existing.length() > 1024) {
+        onProgress?.call(1.0);
+        return existing.path;
+      }
+    }
+
+    final resolved = await resolveAudioDownloadStream(item.videoId);
+    if (resolved == null) {
+      throw Exception('Stream audio YouTube tidak tersedia untuk "${item.title}"');
+    }
+
+    final finalPath = p.join(targetDir.path, '$baseName.${resolved.extension}');
+    final partFile = File('$finalPath.part');
+    if (await partFile.exists()) {
+      await partFile.delete();
+    }
+
+    final client = http.Client();
+    IOSink? sink;
+    try {
+      final req = http.Request('GET', Uri.parse(resolved.url));
+      req.headers.addAll(resolved.headers);
+      final res = await client.send(req).timeout(const Duration(seconds: 30));
+      if (res.statusCode < 200 || res.statusCode >= 400) {
+        throw HttpException('HTTP ${res.statusCode} saat mengunduh audio');
+      }
+
+      final totalBytes = res.contentLength ?? 0;
+      int received = 0;
+      sink = partFile.openWrite();
+
+      await for (final chunk in res.stream) {
+        if (isCancelled?.call() == true) {
+          throw Exception('Unduhan dibatalkan');
+        }
+        sink.add(chunk);
+        received += chunk.length;
+        if (totalBytes > 0 && onProgress != null) {
+          onProgress((received / totalBytes).clamp(0.0, 0.99));
+        }
+      }
+
+      await sink.flush();
+      await sink.close();
+      sink = null;
+
+      if (await partFile.length() <= 1024) {
+        throw Exception('File audio unduhan kosong/korup');
+      }
+
+      final targetFile = File(finalPath);
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      await partFile.rename(finalPath);
+      onProgress?.call(1.0);
+      return finalPath;
+    } catch (e) {
+      try {
+        await sink?.close();
+      } catch (_) {}
+      try {
+        if (await partFile.exists()) {
+          await partFile.delete();
+        }
+      } catch (_) {}
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
 }

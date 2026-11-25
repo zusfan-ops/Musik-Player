@@ -77,12 +77,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E263B), Color(0xFF121622)],
+                colors: [AppColors.surfaceElevated, AppColors.surface],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,13 +371,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF28121B), Color(0xFF121622)],
+                colors: [AppColors.surfaceElevated, AppColors.surface],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppColors.spotifyGreen.withValues(alpha: 0.35),
+                color: Colors.black.withValues(alpha: 0.06),
               ),
             ),
             child: Column(
@@ -694,7 +694,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const ListTile(
                     leading: AppLogo(size: 36, borderRadius: 9),
                     title: Text(
-                      'M3U Musik & Hallsem Cinema',
+                      'MediaCenter & Hallsem Cinema',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(

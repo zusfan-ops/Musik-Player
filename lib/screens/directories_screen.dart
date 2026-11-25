@@ -428,12 +428,14 @@ class _DirectoryGridTile extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A2236), Color(0xFF111622)],
+            colors: [Color(0xFFE9EFF5), Color(0xFFDDE5EE)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: AppColors.neonCyan.withValues(alpha: 0.14),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +466,7 @@ class _DirectoryGridTile extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      color: Colors.black,
+                      color: Colors.white,
                       size: 24,
                     ),
                   ),
@@ -494,6 +496,7 @@ class _DirectoryGridTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
                 fontSize: 15.5,
               ),
