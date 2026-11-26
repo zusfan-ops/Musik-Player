@@ -3,7 +3,8 @@ param (
     [string]$CustomVersion = "",
     [string]$ReleaseNotes = "",
     [switch]$IncludeAppBundle,
-    [switch]$IncludeUniversal
+    [switch]$IncludeUniversal,
+    [switch]$SkipWindows
 )
 
 $ErrorActionPreference = "Stop"
@@ -127,6 +128,42 @@ if ($IncludeUniversal) {
     }
 }
 
+# 5. Build Windows Release & Installer (.exe) jika tidak di-skip
+$WindowsInstallerName = $null
+if (-not $SkipWindows) {
+    Write-Host "`n[5/5] Melakukan build Windows Desktop & Installer (.exe)..." -ForegroundColor Yellow
+    flutter build windows --release
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Build Windows release gagal dengan exit code $LASTEXITCODE! Hentikan deploy."
+        exit 1
+    }
+
+    $isccCandidates = @(
+        (Get-Command "iscc.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    $isccPath = $isccCandidates | Select-Object -First 1
+    if ($isccPath) {
+        & $isccPath "/DMyAppVersion=$VersionClean" "$AppDir\windows\installer\MediaCenter.iss"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "ISCC.exe gagal membuat installer Windows dengan exit code $LASTEXITCODE!"
+            exit 1
+        }
+        $BuiltInstallerName = "MediaCenter-Setup-v$VersionClean-x64.exe"
+        $BuiltInstallerServerPath = "$ServerVersionDir\$BuiltInstallerName"
+        if (Test-Path $BuiltInstallerServerPath) {
+            Copy-Item -Path $BuiltInstallerServerPath -Destination "$ArchiveReleaseDir\$BuiltInstallerName" -Force
+            $WindowsInstallerName = $BuiltInstallerName
+            Write-Host "  -> [WINDOWS] Installer EXE: $BuiltInstallerServerPath" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  -> [PERINGATAN] Inno Setup 6 (ISCC.exe) belum terpasang. Installer .exe dilewati." -ForegroundColor Yellow
+    }
+}
+
 # Catatan Rilis (release_notes.txt)
 $NotesContent = if ($ReleaseNotes -ne "") {
     $ReleaseNotes
@@ -168,13 +205,17 @@ $PreferredApkName = if (Test-Path "$ServerVersionDir\M3UMusik-v$VersionClean-arm
     "M3UMusik-v$VersionClean-arm64-v8a.apk"
 }
 
-$LatestData = @{
+$LatestDataMap = [ordered]@{
     version = $VersionClean
     build_number = [int]$BuildNumber
     release_date = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     download_url = "/release/$VersionClean/$PreferredApkName"
     changelog = $NotesContent
-} | ConvertTo-Json -Depth 4
+}
+if ($WindowsInstallerName) {
+    $LatestDataMap["windows_download_url"] = "/release/$VersionClean/$WindowsInstallerName"
+}
+$LatestData = $LatestDataMap | ConvertTo-Json -Depth 4
 Set-Content -Path $LatestJsonPath -Value $LatestData -Encoding utf8
 Write-Host "  -> public/release/latest.json diperbarui ke v$VersionClean." -ForegroundColor Green
 

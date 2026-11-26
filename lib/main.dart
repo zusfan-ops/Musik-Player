@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/finance_provider.dart';
@@ -25,18 +27,26 @@ import 'widgets/mini_player_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.musikm3u.player.channel.audio',
-      androidNotificationChannelName: 'Pemutaran Musik M3U',
-      androidNotificationIcon: 'drawable/ic_stat_music',
-      androidNotificationOngoing: false,
-      preloadArtwork: true,
-      artDownscaleWidth: 512,
-      artDownscaleHeight: 512,
-    );
-  } catch (_) {
-    // Safe fallback if native audio background service is unavailable (e.g. tests)
+  if (Platform.isWindows || Platform.isLinux) {
+    try {
+      MediaKit.ensureInitialized();
+      MusicProvider.markMediaKitInitialized();
+    } catch (_) {}
+  }
+  if (Platform.isAndroid || Platform.isIOS) {
+    try {
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'com.musikm3u.player.channel.audio',
+        androidNotificationChannelName: 'Pemutaran Musik M3U',
+        androidNotificationIcon: 'drawable/ic_stat_music',
+        androidNotificationOngoing: false,
+        preloadArtwork: true,
+        artDownscaleWidth: 512,
+        artDownscaleHeight: 512,
+      );
+    } catch (_) {
+      // Safe fallback if native audio background service is unavailable (e.g. tests)
+    }
   }
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -228,30 +238,51 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           SystemNavigator.pop();
         }
       },
-      child: Scaffold(
-        body: Stack(
-          children: [
-            Navigator(
-              key: _shellNavKey,
-              onGenerateRoute: (_) => MaterialPageRoute<void>(
-                builder: (_) => IndexedStack(
-                  index: _selectedIndex,
-                  children: pages,
+      child: LayoutBuilder(
+        builder: (layoutCtx, constraints) {
+          final isDesktopWide = constraints.maxWidth >= 900;
+          final mainWorkspace = Stack(
+            children: [
+              Navigator(
+                key: _shellNavKey,
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (_) => IndexedStack(
+                    index: _selectedIndex,
+                    children: pages,
+                  ),
                 ),
               ),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: MiniPlayerBar(),
+              ),
+            ],
+          );
+
+          if (isDesktopWide) {
+            return Scaffold(
+              body: Row(
+                children: [
+                  _DesktopSidebarNav(
+                    selectedIndex: _selectedIndex,
+                    onSelected: _switchTab,
+                  ),
+                  Expanded(child: mainWorkspace),
+                ],
+              ),
+            );
+          }
+
+          return Scaffold(
+            body: mainWorkspace,
+            bottomNavigationBar: _ModernBottomNavBar(
+              key: const Key('modern_bottom_nav'),
+              selectedIndex: _selectedIndex,
+              onSelected: _switchTab,
+              onOpenMore: () => _showMoreMenu(context),
             ),
-            const Align(
-              alignment: Alignment.bottomCenter,
-              child: MiniPlayerBar(),
-            ),
-          ],
-        ),
-        bottomNavigationBar: _ModernBottomNavBar(
-          key: const Key('modern_bottom_nav'),
-          selectedIndex: _selectedIndex,
-          onSelected: _switchTab,
-          onOpenMore: () => _showMoreMenu(context),
-        ),
+          );
+        },
       ),
     );
   }
@@ -631,6 +662,213 @@ class _GlassNavButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopSidebarNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  const _DesktopSidebarNav({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 248,
+      color: AppColors.darkNav,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+              child: Row(
+                children: [
+                  const AppLogo(size: 38, borderRadius: 10),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'MediaCenter',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          Platform.isWindows ? 'WINDOWS DESKTOP' : 'WIDE STUDIO',
+                          style: const TextStyle(
+                            color: AppColors.spotifyGreen,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+                children: [
+                  const _SidebarSectionLabel('MEDIA & HIBURAN'),
+                  _SidebarItem(
+                    icon: Icons.home_rounded,
+                    label: 'Beranda',
+                    selected: selectedIndex == 0,
+                    onTap: () => onSelected(0),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.folder_rounded,
+                    label: 'Direktori Musik',
+                    selected: selectedIndex == 1,
+                    onTap: () => onSelected(1),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.live_tv_rounded,
+                    label: 'TV & IPTV',
+                    selected: selectedIndex == 2,
+                    onTap: () => onSelected(2),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.smart_display_rounded,
+                    label: 'YouTube',
+                    selected: selectedIndex == 3,
+                    onTap: () => onSelected(3),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.movie_rounded,
+                    label: 'Hallsem Cinema',
+                    selected: selectedIndex == 4,
+                    onTap: () => onSelected(4),
+                  ),
+                  const SizedBox(height: 14),
+                  const _SidebarSectionLabel('BISNIS & KASIR'),
+                  _SidebarItem(
+                    icon: Icons.point_of_sale_rounded,
+                    label: 'Kasir & POS',
+                    selected: false,
+                    onTap: () => PosScreen.show(context),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: 'Keuangan & Buku Kas',
+                    selected: false,
+                    onTap: () => KeuanganScreen.show(context),
+                  ),
+                  const SizedBox(height: 14),
+                  const _SidebarSectionLabel('SISTEM & MODE'),
+                  _SidebarItem(
+                    icon: Icons.directions_car_rounded,
+                    label: 'Driving Mode',
+                    selected: false,
+                    onTap: () => DrivingModeScreen.show(context),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.person_rounded,
+                    label: 'Profil & Setting',
+                    selected: selectedIndex == 5,
+                    onTap: () => onSelected(5),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.menu_book_rounded,
+                    label: 'Panduan',
+                    selected: false,
+                    onTap: () => OnboardingScreen.show(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarSectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SidebarSectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white38,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SidebarItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected ? AppColors.spotifyGreen : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: selected ? Colors.white : Colors.white70,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? Colors.white : Colors.white70,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

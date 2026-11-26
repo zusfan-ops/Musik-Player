@@ -243,46 +243,99 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // 1. NETFLIX CINEMA HERO BILLBOARD
-        SliverToBoxAdapter(
-          child: _NetflixHeroBillboard(
-            allTracks: allTracks,
-            playlists: playlists,
-            directories: directories,
-            onNavigateTab: widget.onNavigateTab,
-          ),
-        ),
-
-        // 2. SPOTIFY SIGNATURE 2x3 QUICK-ACCESS GRID
-        SliverToBoxAdapter(
-          child: _SpotifyQuickGrid(
-            directories: directories,
-            playlists: playlists,
-            onNavigateTab: widget.onNavigateTab,
-          ),
-        ),
-
-        // 2-bis. MUSIK OFFLINE CARD WITH PLAY CONTROLS
-        if (_selectedChip == 'Semua' ||
-            _selectedChip == 'Direktori' ||
-            _selectedChip == 'Offline Ready')
+        // 1 & 2. WIDE DESKTOP 2-COLUMN DASHBOARD OR MOBILE STACK
+        if (MediaQuery.of(context).size.width >= 960)
           SliverToBoxAdapter(
-            child: _OfflineMusicPlayerCard(
-              directoriesCount: directories.length,
-              onOpenDirectories: () => widget.onNavigateTab(1),
-              onOpenYouTube: () => widget.onNavigateTab(3),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        _NetflixHeroBillboard(
+                          allTracks: allTracks,
+                          playlists: playlists,
+                          directories: directories,
+                          onNavigateTab: widget.onNavigateTab,
+                        ),
+                        if (_selectedChip == 'Semua' ||
+                            _selectedChip == 'Direktori' ||
+                            _selectedChip == 'Offline Ready')
+                          _OfflineMusicPlayerCard(
+                            directoriesCount: directories.length,
+                            onOpenDirectories: () => widget.onNavigateTab(1),
+                            onOpenYouTube: () => widget.onNavigateTab(3),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        _SpotifyQuickGrid(
+                          directories: directories,
+                          playlists: playlists,
+                          onNavigateTab: widget.onNavigateTab,
+                        ),
+                        if (_selectedChip == 'Semua' ||
+                            _selectedChip == 'Direktori' ||
+                            _selectedChip == 'Offline Ready')
+                          _YouTubeOfflineSection(
+                            onOpenYouTube: () => widget.onNavigateTab(3),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else ...[
+          // 1. NETFLIX CINEMA HERO BILLBOARD
+          SliverToBoxAdapter(
+            child: _NetflixHeroBillboard(
+              allTracks: allTracks,
+              playlists: playlists,
+              directories: directories,
+              onNavigateTab: widget.onNavigateTab,
             ),
           ),
 
-        // 2-ter. YOUTUBE OFFLINE DOWNLOADS CARD / SWIMLANE
-        if (_selectedChip == 'Semua' ||
-            _selectedChip == 'Direktori' ||
-            _selectedChip == 'Offline Ready')
+          // 2. SPOTIFY SIGNATURE QUICK-ACCESS GRID
           SliverToBoxAdapter(
-            child: _YouTubeOfflineSection(
-              onOpenYouTube: () => widget.onNavigateTab(3),
+            child: _SpotifyQuickGrid(
+              directories: directories,
+              playlists: playlists,
+              onNavigateTab: widget.onNavigateTab,
             ),
           ),
+
+          // 2-bis. MUSIK OFFLINE CARD WITH PLAY CONTROLS
+          if (_selectedChip == 'Semua' ||
+              _selectedChip == 'Direktori' ||
+              _selectedChip == 'Offline Ready')
+            SliverToBoxAdapter(
+              child: _OfflineMusicPlayerCard(
+                directoriesCount: directories.length,
+                onOpenDirectories: () => widget.onNavigateTab(1),
+                onOpenYouTube: () => widget.onNavigateTab(3),
+              ),
+            ),
+
+          // 2-ter. YOUTUBE OFFLINE DOWNLOADS CARD / SWIMLANE
+          if (_selectedChip == 'Semua' ||
+              _selectedChip == 'Direktori' ||
+              _selectedChip == 'Offline Ready')
+            SliverToBoxAdapter(
+              child: _YouTubeOfflineSection(
+                onOpenYouTube: () => widget.onNavigateTab(3),
+              ),
+            ),
+        ],
 
         // 2a. CONTINUE WATCHING (HALLSEM CINEMA)
         if (jfProvider.continueWatchingMovies.isNotEmpty &&

@@ -362,7 +362,9 @@ class _PosCashierTabState extends State<_PosCashierTab> {
       return true;
     }).toList();
 
-    final isWide = MediaQuery.of(context).size.width >= 820;
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= 820;
+    final gridCols = width >= 1250 ? 4 : (isWide ? 3 : 2);
 
     final Widget productPane = Column(
       children: [
@@ -412,7 +414,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
               : GridView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 90),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isWide ? 3 : 2,
+                    crossAxisCount: gridCols,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     childAspectRatio: isWide ? 0.96 : 0.92,
@@ -552,7 +554,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
         children: [
           Expanded(flex: 3, child: productPane),
           Container(
-            width: 340,
+            width: width >= 1250 ? 390 : 340,
             margin: const EdgeInsets.fromLTRB(0, 8, 12, 12),
             decoration: BoxDecoration(
               color: AppColors.surfaceElevated,
@@ -1300,14 +1302,70 @@ class _PosReceiptActionsSheet extends StatelessWidget {
     try {
       final printers = await PosBluetoothPrinterService.listPairedPrinters();
       if (!context.mounted) return;
-      if (printers.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Tidak ada printer Bluetooth ter-pair. Hubungkan printer di Pengaturan Bluetooth HP dahulu.',
+      if (!Platform.isAndroid || printers.isEmpty) {
+        final ipCtrl = TextEditingController(text: '192.168.1.100');
+        await showDialog<void>(
+          context: context,
+          builder: (dCtx) => AlertDialog(
+            title: const Text('Cetak Printer Thermal (LAN / Wi-Fi)'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  Platform.isAndroid
+                      ? 'Tidak ada printer Bluetooth ter-pair. Anda bisa cetak ke printer thermal jaringan (port 9100):'
+                      : 'Masukkan IP Address printer thermal ESC/POS jaringan (port 9100):',
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: ipCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'IP Printer (contoh: 192.168.1.100)',
+                  ),
+                ),
+              ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dCtx),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.spotifyGreen,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final host = ipCtrl.text.trim();
+                  if (host.isEmpty) return;
+                  Navigator.pop(dCtx);
+                  try {
+                    await PosBluetoothPrinterService.printReceiptTcp(
+                      host: host,
+                      order: order,
+                      profile: profile,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Nota dicetak ke $host!')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gagal cetak LAN: $e')),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Cetak'),
+              ),
+            ],
           ),
         );
+        ipCtrl.dispose();
         return;
       }
       await showDialog<void>(

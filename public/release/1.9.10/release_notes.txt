@@ -1,1 +1,0 @@
-﻿Update v1.9.10: Fitur Keuangan & Buku Kas Lengkap Terintegrasi POS (Pemasukan, Pengeluaran/Belanja, Dompet, Rekap Kategori & Export PDF)

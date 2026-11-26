@@ -100,6 +100,15 @@ echo ================================================================
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tool\build_release.ps1" !BUMP_ARG! !NOTES_ARG! !AAB_FLAG!
+if errorlevel 1 (
+    echo.
+    echo ================================================================
+    echo  [GAGAL] Proses build release dihentikan karena ada error.
+    echo ================================================================
+    echo.
+    pause
+    exit /b 1
+)
 
 echo.
 echo ================================================================

@@ -1,7 +1,7 @@
 name: musik_m3u_player
 description: "M3U Musik & Jellyfin Cinema Player — Offline M3U, Directory Music & Jellyfin Movies (Netflix x Spotify UI)"
 publish_to: 'none'
-version: 1.9.10+30
+version: 1.10.1+32
 
 environment:
   sdk: ^3.12.2
@@ -20,6 +20,9 @@ dependencies:
   permission_handler: ^13.0.2
   http: ^1.6.0
   just_audio: ^0.10.6
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.0
+  media_kit_libs_windows_video: ^1.0.11
   audio_session: ^0.2.4
   video_player: ^2.14.1
   package_info_plus: ^10.2.2

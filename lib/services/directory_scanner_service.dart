@@ -241,6 +241,13 @@ class DirectoryScannerService {
           }
         }
       } catch (_) {}
+    } else if (includeDefaultAndroidDirs && Platform.isWindows) {
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        for (final sub in const ['Music', 'Downloads']) {
+          rootCandidates.add(p.join(userProfile, sub));
+        }
+      }
     }
 
     rootCandidates.addAll(customSet);

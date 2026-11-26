@@ -65,11 +65,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
       final uri = Uri.parse(widget.release.apkUrl);
       if (!(uri.scheme == 'https' || uri.scheme == 'http')) {
-        throw const FormatException('URL APK tidak valid.');
+        throw const FormatException('URL pembaruan tidak valid.');
       }
 
+      final isWindows = Platform.isWindows;
       final request = http.Request('GET', uri)
-        ..headers['User-Agent'] = 'M3UMusikPlayer-Android';
+        ..headers['User-Agent'] =
+            isWindows ? 'MediaCenter-Windows' : 'M3UMusikPlayer-Android';
 
       final response =
           await client.send(request).timeout(const Duration(seconds: 30));
@@ -83,17 +85,22 @@ class _UpdateDialogState extends State<UpdateDialog> {
       }
 
       Directory? dir;
-      try {
-        final extDirs = await getExternalCacheDirectories();
-        if (extDirs != null && extDirs.isNotEmpty) {
-          dir = extDirs.first;
-        }
-      } catch (_) {}
+      if (!isWindows) {
+        try {
+          final extDirs = await getExternalCacheDirectories();
+          if (extDirs != null && extDirs.isNotEmpty) {
+            dir = extDirs.first;
+          }
+        } catch (_) {}
+      }
       dir ??= await getTemporaryDirectory();
 
       final cleanVer = widget.release.versionClean
           .replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
-      final fallbackName = 'M3UMusik-v$cleanVer.apk';
+      final expectedExt = isWindows ? '.exe' : '.apk';
+      final fallbackName = isWindows
+          ? 'MediaCenter-Setup-v$cleanVer-x64.exe'
+          : 'M3UMusik-v$cleanVer.apk';
       final rawName = widget.release.apkName;
       String fileName = fallbackName;
       if (rawName != null && rawName.trim().isNotEmpty) {
@@ -103,7 +110,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
         if (sanitized.isNotEmpty &&
             !sanitized.startsWith('.') &&
             !sanitized.contains('..') &&
-            sanitized.toLowerCase().endsWith('.apk')) {
+            sanitized.toLowerCase().endsWith(expectedExt)) {
           fileName = sanitized;
         }
       }
@@ -140,7 +147,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       }
 
       if (received == 0) {
-        throw const FileSystemException('File APK kosong (0 byte).');
+        throw const FileSystemException('File installer kosong (0 byte).');
       }
 
       final finalFile = File(filePath);
@@ -154,7 +161,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           _isDownloading = false;
           _progress = 1.0;
         });
-        await _installApk(filePath);
+        await _installUpdate(filePath);
       }
     } catch (e) {
       if (partFile != null) {
@@ -186,11 +193,21 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
   }
 
-  Future<void> _installApk(String filePath) async {
+  Future<void> _installUpdate(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        throw const FileSystemException('File APK tidak ditemukan.');
+        throw const FileSystemException('File installer tidak ditemukan.');
+      }
+
+      if (Platform.isWindows) {
+        await Process.start(
+          filePath,
+          const ['/SILENT', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
+          mode: ProcessStartMode.detached,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        exit(0);
       }
 
       final result = await OpenFile.open(
@@ -213,7 +230,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuka installer APK: $e')),
+          SnackBar(content: Text('Gagal membuka installer: $e')),
         );
       }
     }

@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart' as mk;
+import 'package:media_kit_video/media_kit_video.dart' as mkv;
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -69,6 +72,12 @@ class M3uVideoPlayerScreen extends StatefulWidget {
 class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   VideoPlayerController? _controller;
   VoidCallback? _controllerListener;
+  mk.Player? _mkPlayer;
+  mkv.VideoController? _mkVideoController;
+  final List<StreamSubscription<dynamic>> _mkSubs = [];
+  final ValueNotifier<VideoPlayerValue> _mkValueNotifier =
+      ValueNotifier<VideoPlayerValue>(const VideoPlayerValue.uninitialized());
+  bool get _useMediaKit => Platform.isWindows || Platform.isLinux;
   Timer? _hideControlsTimer;
   final TextEditingController _channelSearchCtrl = TextEditingController();
 
@@ -95,9 +104,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   bool get _isLiveStream {
     final item = _currentItem;
     if (item.durationSeconds != null && item.durationSeconds! < 0) return true;
-    final ctrl = _controller;
-    if (ctrl != null && ctrl.value.isInitialized) {
-      final dur = ctrl.value.duration;
+    final val = _activeVideoValue;
+    if (val != null && val.isInitialized) {
+      final dur = val.duration;
       if (dur <= Duration.zero || dur.inHours > 12) return true;
       if (item.pathOrUrl.toLowerCase().contains('.m3u8') &&
           dur.inSeconds <= 90) {
@@ -106,6 +115,44 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     }
     return item.pathOrUrl.toLowerCase().contains('.m3u8') &&
         item.durationSeconds == null;
+  }
+
+  VideoPlayerValue? get _activeVideoValue =>
+      _useMediaKit ? _mkValueNotifier.value : _controller?.value;
+
+  ValueListenable<VideoPlayerValue>? get _activeVideoListenable =>
+      _useMediaKit ? _mkValueNotifier : _controller;
+
+  Future<void> _videoPlay() async {
+    if (_useMediaKit) {
+      await _mkPlayer?.play();
+    } else {
+      await _controller?.play();
+    }
+  }
+
+  Future<void> _videoPause() async {
+    if (_useMediaKit) {
+      await _mkPlayer?.pause();
+    } else {
+      await _controller?.pause();
+    }
+  }
+
+  Future<void> _videoSeek(Duration target) async {
+    if (_useMediaKit) {
+      await _mkPlayer?.seek(target);
+    } else {
+      await _controller?.seekTo(target);
+    }
+  }
+
+  Future<void> _videoSetSpeed(double speed) async {
+    if (_useMediaKit) {
+      await _mkPlayer?.setRate(speed);
+    } else {
+      await _controller?.setPlaybackSpeed(speed);
+    }
   }
 
   @override
@@ -159,6 +206,18 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   }
 
   Future<void> _disposeActiveController() async {
+    for (final sub in _mkSubs) {
+      await sub.cancel();
+    }
+    _mkSubs.clear();
+    final oldMk = _mkPlayer;
+    _mkPlayer = null;
+    _mkVideoController = null;
+    _mkValueNotifier.value = const VideoPlayerValue.uninitialized();
+    if (oldMk != null) {
+      await oldMk.dispose();
+    }
+
     final old = _controller;
     final oldListener = _controllerListener;
     _controller = null;
@@ -188,6 +247,91 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     if (!mounted || token != _initToken) return;
 
     final item = widget.playlistItems[index];
+
+    if (_useMediaKit) {
+      mk.Player? mkPlayer;
+      try {
+        if (item.playsFromLocalFile) {
+          final f = File(item.playableSource);
+          if (!await f.exists()) {
+            throw FileSystemException(
+              'File video lokal tidak ditemukan',
+              item.playableSource,
+            );
+          }
+        }
+        mkPlayer = mk.Player(
+          configuration: const mk.PlayerConfiguration(title: 'MediaCenter TV'),
+        );
+        final mkVideoCtrl = mkv.VideoController(mkPlayer);
+        final headers = item.playsFromLocalFile
+            ? null
+            : <String, String>{
+                'User-Agent': item.httpHeaders?['User-Agent'] ??
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
+                if (item.httpHeaders != null) ...item.httpHeaders!,
+              };
+
+        void syncMkValue() {
+          if (!mounted || token != _initToken) return;
+          final st = mkPlayer!.state;
+          final w = (st.width ?? 16).toDouble();
+          final h = (st.height ?? 9).toDouble();
+          _mkValueNotifier.value = VideoPlayerValue(
+            duration: st.duration,
+            size: Size(w > 0 ? w : 16, h > 0 ? h : 9),
+            position: st.position,
+            isPlaying: st.playing,
+            isBuffering: st.buffering,
+            isInitialized: true,
+          );
+        }
+
+        _mkSubs.addAll([
+          mkPlayer.stream.playing.listen((_) => syncMkValue()),
+          mkPlayer.stream.buffering.listen((_) => syncMkValue()),
+          mkPlayer.stream.duration.listen((_) => syncMkValue()),
+          mkPlayer.stream.position.listen((_) => syncMkValue()),
+          mkPlayer.stream.width.listen((_) => syncMkValue()),
+          mkPlayer.stream.height.listen((_) => syncMkValue()),
+          mkPlayer.stream.error.listen((err) {
+            if (!mounted || token != _initToken) return;
+            setState(() {
+              _isInitializing = false;
+              _errorMessage = err;
+            });
+          }),
+        ]);
+
+        await mkPlayer.open(
+          mk.Media(item.playableSource, httpHeaders: headers),
+          play: true,
+        );
+        if (!mounted || token != _initToken) {
+          await mkPlayer.dispose();
+          return;
+        }
+        if (!_isLiveStream && _playbackSpeed != 1.0) {
+          await mkPlayer.setRate(_playbackSpeed);
+        }
+
+        _mkPlayer = mkPlayer;
+        _mkVideoController = mkVideoCtrl;
+        syncMkValue();
+        setState(() => _isInitializing = false);
+        _scheduleHideControls();
+      } catch (e) {
+        await mkPlayer?.dispose();
+        await _disposeActiveController();
+        if (!mounted || token != _initToken) return;
+        setState(() {
+          _isInitializing = false;
+          _errorMessage = 'Gagal memuat stream video "${item.title}": $e';
+        });
+      }
+      return;
+    }
+
     VideoPlayerController? nextCtrl;
     VoidCallback? attachedListener;
 
@@ -269,8 +413,8 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   void _scheduleHideControls() {
     _hideControlsTimer?.cancel();
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      final ctrl = _controller;
-      if (mounted && ctrl != null && ctrl.value.isPlaying) {
+      final val = _activeVideoValue;
+      if (mounted && val != null && val.isPlaying) {
         setState(() => _showControls = false);
       }
     });
@@ -321,6 +465,12 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     _gestureHudTimer?.cancel();
     _pipSub?.cancel();
     _channelSearchCtrl.dispose();
+    for (final sub in _mkSubs) {
+      sub.cancel();
+    }
+    _mkSubs.clear();
+    unawaited(_mkPlayer?.dispose());
+    _mkValueNotifier.dispose();
     final ctrl = _controller;
     final listener = _controllerListener;
     if (ctrl != null) {
@@ -398,17 +548,17 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     TapDownDetails details,
     double viewportWidth,
   ) async {
-    final ctrl = _controller;
-    if (ctrl == null || !ctrl.value.isInitialized || _isLiveStream) return;
+    final val = _activeVideoValue;
+    if (val == null || !val.isInitialized || _isLiveStream) return;
     final isLeft = details.localPosition.dx < viewportWidth / 2;
     final delta = isLeft
         ? const Duration(seconds: -10)
         : const Duration(seconds: 10);
-    final dur = ctrl.value.duration;
-    var target = ctrl.value.position + delta;
+    final dur = val.duration;
+    var target = val.position + delta;
     if (target < Duration.zero) target = Duration.zero;
     if (dur > Duration.zero && target > dur) target = dur;
-    await ctrl.seekTo(target);
+    await _videoSeek(target);
     if (mounted) {
       _showGestureHud(
         isLeft ? Icons.replay_10_rounded : Icons.forward_10_rounded,
@@ -444,7 +594,11 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
               );
             } else {
               _gestureVolume = (_gestureVolume + delta).clamp(0.0, 1.0);
-              ctrl?.setVolume(_gestureVolume);
+              if (_useMediaKit) {
+                _mkPlayer?.setVolume(_gestureVolume * 100.0);
+              } else {
+                ctrl?.setVolume(_gestureVolume);
+              }
               _showGestureHud(
                 _gestureVolume == 0
                     ? Icons.volume_off_rounded
@@ -459,7 +613,13 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
               fit: StackFit.expand,
               children: [
               // 1. Video Surface (or artwork fallback if stream is audio-only HLS)
-              if (ctrl != null && ctrl.value.isInitialized)
+              if (_useMediaKit && _mkVideoController != null && !_isInitializing)
+                mkv.Video(
+                  controller: _mkVideoController!,
+                  fit: _isZoomCrop ? BoxFit.cover : BoxFit.contain,
+                  controls: mkv.NoVideoControls,
+                )
+              else if (ctrl != null && ctrl.value.isInitialized)
                 ctrl.value.size.width > 0 && ctrl.value.size.height > 0
                     ? Center(
                         child: _isZoomCrop
@@ -724,9 +884,10 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                         ),
 
                         // Center Transport Controls (Prev Channel, Play/Pause, Next Channel)
-                        if (ctrl != null && ctrl.value.isInitialized)
+                        if (_activeVideoListenable != null &&
+                            (_activeVideoValue?.isInitialized ?? false))
                           ValueListenableBuilder<VideoPlayerValue>(
-                            valueListenable: ctrl,
+                            valueListenable: _activeVideoListenable!,
                             builder: (_, val, _) {
                               return Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -745,9 +906,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                                   GestureDetector(
                                     onTap: () {
                                       if (val.isPlaying) {
-                                        ctrl.pause();
+                                        _videoPause();
                                       } else {
-                                        ctrl.play();
+                                        _videoPlay();
                                         _scheduleHideControls();
                                       }
                                     },
@@ -795,9 +956,10 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                           ),
 
                         // Bottom OSD Bar (LIVE Badge OR VOD Seekbar + Speed + Fullscreen Toggle)
-                        if (ctrl != null && ctrl.value.isInitialized)
+                        if (_activeVideoListenable != null &&
+                            (_activeVideoValue?.isInitialized ?? false))
                           ValueListenableBuilder<VideoPlayerValue>(
-                            valueListenable: ctrl,
+                            valueListenable: _activeVideoListenable!,
                             builder: (_, val, _) {
                               final live = _isLiveStream;
                               final durMs =
@@ -863,7 +1025,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                                             min: 0.0,
                                             max: durMs > 0 ? durMs : 1.0,
                                             onChanged: durMs > 0
-                                                ? (v) => ctrl.seekTo(
+                                                ? (v) => _videoSeek(
                                                       Duration(
                                                         milliseconds: v.round(),
                                                       ),
@@ -883,7 +1045,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                                         tooltip: 'Kecepatan Putar Video',
                                         onSelected: (spd) async {
                                           setState(() => _playbackSpeed = spd);
-                                          await ctrl.setPlaybackSpeed(spd);
+                                          await _videoSetSpeed(spd);
                                         },
                                         itemBuilder: (_) => const [
                                           PopupMenuItem(

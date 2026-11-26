@@ -334,8 +334,10 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: MediaQuery.of(context).size.width >= 1200
+                      ? 4
+                      : (MediaQuery.of(context).size.width >= 820 ? 3 : 2),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.96,

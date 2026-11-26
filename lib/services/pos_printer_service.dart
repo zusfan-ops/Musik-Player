@@ -34,6 +34,7 @@ class PosBluetoothPrinterService {
   }
 
   static Future<List<PairedBluetoothPrinter>> listPairedPrinters() async {
+    if (!Platform.isAndroid) return const [];
     await ensureBluetoothPermissions();
     final raw =
         await _channel.invokeMethod<List<dynamic>>('listPairedBluetoothPrinters');
@@ -141,6 +142,7 @@ class PosBluetoothPrinterService {
     required PosOrder order,
     required PosBusinessProfile profile,
   }) async {
+    if (!Platform.isAndroid) return false;
     await ensureBluetoothPermissions();
     final escPosBytes = buildEscPosReceipt(order, profile);
     final ok = await _channel.invokeMethod<bool>('printEscPosBytes', {
@@ -148,5 +150,27 @@ class PosBluetoothPrinterService {
       'bytes': escPosBytes,
     });
     return ok == true;
+  }
+
+  /// Prints ESC/POS thermal receipt directly to a LAN/Wi-Fi printer (port 9100), ideal for Windows Desktop POS.
+  static Future<bool> printReceiptTcp({
+    required String host,
+    int port = 9100,
+    required PosOrder order,
+    required PosBusinessProfile profile,
+  }) async {
+    final socket = await Socket.connect(
+      host.trim(),
+      port,
+      timeout: const Duration(seconds: 5),
+    );
+    try {
+      final escPosBytes = buildEscPosReceipt(order, profile);
+      socket.add(escPosBytes);
+      await socket.flush();
+      return true;
+    } finally {
+      await socket.close();
+    }
   }
 }

@@ -165,6 +165,27 @@ class UpdateCheckerService {
     return apkAssets.first;
   }
 
+  /// Selects the best matching Windows installer (.exe) asset from GitHub Releases.
+  static Map<String, dynamic>? selectBestWindowsAsset(List<dynamic> assets) {
+    final exeAssets = assets.whereType<Map<String, dynamic>>().where((a) {
+      final name = (a['name'] as String? ?? '').toLowerCase();
+      final url = (a['browser_download_url'] as String? ?? '').toLowerCase();
+      return name.endsWith('.exe') &&
+          (url.startsWith('https://') || url.startsWith('http://'));
+    }).toList();
+
+    if (exeAssets.isEmpty) return null;
+
+    for (final keyword in const ['setup', 'installer', 'mediacenter', 'x64', 'windows']) {
+      for (final asset in exeAssets) {
+        final name = (asset['name'] as String? ?? '').toLowerCase();
+        if (name.contains(keyword)) return asset;
+      }
+    }
+
+    return exeAssets.first;
+  }
+
   /// Checks GitHub Releases API (`zusfan-ops/Musik-Player`) with `latest.json` fallback.
   Future<AppRelease?> checkLatestRelease({bool force = false}) async {
     await getAppVersion();
@@ -179,6 +200,9 @@ class UpdateCheckerService {
     _isChecking = true;
 
     try {
+      final isWindows = !kIsWeb && Platform.isWindows;
+      final userAgent =
+          isWindows ? 'MediaCenter-Windows' : 'M3UMusikPlayer-Android';
       final abis = await _getDeviceAbis();
       final currentFullVer = _cachedBuildNumber.isNotEmpty
           ? '$_cachedVersion+$_cachedBuildNumber'
@@ -188,9 +212,9 @@ class UpdateCheckerService {
       try {
         final res = await http.get(
           Uri.parse(githubLatestApiUrl),
-          headers: const {
+          headers: {
             'Accept': 'application/vnd.github+json',
-            'User-Agent': 'M3UMusikPlayer-Android',
+            'User-Agent': userAgent,
           },
         ).timeout(const Duration(seconds: 8));
 
@@ -199,7 +223,9 @@ class UpdateCheckerService {
               jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
           final tag = (data['tag_name'] ?? data['name'] ?? '').toString().trim();
           final assets = data['assets'] as List<dynamic>? ?? const [];
-          final selectedAsset = selectBestApkAsset(assets, abis);
+          final selectedAsset = isWindows
+              ? selectBestWindowsAsset(assets)
+              : selectBestApkAsset(assets, abis);
 
           if (tag.isNotEmpty &&
               selectedAsset != null &&
@@ -228,9 +254,9 @@ class UpdateCheckerService {
       try {
         final latestRes = await http.get(
           Uri.parse(rawLatestJsonUrl),
-          headers: const {
+          headers: {
             'Accept': 'application/json',
-            'User-Agent': 'M3UMusikPlayer-Android',
+            'User-Agent': userAgent,
           },
         ).timeout(const Duration(seconds: 8));
 
@@ -238,7 +264,9 @@ class UpdateCheckerService {
           final data = jsonDecode(utf8.decode(latestRes.bodyBytes))
               as Map<String, dynamic>;
           final latestVer = (data['version'] ?? '').toString().trim();
-          final dl = (data['download_url'] ?? '').toString().trim();
+          final dl = isWindows
+              ? (data['windows_download_url'] ?? '').toString().trim()
+              : (data['download_url'] ?? '').toString().trim();
           final buildNo = data['build_number'];
           final latestFullVer =
               buildNo != null ? '$latestVer+$buildNo' : latestVer;
@@ -251,7 +279,9 @@ class UpdateCheckerService {
                 : '$rawRepoBaseUrl${dl.startsWith('/') ? dl : '/$dl'}';
 
             // Try matching user's ABI filename if download_url points to arm64-v8a
-            if (abis.isNotEmpty && resolvedApkUrl.contains('arm64-v8a')) {
+            if (!isWindows &&
+                abis.isNotEmpty &&
+                resolvedApkUrl.contains('arm64-v8a')) {
               final primaryAbi = abis.first;
               if (primaryAbi == 'armeabi-v7a' || primaryAbi == 'x86_64') {
                 resolvedApkUrl =

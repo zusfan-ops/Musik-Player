@@ -144,6 +144,23 @@ https://live.example.com/tvone/index.m3u8
       final picked =
           UpdateCheckerService.selectBestApkAsset(assets, const ['arm64-v8a']);
       expect(picked?['name'], 'M3UMusik-v1.4.0-arm64-v8a.apk');
+
+      final winAssets = [
+        {
+          'name': 'M3UMusik-v1.9.10-arm64-v8a.apk',
+          'browser_download_url':
+              'https://github.com/zusfan-ops/Musik-Player/releases/download/v1.9.10/M3UMusik-v1.9.10-arm64-v8a.apk',
+          'size': 26500000,
+        },
+        {
+          'name': 'MediaCenter-Setup-v1.9.10-x64.exe',
+          'browser_download_url':
+              'https://github.com/zusfan-ops/Musik-Player/releases/download/v1.9.10/MediaCenter-Setup-v1.9.10-x64.exe',
+          'size': 42000000,
+        },
+      ];
+      final pickedWin = UpdateCheckerService.selectBestWindowsAsset(winAssets);
+      expect(pickedWin?['name'], 'MediaCenter-Setup-v1.9.10-x64.exe');
     });
 
     test('Normalizes Jellyfin URLs, validates API keys, builds clean stream URIs, and scrubs secrets', () {
@@ -308,6 +325,7 @@ https://live.example.com/tvone/index.m3u8
 
     // Main 5-tab Netflix x Spotify shell should be visible
     expect(find.text('MediaCenter'), findsOneWidget);
+    // Test viewport is 800x600 (< 900), so mobile floating pill nav is shown
     expect(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
@@ -396,5 +414,23 @@ https://live.example.com/tvone/index.m3u8
     await tester.tap(find.text('Lewati'));
     await tester.pumpAndSettle();
     expect(find.text('Putar Musik dari Folder HP'), findsNothing);
+  });
+
+  testWidgets('Wide Windows desktop viewport renders sidebar navigation', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    SharedPreferences.setMockInitialValues({'onboarding_done': true});
+
+    await tester.pumpWidget(const MusikM3uApp(autoScanOnInit: false));
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.byKey(const Key('modern_bottom_nav')), findsNothing);
+    expect(find.text('Kasir & POS'), findsWidgets);
+    expect(find.text('Keuangan & Buku Kas'), findsOneWidget);
   });
 }

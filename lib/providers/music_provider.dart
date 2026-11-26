@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:media_kit/media_kit.dart' as mk;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -53,11 +54,15 @@ class MusicProvider extends ChangeNotifier {
       'https://iptv-org.github.io/iptv/countries/id.m3u';
   static const MethodChannel _widgetChannel =
       MethodChannel('com.musikm3u.player/media_store');
+  static bool _mediaKitInitialized = false;
+  static void markMediaKitInitialized() => _mediaKitInitialized = true;
 
   final bool autoScanOnInit;
   late final AndroidEqualizer? _androidEqualizer;
   late final AndroidLoudnessEnhancer? _androidLoudness;
-  late final AudioPlayer _player;
+  late final AudioPlayer? _justAudioPlayer;
+  late final mk.Player? _mkPlayer;
+  bool get _useMediaKit => _mkPlayer != null;
   final CastMediaServer _castServer = CastMediaServer();
   final StreamController<bool> _pipController =
       StreamController<bool>.broadcast();
@@ -161,15 +166,27 @@ class MusicProvider extends ChangeNotifier {
     if (Platform.isAndroid) {
       _androidEqualizer = AndroidEqualizer();
       _androidLoudness = AndroidLoudnessEnhancer();
-      _player = AudioPlayer(
+      _justAudioPlayer = AudioPlayer(
         audioPipeline: AudioPipeline(
           androidAudioEffects: [_androidEqualizer!, _androidLoudness!],
+        ),
+      );
+      _mkPlayer = null;
+    } else if ((Platform.isWindows || Platform.isLinux) &&
+        _mediaKitInitialized) {
+      _androidEqualizer = null;
+      _androidLoudness = null;
+      _justAudioPlayer = null;
+      _mkPlayer = mk.Player(
+        configuration: const mk.PlayerConfiguration(
+          title: 'MediaCenter',
         ),
       );
     } else {
       _androidEqualizer = null;
       _androidLoudness = null;
-      _player = AudioPlayer();
+      _justAudioPlayer = AudioPlayer();
+      _mkPlayer = null;
     }
   }
 
@@ -506,8 +523,111 @@ class MusicProvider extends ChangeNotifier {
   }
 
   void _attachPlayerListeners() {
+    final mkPlayer = _mkPlayer;
+    if (mkPlayer != null) {
+      _subscriptions.add(
+        mkPlayer.stream.error.listen((error) {
+          _isBuffering = false;
+          _isPlaying = false;
+          _syncHomeWidgets();
+          _lastError = 'Gangguan pemutaran audio: $error';
+          notifyListeners();
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.playlist.listen((playlist) {
+          final realIdx = _windowStart + playlist.index;
+          if (realIdx >= 0 &&
+              realIdx < _queue.length &&
+              realIdx != _currentIndex) {
+            _currentIndex = realIdx;
+            _positionNotifier.value = Duration.zero;
+            _bufferedPositionNotifier.value = Duration.zero;
+            _duration = mkPlayer.state.duration;
+            _recordTrackPlayed(_queue[realIdx]);
+            _syncHomeWidgets();
+            _maybePreloadNextNewTubeTrack();
+            if (_crossfadeSeconds > 0 && _sleepEndTime == null) {
+              _fadeInPlayerVolume(
+                startVol: 0.25,
+                durationSeconds: _crossfadeSeconds.clamp(1, 4),
+              );
+            }
+            notifyListeners();
+          }
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.playing.listen((playing) {
+          if (_isPlaying != playing) {
+            _isPlaying = playing;
+            _syncHomeWidgets();
+            notifyListeners();
+          }
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.position.listen((pos) {
+          _positionNotifier.value = pos;
+          final active = currentTrack;
+          if (_crossfadeSeconds > 0 &&
+              _isPlaying &&
+              _sleepEndTime == null &&
+              _repeatMode != RepeatCycleMode.one &&
+              _duration > Duration(seconds: _crossfadeSeconds + 2)) {
+            final remainingMs = _duration.inMilliseconds - pos.inMilliseconds;
+            final fadeWindowMs = _crossfadeSeconds * 1000;
+            if (remainingMs > 0 && remainingMs <= fadeWindowMs) {
+              final vol = (remainingMs / fadeWindowMs).clamp(0.15, 1.0);
+              unawaited(_setPlayerVolume(vol));
+            }
+          }
+          if (active != null &&
+              DateTime.now().difference(_lastProgressPersist).inSeconds >= 5) {
+            _lastProgressPersist = DateTime.now();
+            _trackProgressSeconds[active.id] = pos.inSeconds;
+            _syncHomeWidgets();
+            unawaited(_persistProgressMap());
+          }
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.buffer.listen((buffered) {
+          _bufferedPositionNotifier.value = buffered;
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.duration.listen((dur) {
+          if (_duration != dur) {
+            _duration = dur;
+            notifyListeners();
+          }
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.buffering.listen((buffering) {
+          if (_isBuffering != buffering) {
+            _isBuffering = buffering;
+            notifyListeners();
+          }
+        }),
+      );
+      _subscriptions.add(
+        mkPlayer.stream.completed.listen((completed) {
+          if (completed && _repeatMode == RepeatCycleMode.off) {
+            final pl = mkPlayer.state.playlist;
+            if (pl.medias.isEmpty || pl.index >= pl.medias.length - 1) {
+              _handleTrackCompleted();
+            }
+          }
+        }),
+      );
+      return;
+    }
+
+    final player = _justAudioPlayer!;
     _subscriptions.add(
-      _player.playbackEventStream.listen(
+      player.playbackEventStream.listen(
         (_) {},
         onError: (Object error, StackTrace stackTrace) {
           _isBuffering = false;
@@ -520,7 +640,7 @@ class MusicProvider extends ChangeNotifier {
     );
 
     _subscriptions.add(
-      _player.currentIndexStream.listen((idx) {
+      player.currentIndexStream.listen((idx) {
         if (idx == null) return;
         final realIdx = _windowStart + idx;
         if (realIdx >= 0 &&
@@ -529,7 +649,7 @@ class MusicProvider extends ChangeNotifier {
           _currentIndex = realIdx;
           _positionNotifier.value = Duration.zero;
           _bufferedPositionNotifier.value = Duration.zero;
-          _duration = _player.duration ?? Duration.zero;
+          _duration = player.duration ?? Duration.zero;
           _recordTrackPlayed(_queue[realIdx]);
           _syncHomeWidgets();
           _maybePreloadNextNewTubeTrack();
@@ -545,7 +665,7 @@ class MusicProvider extends ChangeNotifier {
     );
 
     _subscriptions.add(
-      _player.playingStream.listen((playing) {
+      player.playingStream.listen((playing) {
         if (_isPlaying != playing) {
           _isPlaying = playing;
           _syncHomeWidgets();
@@ -556,7 +676,7 @@ class MusicProvider extends ChangeNotifier {
 
     // High-frequency position updates ONLY notify `_positionNotifier` (not global ChangeNotifier!)
     _subscriptions.add(
-      _player.positionStream.listen((pos) {
+      player.positionStream.listen((pos) {
         _positionNotifier.value = pos;
         final active = currentTrack;
         if (_crossfadeSeconds > 0 &&
@@ -568,7 +688,7 @@ class MusicProvider extends ChangeNotifier {
           final fadeWindowMs = _crossfadeSeconds * 1000;
           if (remainingMs > 0 && remainingMs <= fadeWindowMs) {
             final vol = (remainingMs / fadeWindowMs).clamp(0.15, 1.0);
-            unawaited(_player.setVolume(vol));
+            unawaited(_setPlayerVolume(vol));
           }
         }
         if (active != null &&
@@ -582,13 +702,13 @@ class MusicProvider extends ChangeNotifier {
     );
 
     _subscriptions.add(
-      _player.bufferedPositionStream.listen((buffered) {
+      player.bufferedPositionStream.listen((buffered) {
         _bufferedPositionNotifier.value = buffered;
       }),
     );
 
     _subscriptions.add(
-      _player.durationStream.listen((dur) {
+      player.durationStream.listen((dur) {
         if (dur != null && _duration != dur) {
           _duration = dur;
           notifyListeners();
@@ -597,7 +717,7 @@ class MusicProvider extends ChangeNotifier {
     );
 
     _subscriptions.add(
-      _player.playerStateStream.listen((state) {
+      player.playerStateStream.listen((state) {
         final buffering = state.processingState == ProcessingState.loading ||
             state.processingState == ProcessingState.buffering;
         if (_isBuffering != buffering) {
@@ -1723,11 +1843,17 @@ class MusicProvider extends ChangeNotifier {
     );
 
     if (track.isLocalFile) {
+      if (track.playableSource.startsWith('content://')) {
+        return AudioSource.uri(Uri.parse(track.playableSource), tag: mediaTag);
+      }
       return AudioSource.file(track.playableSource, tag: mediaTag);
     }
 
     if (track.playsFromLocalFile) {
       final filePath = track.playableSource;
+      if (filePath.startsWith('content://')) {
+        return AudioSource.uri(Uri.parse(filePath), tag: mediaTag);
+      }
       if (File(filePath).existsSync()) {
         return AudioSource.file(filePath, tag: mediaTag);
       }
@@ -1743,6 +1869,34 @@ class MusicProvider extends ChangeNotifier {
       headers: track.httpHeaders,
       tag: mediaTag,
     );
+  }
+
+  mk.Media _buildMediaKitMedia(TrackItem track) {
+    return mk.Media(
+      track.playableSource,
+      httpHeaders: track.httpHeaders,
+    );
+  }
+
+  Future<void> _setPlayerVolume(double vol) async {
+    final clamped = vol.clamp(0.0, 1.0);
+    final mkPlayer = _mkPlayer;
+    if (mkPlayer != null) {
+      await mkPlayer.setVolume(clamped * 100.0);
+    } else {
+      await _justAudioPlayer?.setVolume(clamped);
+    }
+  }
+
+  mk.PlaylistMode _toMediaKitPlaylistMode(RepeatCycleMode mode) {
+    switch (mode) {
+      case RepeatCycleMode.off:
+        return mk.PlaylistMode.none;
+      case RepeatCycleMode.all:
+        return mk.PlaylistMode.loop;
+      case RepeatCycleMode.one:
+        return mk.PlaylistMode.single;
+    }
   }
 
   Future<void> playTrackList(
@@ -1858,9 +2012,15 @@ class MusicProvider extends ChangeNotifier {
       return;
     }
     _queue.add(track);
-    unawaited(
-      _player.addAudioSource(_buildAudioSource(track)).catchError((_) {}),
-    );
+    if (_useMediaKit) {
+      unawaited(_mkPlayer!.add(_buildMediaKitMedia(track)).catchError((_) {}));
+    } else {
+      unawaited(
+        _justAudioPlayer!
+            .addAudioSource(_buildAudioSource(track))
+            .catchError((_) {}),
+      );
+    }
     notifyListeners();
   }
 
@@ -1885,7 +2045,11 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> stopPlayback() async {
     try {
-      await _player.stop();
+      if (_useMediaKit) {
+        await _mkPlayer!.stop();
+      } else {
+        await _justAudioPlayer!.stop();
+      }
     } catch (_) {}
     _isPlaying = false;
     _isBuffering = false;
@@ -1899,7 +2063,10 @@ class MusicProvider extends ChangeNotifier {
     if (index < 0 || index >= _queue.length) return;
     _miniPlayerDismissed = false;
     final windowIdx = index - _windowStart;
-    if (windowIdx >= 0 && windowIdx < _player.sequence.length) {
+    final sequenceLen = _useMediaKit
+        ? _mkPlayer!.state.playlist.medias.length
+        : _justAudioPlayer!.sequence.length;
+    if (windowIdx >= 0 && windowIdx < sequenceLen) {
       _currentIndex = index;
       _positionNotifier.value = Duration.zero;
       _bufferedPositionNotifier.value = Duration.zero;
@@ -1908,8 +2075,15 @@ class MusicProvider extends ChangeNotifier {
       _syncHomeWidgets();
       notifyListeners();
       try {
-        await _player.seek(Duration.zero, index: windowIdx);
-        unawaited(_player.play().catchError((_) {}));
+        if (_useMediaKit) {
+          final mkPlayer = _mkPlayer!;
+          await mkPlayer.jump(windowIdx);
+          unawaited(mkPlayer.play().catchError((_) {}));
+        } else {
+          final player = _justAudioPlayer!;
+          await player.seek(Duration.zero, index: windowIdx);
+          unawaited(player.play().catchError((_) {}));
+        }
         _recordTrackPlayed(_queue[index]);
         return;
       } catch (_) {
@@ -1935,42 +2109,68 @@ class MusicProvider extends ChangeNotifier {
     unawaited(_ensureNotificationPermissionOnce());
 
     try {
-      await _player.stop();
-      if (requestToken != _loadRequestToken) return;
+      if (_useMediaKit) {
+        final mkPlayer = _mkPlayer!;
+        if (_queue.length <= 80) {
+          _windowStart = 0;
+        } else {
+          _windowStart = (index - 20).clamp(0, _queue.length - 60);
+        }
+        final windowEnd = _queue.length <= 80
+            ? _queue.length
+            : (_windowStart + 60).clamp(0, _queue.length);
+        final windowTracks = _queue.sublist(_windowStart, windowEnd);
+        final medias =
+            windowTracks.map(_buildMediaKitMedia).toList(growable: false);
 
-      // Window large queues (max 60 items) so ExoPlayer & notification Next/Prev respond instantly.
-      if (_queue.length <= 80) {
-        _windowStart = 0;
+        await mkPlayer.open(
+          mk.Playlist(medias, index: index - _windowStart),
+          play: true,
+        );
+        if (requestToken != _loadRequestToken) return;
+        await mkPlayer.setShuffle(_shuffleEnabled);
+        await mkPlayer.setPlaylistMode(_toMediaKitPlaylistMode(_repeatMode));
+        await mkPlayer.setRate(_playbackSpeed);
       } else {
-        _windowStart = (index - 20).clamp(0, _queue.length - 60);
+        final player = _justAudioPlayer!;
+        await player.stop();
+        if (requestToken != _loadRequestToken) return;
+
+        // Window large queues (max 60 items) so ExoPlayer & notification Next/Prev respond instantly.
+        if (_queue.length <= 80) {
+          _windowStart = 0;
+        } else {
+          _windowStart = (index - 20).clamp(0, _queue.length - 60);
+        }
+        final windowEnd = _queue.length <= 80
+            ? _queue.length
+            : (_windowStart + 60).clamp(0, _queue.length);
+        final windowTracks = _queue.sublist(_windowStart, windowEnd);
+        final sources =
+            windowTracks.map(_buildAudioSource).toList(growable: false);
+
+        await player.setAudioSources(
+          sources,
+          initialIndex: index - _windowStart,
+          initialPosition: Duration.zero,
+        );
+
+        if (requestToken != _loadRequestToken) return;
+        await player.setShuffleModeEnabled(_shuffleEnabled);
+        await player.setLoopMode(_toJustAudioLoopMode(_repeatMode));
+        await player.setSpeed(_playbackSpeed);
+        unawaited(
+          player.play().catchError((Object e) {
+            if (requestToken == _loadRequestToken) {
+              _isBuffering = false;
+              _isPlaying = false;
+              _syncHomeWidgets();
+              _lastError = 'Tidak dapat memutar "${track.title}": $e';
+              notifyListeners();
+            }
+          }),
+        );
       }
-      final windowEnd = _queue.length <= 80
-          ? _queue.length
-          : (_windowStart + 60).clamp(0, _queue.length);
-      final windowTracks = _queue.sublist(_windowStart, windowEnd);
-      final sources = windowTracks.map(_buildAudioSource).toList(growable: false);
-
-      await _player.setAudioSources(
-        sources,
-        initialIndex: index - _windowStart,
-        initialPosition: Duration.zero,
-      );
-
-      if (requestToken != _loadRequestToken) return;
-      await _player.setShuffleModeEnabled(_shuffleEnabled);
-      await _player.setLoopMode(_toJustAudioLoopMode(_repeatMode));
-      await _player.setSpeed(_playbackSpeed);
-      unawaited(
-        _player.play().catchError((Object e) {
-          if (requestToken == _loadRequestToken) {
-            _isBuffering = false;
-            _isPlaying = false;
-            _syncHomeWidgets();
-            _lastError = 'Tidak dapat memutar "${track.title}": $e';
-            notifyListeners();
-          }
-        }),
-      );
 
       _recordTrackPlayed(track);
       _syncHomeWidgets();
@@ -2010,18 +2210,31 @@ class MusicProvider extends ChangeNotifier {
     }
 
     try {
-      if (_player.playing) {
-        await pause();
-      } else {
-        if (_player.processingState == ProcessingState.completed) {
-          await _player.seek(Duration.zero);
+      if (_useMediaKit) {
+        final mkPlayer = _mkPlayer!;
+        if (mkPlayer.state.playing) {
+          await pause();
+        } else {
+          if (mkPlayer.state.completed) {
+            await mkPlayer.seek(Duration.zero);
+          }
+          await mkPlayer.play();
         }
-        await _player.play();
-        if (_isCastConnected) {
-          unawaited(
-            _widgetChannel.invokeMethod('castControl', {'action': 'play'})
-                .catchError((_) => false),
-          );
+      } else {
+        final player = _justAudioPlayer!;
+        if (player.playing) {
+          await pause();
+        } else {
+          if (player.processingState == ProcessingState.completed) {
+            await player.seek(Duration.zero);
+          }
+          await player.play();
+          if (_isCastConnected) {
+            unawaited(
+              _widgetChannel.invokeMethod('castControl', {'action': 'play'})
+                  .catchError((_) => false),
+            );
+          }
         }
       }
     } catch (e) {
@@ -2031,7 +2244,11 @@ class MusicProvider extends ChangeNotifier {
   }
 
   Future<void> pause() async {
-    await _player.pause();
+    if (_useMediaKit) {
+      await _mkPlayer!.pause();
+    } else {
+      await _justAudioPlayer!.pause();
+    }
     if (_isCastConnected) {
       unawaited(
         _widgetChannel.invokeMethod('castControl', {'action': 'pause'})
@@ -2041,7 +2258,11 @@ class MusicProvider extends ChangeNotifier {
   }
 
   Future<void> seekTo(Duration target) async {
-    await _player.seek(target);
+    if (_useMediaKit) {
+      await _mkPlayer!.seek(target);
+    } else {
+      await _justAudioPlayer!.seek(target);
+    }
     _syncHomeWidgets();
     if (_isCastConnected) {
       unawaited(
@@ -2055,16 +2276,29 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> playNext() async {
     if (_queue.isEmpty) return;
-    if (_player.hasNext) {
-      if (_currentIndex + 1 < _queue.length) {
-        _currentIndex++;
-        _positionNotifier.value = Duration.zero;
-        _syncHomeWidgets();
-        notifyListeners();
+    if (_useMediaKit) {
+      final mkPlayer = _mkPlayer!;
+      final pl = mkPlayer.state.playlist;
+      if (pl.index + 1 < pl.medias.length) {
+        await mkPlayer.next();
+        if (!mkPlayer.state.playing) {
+          unawaited(mkPlayer.play().catchError((_) {}));
+        }
+        return;
       }
-      await _player.seekToNext();
-      if (!_player.playing) unawaited(_player.play().catchError((_) {}));
-      return;
+    } else {
+      final player = _justAudioPlayer!;
+      if (player.hasNext) {
+        if (_currentIndex + 1 < _queue.length) {
+          _currentIndex++;
+          _positionNotifier.value = Duration.zero;
+          _syncHomeWidgets();
+          notifyListeners();
+        }
+        await player.seekToNext();
+        if (!player.playing) unawaited(player.play().catchError((_) {}));
+        return;
+      }
     }
 
     if (_shuffleEnabled && _queue.length > 1) {
@@ -2089,16 +2323,29 @@ class MusicProvider extends ChangeNotifier {
       await seekTo(Duration.zero);
       return;
     }
-    if (_player.hasPrevious) {
-      if (_currentIndex - 1 >= 0) {
-        _currentIndex--;
-        _positionNotifier.value = Duration.zero;
-        _syncHomeWidgets();
-        notifyListeners();
+    if (_useMediaKit) {
+      final mkPlayer = _mkPlayer!;
+      final pl = mkPlayer.state.playlist;
+      if (pl.index > 0) {
+        await mkPlayer.previous();
+        if (!mkPlayer.state.playing) {
+          unawaited(mkPlayer.play().catchError((_) {}));
+        }
+        return;
       }
-      await _player.seekToPrevious();
-      if (!_player.playing) unawaited(_player.play().catchError((_) {}));
-      return;
+    } else {
+      final player = _justAudioPlayer!;
+      if (player.hasPrevious) {
+        if (_currentIndex - 1 >= 0) {
+          _currentIndex--;
+          _positionNotifier.value = Duration.zero;
+          _syncHomeWidgets();
+          notifyListeners();
+        }
+        await player.seekToPrevious();
+        if (!player.playing) unawaited(player.play().catchError((_) {}));
+        return;
+      }
     }
 
     if (_currentIndex - 1 >= 0) {
@@ -2112,7 +2359,15 @@ class MusicProvider extends ChangeNotifier {
 
   void toggleShuffle() {
     _shuffleEnabled = !_shuffleEnabled;
-    unawaited(_player.setShuffleModeEnabled(_shuffleEnabled).catchError((_) {}));
+    if (_useMediaKit) {
+      unawaited(_mkPlayer!.setShuffle(_shuffleEnabled).catchError((_) {}));
+    } else {
+      unawaited(
+        _justAudioPlayer!
+            .setShuffleModeEnabled(_shuffleEnabled)
+            .catchError((_) {}),
+      );
+    }
     notifyListeners();
   }
 
@@ -2128,15 +2383,29 @@ class MusicProvider extends ChangeNotifier {
         _repeatMode = RepeatCycleMode.off;
         break;
     }
-    unawaited(
-      _player.setLoopMode(_toJustAudioLoopMode(_repeatMode)).catchError((_) {}),
-    );
+    if (_useMediaKit) {
+      unawaited(
+        _mkPlayer!
+            .setPlaylistMode(_toMediaKitPlaylistMode(_repeatMode))
+            .catchError((_) {}),
+      );
+    } else {
+      unawaited(
+        _justAudioPlayer!
+            .setLoopMode(_toJustAudioLoopMode(_repeatMode))
+            .catchError((_) {}),
+      );
+    }
     notifyListeners();
   }
 
   Future<void> setPlaybackSpeed(double speed) async {
     _playbackSpeed = speed.clamp(0.5, 2.0);
-    await _player.setSpeed(_playbackSpeed);
+    if (_useMediaKit) {
+      await _mkPlayer!.setRate(_playbackSpeed);
+    } else {
+      await _justAudioPlayer!.setSpeed(_playbackSpeed);
+    }
     notifyListeners();
   }
 
@@ -2145,7 +2414,7 @@ class MusicProvider extends ChangeNotifier {
     _sleepTimer = null;
     if (duration == null) {
       _sleepEndTime = null;
-      unawaited(_player.setVolume(1.0));
+      unawaited(_setPlayerVolume(1.0));
       notifyListeners();
       return;
     }
@@ -2161,11 +2430,11 @@ class MusicProvider extends ChangeNotifier {
         timer.cancel();
         _sleepTimer = null;
         _sleepEndTime = null;
-        unawaited(pause().then((_) => _player.setVolume(1.0)));
+        unawaited(pause().then((_) => _setPlayerVolume(1.0)));
         notifyListeners();
       } else if (rem.inMilliseconds <= 10000 && _isPlaying) {
         final vol = (rem.inMilliseconds / 10000).clamp(0.08, 1.0);
-        unawaited(_player.setVolume(vol));
+        unawaited(_setPlayerVolume(vol));
       }
     });
     notifyListeners();
@@ -2176,14 +2445,14 @@ class MusicProvider extends ChangeNotifier {
     int durationSeconds = 3,
   }) {
     _fadeVolumeTimer?.cancel();
-    unawaited(_player.setVolume(startVol));
+    unawaited(_setPlayerVolume(startVol));
     final totalSteps = (durationSeconds * 5).clamp(5, 30);
     int step = 0;
     _fadeVolumeTimer = Timer.periodic(const Duration(milliseconds: 200), (t) {
       step++;
       final progress = (step / totalSteps).clamp(0.0, 1.0);
       final vol = startVol + (1.0 - startVol) * progress;
-      unawaited(_player.setVolume(vol.clamp(0.0, 1.0)));
+      unawaited(_setPlayerVolume(vol.clamp(0.0, 1.0)));
       if (step >= totalSteps) {
         t.cancel();
         _fadeVolumeTimer = null;
@@ -2196,7 +2465,7 @@ class MusicProvider extends ChangeNotifier {
     await _prefs?.setInt(_kCrossfadeSecKey, _crossfadeSeconds);
     if (_crossfadeSeconds == 0) {
       _fadeVolumeTimer?.cancel();
-      unawaited(_player.setVolume(1.0));
+      unawaited(_setPlayerVolume(1.0));
     }
     notifyListeners();
   }
@@ -2249,8 +2518,11 @@ class MusicProvider extends ChangeNotifier {
       unawaited(_persistProgressMap());
     }
 
-    if (_player.sequence.length == _queue.length) {
-      // Queue auto-advance and LoopMode.one/all are handled natively by just_audio.
+    final sequenceLen = _useMediaKit
+        ? _mkPlayer!.state.playlist.medias.length
+        : _justAudioPlayer!.sequence.length;
+    if (sequenceLen == _queue.length) {
+      // Queue auto-advance and LoopMode.one/all are handled natively by player.
       _isPlaying = false;
       _miniPlayerDismissed = true;
       _syncHomeWidgets();
@@ -2259,10 +2531,15 @@ class MusicProvider extends ChangeNotifier {
     }
 
     if (_repeatMode == RepeatCycleMode.one && _currentIndex >= 0) {
-      _player
-          .seek(Duration.zero)
-          .then((_) => _player.play())
-          .catchError((Object e) {
+      final Future<void> replay;
+      if (_useMediaKit) {
+        final mkPlayer = _mkPlayer!;
+        replay = mkPlayer.seek(Duration.zero).then((_) => mkPlayer.play());
+      } else {
+        final player = _justAudioPlayer!;
+        replay = player.seek(Duration.zero).then((_) => player.play());
+      }
+      replay.catchError((Object e) {
         _lastError = 'Gagal mengulang lagu: $e';
         _syncHomeWidgets();
         notifyListeners();
@@ -2493,7 +2770,7 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
     if (connected && currentTrack != null) {
       final posMs = _positionNotifier.value.inMilliseconds;
-      unawaited(_player.pause().catchError((_) {}));
+      unawaited(pause().catchError((_) {}));
       unawaited(_pushCurrentTrackToCast(positionMs: posMs));
     }
   }
@@ -2541,7 +2818,8 @@ class MusicProvider extends ChangeNotifier {
     unawaited(_castServer.dispose());
     _positionNotifier.dispose();
     _bufferedPositionNotifier.dispose();
-    _player.dispose();
+    _justAudioPlayer?.dispose();
+    unawaited(_mkPlayer?.dispose());
     super.dispose();
   }
 }
