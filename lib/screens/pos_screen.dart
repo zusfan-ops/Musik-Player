@@ -13,6 +13,7 @@ import '../models/pos_models.dart';
 import '../providers/finance_provider.dart';
 import '../providers/music_provider.dart';
 import '../providers/pos_provider.dart';
+import '../services/pos_customer_display_service.dart';
 import '../services/pos_pdf_service.dart';
 import '../services/pos_printer_service.dart';
 import '../theme/app_theme.dart';
@@ -35,15 +36,78 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
+  PosProvider? _posRef;
+  MusicProvider? _musicRef;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_initCustomerDisplay());
+      }
+    });
+  }
+
+  Future<void> _initCustomerDisplay() async {
+    if (!PosCustomerDisplayService.instance.isSupported) return;
+    _posRef = context.read<PosProvider>();
+    _musicRef = context.read<MusicProvider>();
+    _posRef?.addListener(_syncCustomerDisplay);
+    _musicRef?.addListener(_syncCustomerDisplay);
+
+    final info = await PosCustomerDisplayService.instance.refreshDisplayInfo();
+    if (!mounted) return;
+    if (info.hasSecondMonitor && !info.isOpen) {
+      await PosCustomerDisplayService.instance.open();
+      if (!mounted) return;
+    }
+    _syncCustomerDisplay();
+  }
+
+  void _syncCustomerDisplay() {
+    final pos = _posRef;
+    if (pos == null) return;
+    final track = _musicRef?.currentTrack;
+    final np = track == null ? null : '${track.title} — ${track.artist}';
+    unawaited(
+      PosCustomerDisplayService.instance.syncFromProviders(
+        pos: pos,
+        nowPlaying: np,
+      ),
+    );
+  }
+
+  Future<void> _toggleCustomerDisplay() async {
+    final svc = PosCustomerDisplayService.instance;
+    if (svc.infoNotifier.value.isOpen) {
+      await svc.close();
+    } else {
+      final info = await svc.open();
+      _syncCustomerDisplay();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              info.onSecondMonitor
+                  ? 'Layar Konsumen ditampilkan di Monitor 2.'
+                  : 'Monitor ke-2 tidak terdeteksi — membuka jendela Preview Layar Konsumen.',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    _posRef?.removeListener(_syncCustomerDisplay);
+    _musicRef?.removeListener(_syncCustomerDisplay);
+    if (PosCustomerDisplayService.instance.isSupported) {
+      unawaited(PosCustomerDisplayService.instance.close());
+    }
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -74,6 +138,48 @@ class _PosScreenState extends State<PosScreen>
           ],
         ),
         actions: [
+          if (PosCustomerDisplayService.instance.isSupported)
+            ValueListenableBuilder<CustomerDisplayInfo>(
+              valueListenable: PosCustomerDisplayService.instance.infoNotifier,
+              builder: (_, info, _) {
+                final isOpen = info.isOpen;
+                final label = isOpen
+                    ? (info.onSecondMonitor
+                        ? 'Layar Konsumen (Monitor 2)'
+                        : 'Layar Konsumen (Preview)')
+                    : (info.hasSecondMonitor
+                        ? 'Tampilkan ke Monitor 2'
+                        : 'Layar Konsumen');
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: isOpen
+                          ? AppColors.spotifyGreen.withValues(alpha: 0.16)
+                          : AppColors.surfaceElevated,
+                      foregroundColor: isOpen
+                          ? AppColors.spotifyGreen
+                          : AppColors.textPrimary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: _toggleCustomerDisplay,
+                    icon: Icon(
+                      isOpen
+                          ? Icons.connected_tv_rounded
+                          : Icons.desktop_windows_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           IconButton(
             tooltip: 'Buka Keuangan & Buku Kas',
             icon: const Icon(Icons.account_balance_wallet_rounded),
@@ -1092,11 +1198,23 @@ class _CurrentOrderPanel extends StatelessWidget {
                 ),
                 onPressed: () async {
                   final fin = context.read<FinanceProvider>();
+                  final track = context.read<MusicProvider>().currentTrack;
                   final order = await pos.checkout(
                     paymentMethod: paymentMethod,
                     amountPaid: paidVal,
                   );
                   await fin.recordPosOrder(order);
+                  if (PosCustomerDisplayService.instance.isSupported) {
+                    PosCustomerDisplayService.instance.setPaidOrder(order);
+                    unawaited(
+                      PosCustomerDisplayService.instance.syncFromProviders(
+                        pos: pos,
+                        nowPlaying: track == null
+                            ? null
+                            : '${track.title} — ${track.artist}',
+                      ),
+                    );
+                  }
                   if (!dCtx.mounted) return;
                   Navigator.pop(dCtx);
                   if (closeOnCheckout && context.mounted) {

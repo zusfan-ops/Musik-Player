@@ -213,7 +213,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     final oldMk = _mkPlayer;
     _mkPlayer = null;
     _mkVideoController = null;
-    _mkValueNotifier.value = const VideoPlayerValue.uninitialized();
+    if (mounted) {
+      _mkValueNotifier.value = const VideoPlayerValue.uninitialized();
+    }
     if (oldMk != null) {
       await oldMk.dispose();
     }
@@ -250,6 +252,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
 
     if (_useMediaKit) {
       mk.Player? mkPlayer;
+      final List<StreamSubscription<dynamic>> localSubs = [];
       try {
         if (item.playsFromLocalFile) {
           final f = File(item.playableSource);
@@ -263,14 +266,18 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
         mkPlayer = mk.Player(
           configuration: const mk.PlayerConfiguration(title: 'MediaCenter TV'),
         );
+        final platformPlayer = mkPlayer.platform;
+        if (platformPlayer is mk.NativePlayer) {
+          unawaited(platformPlayer.setProperty('tls-verify', 'no'));
+          unawaited(platformPlayer.setProperty('network-timeout', '15'));
+          unawaited(platformPlayer.setProperty('ytdl', 'no'));
+        }
         final mkVideoCtrl = mkv.VideoController(mkPlayer);
         final headers = item.playsFromLocalFile
             ? null
-            : <String, String>{
-                'User-Agent': item.httpHeaders?['User-Agent'] ??
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-                if (item.httpHeaders != null) ...item.httpHeaders!,
-              };
+            : (item.httpHeaders != null && item.httpHeaders!.isNotEmpty)
+                ? Map<String, String>.from(item.httpHeaders!)
+                : const <String, String>{'User-Agent': 'Lavf/60.16.100'};
 
         void syncMkValue() {
           if (!mounted || token != _initToken) return;
@@ -287,7 +294,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
           );
         }
 
-        _mkSubs.addAll([
+        localSubs.addAll([
           mkPlayer.stream.playing.listen((_) => syncMkValue()),
           mkPlayer.stream.buffering.listen((_) => syncMkValue()),
           mkPlayer.stream.duration.listen((_) => syncMkValue()),
@@ -296,34 +303,59 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
           mkPlayer.stream.height.listen((_) => syncMkValue()),
           mkPlayer.stream.error.listen((err) {
             if (!mounted || token != _initToken) return;
+            final lower = err.toLowerCase();
+            final friendly = lower.contains('failed to recognize file format')
+                ? 'Stream "${item.title}" sedang offline, diblokir server, atau formatnya tidak didukung. Silakan pilih channel lain.'
+                : err;
             setState(() {
               _isInitializing = false;
-              _errorMessage = err;
+              _errorMessage = friendly;
             });
           }),
         ]);
+        _mkSubs.addAll(localSubs);
+
+        _mkPlayer = mkPlayer;
+        _mkVideoController = mkVideoCtrl;
+        syncMkValue();
+        if (mounted) {
+          setState(() => _isInitializing = false);
+        }
+        _scheduleHideControls();
 
         await mkPlayer.open(
           mk.Media(item.playableSource, httpHeaders: headers),
           play: true,
         );
         if (!mounted || token != _initToken) {
+          for (final sub in localSubs) {
+            await sub.cancel();
+          }
+          _mkSubs.removeWhere(localSubs.contains);
+          if (identical(_mkPlayer, mkPlayer)) {
+            _mkPlayer = null;
+            _mkVideoController = null;
+          }
           await mkPlayer.dispose();
           return;
         }
         if (!_isLiveStream && _playbackSpeed != 1.0) {
           await mkPlayer.setRate(_playbackSpeed);
         }
-
-        _mkPlayer = mkPlayer;
-        _mkVideoController = mkVideoCtrl;
-        syncMkValue();
-        setState(() => _isInitializing = false);
-        _scheduleHideControls();
       } catch (e) {
-        await mkPlayer?.dispose();
+        if (!mounted || token != _initToken) {
+          for (final sub in localSubs) {
+            await sub.cancel();
+          }
+          _mkSubs.removeWhere(localSubs.contains);
+          if (identical(_mkPlayer, mkPlayer)) {
+            _mkPlayer = null;
+            _mkVideoController = null;
+          }
+          await mkPlayer?.dispose();
+          return;
+        }
         await _disposeActiveController();
-        if (!mounted || token != _initToken) return;
         setState(() {
           _isInitializing = false;
           _errorMessage = 'Gagal memuat stream video "${item.title}": $e';
@@ -485,37 +517,70 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLandscapeScreen =
-        MediaQuery.of(context).orientation == Orientation.landscape ||
-            _isFullscreenLandscape;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktopWide = screenWidth >= 900 && !_isFullscreenLandscape;
+    final isLandscapeScreen = !isDesktopWide &&
+        (MediaQuery.of(context).orientation == Orientation.landscape ||
+            _isFullscreenLandscape);
 
-    final Widget scaffoldContent = isLandscapeScreen
+    final Widget scaffoldContent = isDesktopWide
         ? Scaffold(
-            backgroundColor: Colors.black,
-            endDrawer: Drawer(
-              backgroundColor: AppColors.surface,
-              child: SafeArea(child: _buildChannelListPanel()),
-            ),
-            body: _buildVideoViewport(fullscreenMode: true),
-          )
-        : Scaffold(
             backgroundColor: AppColors.background,
             body: SafeArea(
-              child: Column(
+              child: Row(
                 children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: _buildVideoViewport(fullscreenMode: false),
-                  ),
-                  _buildNowWatchingInfoStrip(),
-                  const Divider(height: 1, color: AppColors.surfaceHighlight),
                   Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: _buildVideoViewport(fullscreenMode: false),
+                        ),
+                        _buildNowWatchingInfoStrip(),
+                      ],
+                    ),
+                  ),
+                  const VerticalDivider(
+                    width: 1,
+                    color: AppColors.surfaceHighlight,
+                  ),
+                  SizedBox(
+                    width: 340,
                     child: _buildChannelListPanel(),
                   ),
                 ],
               ),
             ),
-          );
+          )
+        : isLandscapeScreen
+            ? Scaffold(
+                backgroundColor: Colors.black,
+                endDrawer: Drawer(
+                  backgroundColor: AppColors.surface,
+                  child: SafeArea(child: _buildChannelListPanel()),
+                ),
+                body: _buildVideoViewport(fullscreenMode: true),
+              )
+            : Scaffold(
+                backgroundColor: AppColors.background,
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: _buildVideoViewport(fullscreenMode: false),
+                      ),
+                      _buildNowWatchingInfoStrip(),
+                      const Divider(
+                        height: 1,
+                        color: AppColors.surfaceHighlight,
+                      ),
+                      Expanded(
+                        child: _buildChannelListPanel(),
+                      ),
+                    ],
+                  ),
+                ),
+              );
 
     return PopScope(
       canPop: !_isFullscreenLandscape,
@@ -613,11 +678,16 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
               fit: StackFit.expand,
               children: [
               // 1. Video Surface (or artwork fallback if stream is audio-only HLS)
-              if (_useMediaKit && _mkVideoController != null && !_isInitializing)
-                mkv.Video(
-                  controller: _mkVideoController!,
-                  fit: _isZoomCrop ? BoxFit.cover : BoxFit.contain,
-                  controls: mkv.NoVideoControls,
+              if (_useMediaKit &&
+                  _mkVideoController != null &&
+                  !_isInitializing &&
+                  _errorMessage == null)
+                SizedBox.expand(
+                  child: mkv.Video(
+                    controller: _mkVideoController!,
+                    fit: _isZoomCrop ? BoxFit.cover : BoxFit.contain,
+                    controls: mkv.NoVideoControls,
+                  ),
                 )
               else if (ctrl != null && ctrl.value.isInitialized)
                 ctrl.value.size.width > 0 && ctrl.value.size.height > 0

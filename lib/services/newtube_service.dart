@@ -93,18 +93,52 @@ class NewTubeService {
 
   static const Map<String, String> _webHeaders = {
     'Content-Type': 'application/json',
+    'Origin': 'https://www.youtube.com',
+    'Referer': 'https://www.youtube.com/',
+    'X-YouTube-Client-Name': '1',
+    'X-YouTube-Client-Version': '2.20261101.00.00',
+    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
     'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  };
+
+  static const Map<String, String> _htmlHeaders = {
+    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   };
 
   static const Map<String, dynamic> _webClientContext = {
     'client': {
       'clientName': 'WEB',
-      'clientVersion': '2.20250101.00.00',
+      'clientVersion': '2.20261101.00.00',
       'hl': 'id',
       'gl': 'ID',
     },
   };
+
+  static Future<dynamic> _fetchYtInitialData(String url) async {
+    final res = await http
+        .get(Uri.parse(url), headers: _htmlHeaders)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw HttpException('YouTube HTML HTTP ${res.statusCode}');
+    }
+    final html = utf8.decode(res.bodyBytes, allowMalformed: true);
+    const marker = 'var ytInitialData = ';
+    int start = html.indexOf(marker);
+    if (start < 0) {
+      const altMarker = 'window["ytInitialData"] = ';
+      start = html.indexOf(altMarker);
+      if (start < 0) return null;
+      start += altMarker.length;
+    } else {
+      start += marker.length;
+    }
+    final end = html.indexOf(';</script>', start);
+    if (end <= start) return null;
+    return jsonDecode(html.substring(start, end));
+  }
 
   /// Extracts an 11-character YouTube video ID from a URL or raw ID string.
   static String? extractVideoId(String input) {
@@ -414,25 +448,61 @@ class NewTubeService {
       }
     }
 
-    final response = await http
-        .post(
-          Uri.parse('https://www.youtube.com/youtubei/v1/search?prettyPrint=false'),
-          headers: _webHeaders,
-          body: jsonEncode({
-            'context': _webClientContext,
-            'query': trimmed,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                'https://www.youtube.com/youtubei/v1/search?prettyPrint=false'),
+            headers: _webHeaders,
+            body: jsonEncode({
+              'context': _webClientContext,
+              'query': trimmed,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('YouTube Search HTTP ${response.statusCode}');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        final List<NewTubeItem> items = [];
+        _collectVideoRenderers(decoded, items, <String>{});
+        if (items.isNotEmpty) return items;
+      }
+    } catch (_) {}
+
+    // Fallback 1: YouTube HTML ytInitialData (resilient against Innertube 403)
+    try {
+      final initialData = await _fetchYtInitialData(
+        'https://www.youtube.com/results?search_query=${Uri.encodeQueryComponent(trimmed)}',
+      );
+      if (initialData != null) {
+        final List<NewTubeItem> items = [];
+        _collectVideoRenderers(initialData, items, <String>{});
+        if (items.isNotEmpty) return items;
+      }
+    } catch (_) {}
+
+    // Fallback 2: YoutubeExplode search
+    final yt = YoutubeExplode();
+    try {
+      final results =
+          await yt.search.search(trimmed).timeout(const Duration(seconds: 15));
+      return results
+          .take(25)
+          .map(
+            (v) => NewTubeItem(
+              videoId: v.id.value,
+              title: v.title,
+              author: v.author,
+              duration: v.duration,
+              thumbnailUrl: v.thumbnails.highResUrl.isNotEmpty
+                  ? v.thumbnails.highResUrl
+                  : v.thumbnails.mediumResUrl,
+            ),
+          )
+          .toList();
+    } finally {
+      yt.close();
     }
-
-    final decoded = jsonDecode(response.body);
-    final List<NewTubeItem> items = [];
-    _collectVideoRenderers(decoded, items, <String>{});
-    return items;
   }
 
   /// Searches YouTube playlists matching [query] (using Innertube Playlist filter).
@@ -443,7 +513,8 @@ class NewTubeService {
     try {
       final response = await http
           .post(
-            Uri.parse('https://www.youtube.com/youtubei/v1/search?prettyPrint=false'),
+            Uri.parse(
+                'https://www.youtube.com/youtubei/v1/search?prettyPrint=false'),
             headers: _webHeaders,
             body: jsonEncode({
               'context': _webClientContext,
@@ -453,14 +524,22 @@ class NewTubeService {
           )
           .timeout(const Duration(seconds: 15));
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return const [];
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        final List<NewTubePlaylistItem> playlists = [];
+        _collectPlaylistRenderers(decoded, playlists, <String>{});
+        if (playlists.isNotEmpty) return playlists;
       }
 
-      final decoded = jsonDecode(response.body);
-      final List<NewTubePlaylistItem> playlists = [];
-      _collectPlaylistRenderers(decoded, playlists, <String>{});
-      return playlists;
+      final initialData = await _fetchYtInitialData(
+        'https://www.youtube.com/results?search_query=${Uri.encodeQueryComponent(trimmed)}&sp=EgIQAw%3D%3D',
+      );
+      if (initialData != null) {
+        final List<NewTubePlaylistItem> playlists = [];
+        _collectPlaylistRenderers(initialData, playlists, <String>{});
+        return playlists;
+      }
+      return const [];
     } catch (_) {
       return const [];
     }
@@ -471,22 +550,35 @@ class NewTubeService {
     if (playlistId.trim().isEmpty) return const [];
     final browseId = playlistId.startsWith('VL') ? playlistId : 'VL$playlistId';
 
-    final response = await http
-        .post(
-          Uri.parse('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false'),
-          headers: _webHeaders,
-          body: jsonEncode({
-            'context': _webClientContext,
-            'browseId': browseId,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
+    dynamic decoded;
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                'https://www.youtube.com/youtubei/v1/browse?prettyPrint=false'),
+            headers: _webHeaders,
+            body: jsonEncode({
+              'context': _webClientContext,
+              'browseId': browseId,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Playlist Browse HTTP ${response.statusCode}');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        decoded = jsonDecode(response.body);
+      }
+    } catch (_) {}
+
+    if (decoded == null) {
+      final listId =
+          browseId.startsWith('VL') ? browseId.substring(2) : browseId;
+      decoded = await _fetchYtInitialData(
+        'https://www.youtube.com/playlist?list=${Uri.encodeQueryComponent(listId)}',
+      );
+      if (decoded == null) {
+        throw const HttpException('Gagal memuat daftar playlist YouTube.');
+      }
     }
-
-    final decoded = jsonDecode(response.body);
     final List<NewTubeItem> items = [];
     final Set<String> seenIds = <String>{};
     _collectPlaylistLockupVideos(decoded, items, seenIds, maxItems: 50);
