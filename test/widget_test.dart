@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musik_m3u_player/main.dart';
+import 'package:musik_m3u_player/models/finance_models.dart';
 import 'package:musik_m3u_player/models/music_models.dart';
 import 'package:musik_m3u_player/models/pos_models.dart';
+import 'package:musik_m3u_player/providers/finance_provider.dart';
 import 'package:musik_m3u_player/providers/pos_provider.dart';
 import 'package:musik_m3u_player/services/pos_printer_service.dart';
 import 'package:musik_m3u_player/services/directory_scanner_service.dart';
@@ -270,6 +272,24 @@ https://live.example.com/tvone/index.m3u8
       final escPos = PosBluetoothPrinterService.buildEscPosReceipt(order, pos.profile);
       expect(escPos.isNotEmpty, isTrue);
       expect(escPos.first, 0x1B);
+
+      final fin = FinanceProvider();
+      await fin.initialize();
+      await fin.recordPosOrder(order);
+      await fin.saveEntry(
+        FinanceEntry(
+          id: 'exp_test_1',
+          type: FinanceEntryType.expense,
+          title: 'Beli Susu & Es',
+          category: 'Belanja Bahan Baku',
+          amount: 15000,
+          date: DateTime.now(),
+        ),
+      );
+      final finSum = fin.summaryForRange('Semua');
+      expect(finSum.posIncome, order.total);
+      expect(finSum.totalExpense, 15000);
+      expect(finSum.netBalance, order.total - 15000);
     });
   });
 

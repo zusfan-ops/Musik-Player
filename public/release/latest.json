@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "/release/1.9.9/M3UMusik-v1.9.9-arm64-v8a.apk",
-    "build_number":  29,
-    "version":  "1.9.9",
-    "release_date":  "2026-11-26 05:27:35",
-    "changelog":  "Update v1.9.9: Foto Produk POS \u0026 Tambah/Database Pelanggan Langsung di Kasir"
+    "download_url":  "/release/1.9.10/M3UMusik-v1.9.10-arm64-v8a.apk",
+    "build_number":  30,
+    "version":  "1.9.10",
+    "release_date":  "2026-11-26 06:27:33",
+    "changelog":  "Update v1.9.10: Fitur Keuangan \u0026 Buku Kas Lengkap Terintegrasi POS (Pemasukan, Pengeluaran/Belanja, Dompet, Rekap Kategori \u0026 Export PDF)"
 }

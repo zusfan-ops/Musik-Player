@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/finance_provider.dart';
 import 'providers/music_provider.dart';
 import 'providers/pos_provider.dart';
 import 'providers/profile_jellyfin_provider.dart';
@@ -12,6 +13,7 @@ import 'screens/directories_screen.dart';
 import 'screens/driving_mode_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jellyfin_movies_screen.dart';
+import 'screens/keuangan_screen.dart';
 import 'screens/newtube_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/playlists_screen.dart';
@@ -70,6 +72,9 @@ class MusikM3uApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => PosProvider()..initialize(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => FinanceProvider()..initialize(),
         ),
       ],
       child: MaterialApp(
@@ -334,6 +339,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       onTap: () {
                         Navigator.pop(sheetCtx);
                         PosScreen.show(context);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _MoreMenuTile(
+                      icon: Icons.account_balance_wallet_rounded,
+                      color: AppColors.neonCyan,
+                      title: 'Keuangan & Buku Kas',
+                      subtitle: 'Catat belanja, pemasukan, dompet & laporan PDF',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        KeuanganScreen.show(context);
                       },
                     ),
                     const SizedBox(height: 8),

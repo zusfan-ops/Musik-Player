@@ -8,13 +8,16 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../models/finance_models.dart';
 import '../models/pos_models.dart';
+import '../providers/finance_provider.dart';
 import '../providers/music_provider.dart';
 import '../providers/pos_provider.dart';
 import '../services/pos_pdf_service.dart';
 import '../services/pos_printer_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/audio_waveform_visualizer.dart';
+import 'keuangan_screen.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -71,6 +74,11 @@ class _PosScreenState extends State<PosScreen>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Buka Keuangan & Buku Kas',
+            icon: const Icon(Icons.account_balance_wallet_rounded),
+            onPressed: () => KeuanganScreen.show(context),
+          ),
           IconButton(
             tooltip: 'Pengaturan Toko & Preset Usaha',
             icon: const Icon(Icons.storefront_rounded),
@@ -1081,10 +1089,12 @@ class _CurrentOrderPanel extends StatelessWidget {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () async {
+                  final fin = context.read<FinanceProvider>();
                   final order = await pos.checkout(
                     paymentMethod: paymentMethod,
                     amountPaid: paidVal,
                   );
+                  await fin.recordPosOrder(order);
                   if (!dCtx.mounted) return;
                   Navigator.pop(dCtx);
                   if (closeOnCheckout && context.mounted) {
@@ -2230,15 +2240,29 @@ class _PosReportsTabState extends State<_PosReportsTab> {
               final title = titleCtrl.text.trim();
               final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
               if (title.isEmpty || amount <= 0) return;
-              await pos.addExpense(
-                PosExpense(
-                  id: 'exp_${DateTime.now().microsecondsSinceEpoch}',
-                  title: title,
-                  category: catCtrl.text.trim().isEmpty
-                      ? 'Operasional'
-                      : catCtrl.text.trim(),
-                  amount: amount,
-                  createdAt: DateTime.now(),
+              final fin = context.read<FinanceProvider>();
+              final exp = PosExpense(
+                id: 'exp_${DateTime.now().microsecondsSinceEpoch}',
+                title: title,
+                category: catCtrl.text.trim().isEmpty
+                    ? 'Operasional'
+                    : catCtrl.text.trim(),
+                amount: amount,
+                createdAt: DateTime.now(),
+              );
+              await pos.addExpense(exp);
+              await fin.saveEntry(
+                FinanceEntry(
+                  id: 'fin_posexp_${exp.id}',
+                  type: FinanceEntryType.expense,
+                  title: exp.title,
+                  category: exp.category,
+                  amount: exp.amount,
+                  paymentAccount: 'Kas Tunai',
+                  date: exp.createdAt,
+                  notes: 'Dari POS Pengeluaran',
+                  source: FinanceEntrySource.posOrder,
+                  referenceId: exp.id,
                 ),
               );
               if (dCtx.mounted) Navigator.pop(dCtx);

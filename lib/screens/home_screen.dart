@@ -12,6 +12,7 @@ import '../widgets/track_tile.dart';
 import '../widgets/user_avatar_widget.dart';
 import 'directories_screen.dart';
 import 'jellyfin_movies_screen.dart';
+import 'keuangan_screen.dart';
 import 'library_search_screen.dart';
 import 'm3u_video_player_screen.dart';
 import 'playlists_screen.dart';
@@ -1063,6 +1064,13 @@ class _SpotifyQuickGrid extends StatelessWidget {
         icon: Icons.point_of_sale_rounded,
         accent: AppColors.spotifyGreen,
         onTap: () => PosScreen.show(context),
+      ),
+      (
+        title: 'Keuangan',
+        subtitle: 'Buku Kas, Belanja & PDF',
+        icon: Icons.account_balance_wallet_rounded,
+        accent: AppColors.neonCyan,
+        onTap: () => KeuanganScreen.show(context),
       ),
       (
         title: 'Semua Direktori',
