@@ -1,7 +1,7 @@
 name: musik_m3u_player
 description: "M3U Musik & Jellyfin Cinema Player — Offline M3U, Directory Music & Jellyfin Movies (Netflix x Spotify UI)"
 publish_to: 'none'
-version: 1.11.0+34
+version: 1.11.1+35
 
 environment:
   sdk: ^3.12.2

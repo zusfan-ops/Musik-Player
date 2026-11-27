@@ -306,11 +306,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             child: Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated.withValues(alpha: 0.9),
+                color: AppColors.elevated(sheetCtx).withValues(alpha: 0.94),
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(26)),
                 border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.8)),
+                  top: BorderSide(
+                    color: AppColors.isDark(sheetCtx)
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
               ),
               child: SafeArea(
@@ -323,35 +327,37 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.textMuted.withValues(alpha: 0.4),
+                        color: AppColors.subtext(sheetCtx).withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Row(
+                    Row(
                       children: [
-                        AppLogo(size: 28, borderRadius: 8),
-                        SizedBox(width: 10),
+                        const AppLogo(size: 28, borderRadius: 8),
+                        const SizedBox(width: 10),
                         Text(
                           'Menu Lainnya',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
-                            color: AppColors.textPrimary,
+                            color: AppColors.text(sheetCtx),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     _MoreMenuTile(
-                      icon: Icons.movie_rounded,
-                      color: AppColors.netflixRed,
-                      title: 'Hallsem Cinema (Film)',
-                      subtitle: 'Nonton & unduh film offline',
-                      selected: _selectedIndex == 4,
+                      icon: Icons.folder_copy_rounded,
+                      color: AppColors.isDark(sheetCtx)
+                          ? const Color(0xFF64B5F6)
+                          : AppColors.neonCyan,
+                      title: 'Direktori Musik',
+                      subtitle: 'Folder musik offline & file M3U lokal',
+                      selected: _selectedIndex == 1,
                       onTap: () {
                         Navigator.pop(sheetCtx);
-                        _switchTab(4);
+                        _switchTab(1);
                       },
                     ),
                     const SizedBox(height: 8),
@@ -381,7 +387,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     const SizedBox(height: 8),
                     _MoreMenuTile(
                       icon: Icons.account_balance_wallet_rounded,
-                      color: AppColors.neonCyan,
+                      color: AppColors.isDark(sheetCtx)
+                          ? const Color(0xFF64B5F6)
+                          : AppColors.neonCyan,
                       title: 'Keuangan & Buku Kas',
                       subtitle: 'Catat belanja, pemasukan, dompet & laporan PDF',
                       selected: false,
@@ -405,7 +413,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     const SizedBox(height: 8),
                     _MoreMenuTile(
                       icon: Icons.menu_book_rounded,
-                      color: AppColors.neonCyan,
+                      color: AppColors.isDark(sheetCtx)
+                          ? const Color(0xFF64B5F6)
+                          : AppColors.neonCyan,
                       title: 'Panduan Penggunaan',
                       subtitle: 'Cara pakai musik lokal, TV, YouTube & Widget',
                       selected: false,
@@ -453,12 +463,14 @@ class _MoreMenuTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? color.withValues(alpha: 0.14)
-              : AppColors.surface.withValues(alpha: 0.85),
+              : AppColors.card(context).withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
                 ? color.withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: 0.06),
+                : (AppColors.isDark(context)
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06)),
           ),
         ),
         child: Row(
@@ -479,25 +491,25 @@ class _MoreMenuTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14.5,
-                      color: AppColors.textPrimary,
+                      color: AppColors.text(context),
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: AppColors.subtext(context),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
+              color: AppColors.subtext(context),
             ),
           ],
         ),
@@ -519,26 +531,31 @@ class _ModernBottomNavBar extends StatelessWidget {
   });
 
   static const List<({
+    int tabIndex,
     IconData icon,
     IconData selectedIcon,
     String label,
   })> _items = [
     (
+      tabIndex: 0,
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
       label: 'Beranda',
     ),
     (
-      icon: Icons.folder_outlined,
-      selectedIcon: Icons.folder_rounded,
-      label: 'Folder',
+      tabIndex: 4,
+      icon: Icons.movie_outlined,
+      selectedIcon: Icons.movie_rounded,
+      label: 'Film',
     ),
     (
+      tabIndex: 2,
       icon: Icons.live_tv_outlined,
       selectedIcon: Icons.live_tv_rounded,
       label: 'TV',
     ),
     (
+      tabIndex: 3,
       icon: Icons.smart_display_outlined,
       selectedIcon: Icons.smart_display_rounded,
       label: 'YouTube',
@@ -547,7 +564,7 @@ class _ModernBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMoreActive = selectedIndex >= 4;
+    final isMoreActive = selectedIndex == 1 || selectedIndex >= 5;
     return SafeArea(
       top: false,
       child: Padding(
@@ -579,15 +596,15 @@ class _ModernBottomNavBar extends StatelessWidget {
                 ),
                 child: Row(
                 children: [
-                  for (int i = 0; i < _items.length; i++)
+                  for (final item in _items)
                     Expanded(
                       child: _GlassNavButton(
-                        icon: i == selectedIndex
-                            ? _items[i].selectedIcon
-                            : _items[i].icon,
-                        label: _items[i].label,
-                        selected: i == selectedIndex,
-                        onTap: () => onSelected(i),
+                        icon: item.tabIndex == selectedIndex
+                            ? item.selectedIcon
+                            : item.icon,
+                        label: item.label,
+                        selected: item.tabIndex == selectedIndex,
+                        onTap: () => onSelected(item.tabIndex),
                       ),
                     ),
                   Expanded(

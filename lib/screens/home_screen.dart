@@ -1171,18 +1171,22 @@ class _SpotifyQuickGrid extends StatelessWidget {
         ),
         itemBuilder: (_, idx) {
           final item = tiles[idx];
+          final effectiveAccent = AppColors.isDark(context) &&
+                  item.accent == AppColors.neonCyan
+              ? const Color(0xFF64B5F6)
+              : item.accent;
           return InkWell(
             onTap: item.onTap,
             borderRadius: BorderRadius.circular(14),
             child: Container(
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
-                  item.accent.withValues(alpha: 0.14),
+                  effectiveAccent.withValues(alpha: 0.14),
                   AppColors.elevated(context),
                 ),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: item.accent.withValues(alpha: 0.22),
+                  color: effectiveAccent.withValues(alpha: 0.22),
                 ),
               ),
               child: Row(
@@ -1191,12 +1195,12 @@ class _SpotifyQuickGrid extends StatelessWidget {
                     width: 52,
                     height: double.infinity,
                     decoration: BoxDecoration(
-                      color: item.accent.withValues(alpha: 0.2),
+                      color: effectiveAccent.withValues(alpha: 0.2),
                       borderRadius: const BorderRadius.horizontal(
                         left: Radius.circular(10),
                       ),
                     ),
-                    child: Icon(item.icon, color: item.accent, size: 24),
+                    child: Icon(item.icon, color: effectiveAccent, size: 24),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

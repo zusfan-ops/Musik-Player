@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart' as mk;
+import 'package:media_kit_video/media_kit_video.dart' as mkv;
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -29,6 +32,22 @@ class JellyfinMoviePlayerScreen extends StatefulWidget {
 class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   VideoPlayerController? _controller;
   VoidCallback? _controllerListener;
+  mk.Player? _mkPlayer;
+  mkv.VideoController? _mkVideoController;
+  final List<StreamSubscription<dynamic>> _mkSubs = [];
+  final ValueNotifier<VideoPlayerValue> _mkValueNotifier =
+      ValueNotifier<VideoPlayerValue>(const VideoPlayerValue.uninitialized());
+
+  bool get _useMediaKit =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  ValueListenable<VideoPlayerValue>? get _activeValueListenable =>
+      _useMediaKit ? _mkValueNotifier : _controller;
+
+  VideoPlayerValue get _activeValue => _useMediaKit
+      ? _mkValueNotifier.value
+      : (_controller?.value ?? const VideoPlayerValue.uninitialized());
+
   Timer? _hideControlsTimer;
   int _initToken = 0;
   late bool _useHls;
@@ -98,6 +117,18 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   }
 
   Future<void> _disposeActiveController() async {
+    for (final sub in _mkSubs) {
+      await sub.cancel();
+    }
+    _mkSubs.clear();
+    final oldMk = _mkPlayer;
+    _mkPlayer = null;
+    _mkVideoController = null;
+    _mkValueNotifier.value = const VideoPlayerValue.uninitialized();
+    if (oldMk != null) {
+      await oldMk.dispose();
+    }
+
     final old = _controller;
     final oldListener = _controllerListener;
     _controller = null;
@@ -107,6 +138,38 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
         old.removeListener(oldListener);
       }
       await old.dispose();
+    }
+  }
+
+  Future<void> _playActive() async {
+    if (_useMediaKit) {
+      await _mkPlayer?.play();
+    } else {
+      await _controller?.play();
+    }
+  }
+
+  Future<void> _pauseActive() async {
+    if (_useMediaKit) {
+      await _mkPlayer?.pause();
+    } else {
+      await _controller?.pause();
+    }
+  }
+
+  Future<void> _seekActive(Duration pos) async {
+    if (_useMediaKit) {
+      await _mkPlayer?.seek(pos);
+    } else {
+      await _controller?.seekTo(pos);
+    }
+  }
+
+  Future<void> _setSpeedActive(double spd) async {
+    if (_useMediaKit) {
+      await _mkPlayer?.setRate(spd);
+    } else {
+      await _controller?.setPlaybackSpeed(spd);
     }
   }
 
@@ -131,8 +194,168 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
     }
 
     final offlinePath = _jfProvider.offlineMoviePath(widget.movie.id);
+    final bool hasOffline =
+        offlinePath != null && await File(offlinePath).exists();
+
+    Duration? targetSeek = explicitPosition;
+    if (targetSeek == null && resumeFromSaved) {
+      final savedSec = _jfProvider.savedMoviePositionSeconds(widget.movie.id);
+      if (savedSec > 5) {
+        targetSeek = Duration(seconds: savedSec);
+      } else if (widget.movie.playbackPositionTicks > 0) {
+        targetSeek = Duration(
+          milliseconds: widget.movie.playbackPositionTicks ~/ 10000,
+        );
+      }
+    }
+
+    if (_useMediaKit) {
+      mk.Player? mkPlayer;
+      final List<StreamSubscription<dynamic>> localSubs = [];
+      try {
+        final String sourceUrl = hasOffline
+            ? offlinePath
+            : _jfProvider
+                .buildMovieStreamUri(
+                  widget.movie,
+                  useHlsTranscode: _useHls,
+                  playSessionId: _playSessionId,
+                )
+                .toString();
+        final Map<String, String>? headers =
+            hasOffline ? null : _jfProvider.authHeaders;
+
+        mkPlayer = mk.Player(
+          configuration: const mk.PlayerConfiguration(title: 'Hallsem Cinema'),
+        );
+        final platformPlayer = mkPlayer.platform;
+        if (platformPlayer is mk.NativePlayer) {
+          unawaited(platformPlayer.setProperty('tls-verify', 'no'));
+          unawaited(platformPlayer.setProperty('network-timeout', '20'));
+          unawaited(platformPlayer.setProperty('ytdl', 'no'));
+        }
+        final mkVideoCtrl = mkv.VideoController(mkPlayer);
+        bool didInitialSeek = false;
+
+        void syncMkValue() {
+          if (!mounted || currentToken != _initToken) return;
+          final st = mkPlayer!.state;
+          final w = (st.width ?? 16).toDouble();
+          final h = (st.height ?? 9).toDouble();
+          _mkValueNotifier.value = VideoPlayerValue(
+            duration: st.duration,
+            size: Size(w > 0 ? w : 16, h > 0 ? h : 9),
+            position: st.position,
+            isPlaying: st.playing,
+            isBuffering: st.buffering,
+            isInitialized: true,
+          );
+
+          if (!didInitialSeek &&
+              targetSeek != null &&
+              st.duration > Duration.zero &&
+              targetSeek < st.duration - const Duration(seconds: 5)) {
+            didInitialSeek = true;
+            unawaited(mkPlayer.seek(targetSeek));
+          }
+
+          if (st.playing &&
+              st.position.inSeconds > 2 &&
+              DateTime.now().difference(_lastProgressSave).inSeconds >= 10) {
+            _lastProgressSave = DateTime.now();
+            unawaited(
+              _jfProvider.saveMovieProgress(widget.movie.id, st.position),
+            );
+          }
+        }
+
+        localSubs.addAll([
+          mkPlayer.stream.playing.listen((_) => syncMkValue()),
+          mkPlayer.stream.buffering.listen((_) => syncMkValue()),
+          mkPlayer.stream.duration.listen((_) => syncMkValue()),
+          mkPlayer.stream.position.listen((_) => syncMkValue()),
+          mkPlayer.stream.width.listen((_) => syncMkValue()),
+          mkPlayer.stream.height.listen((_) => syncMkValue()),
+          mkPlayer.stream.error.listen((err) {
+            if (!mounted || currentToken != _initToken) return;
+            if (!_useHls && !_triedAutoFallback && !hasOffline) {
+              _triedAutoFallback = true;
+              _useHls = true;
+              unawaited(
+                _initController(
+                  resumeFromSaved: false,
+                  explicitPosition: _mkValueNotifier.value.position,
+                ),
+              );
+              return;
+            }
+            setState(() {
+              _isInitializing = false;
+              _playerError = _jfProvider.sanitizeError(err);
+            });
+          }),
+        ]);
+        _mkSubs.addAll(localSubs);
+
+        _mkPlayer = mkPlayer;
+        _mkVideoController = mkVideoCtrl;
+        syncMkValue();
+        if (mounted) {
+          setState(() => _isInitializing = false);
+        }
+        _scheduleHideControls();
+
+        await mkPlayer.open(
+          mk.Media(sourceUrl, httpHeaders: headers),
+          play: true,
+        );
+        if (!mounted || currentToken != _initToken) {
+          for (final sub in localSubs) {
+            await sub.cancel();
+          }
+          _mkSubs.removeWhere(localSubs.contains);
+          if (identical(_mkPlayer, mkPlayer)) {
+            _mkPlayer = null;
+            _mkVideoController = null;
+          }
+          await mkPlayer.dispose();
+          return;
+        }
+        if (_playbackSpeed != 1.0) {
+          await mkPlayer.setRate(_playbackSpeed);
+        }
+      } catch (e) {
+        for (final sub in localSubs) {
+          await sub.cancel();
+        }
+        _mkSubs.removeWhere(localSubs.contains);
+        if (identical(_mkPlayer, mkPlayer)) {
+          _mkPlayer = null;
+          _mkVideoController = null;
+        }
+        await mkPlayer?.dispose();
+        if (!mounted || currentToken != _initToken) return;
+
+        if (!_useHls && !_triedAutoFallback && !hasOffline) {
+          _triedAutoFallback = true;
+          _useHls = true;
+          await _initController(
+            resumeFromSaved: resumeFromSaved,
+            explicitPosition: explicitPosition,
+          );
+          return;
+        }
+
+        setState(() {
+          _isInitializing = false;
+          _playerError = _jfProvider.sanitizeError(e);
+        });
+      }
+      return;
+    }
+
     final VideoPlayerController nextController;
-    if (offlinePath != null && await File(offlinePath).exists()) {
+    if (hasOffline) {
       nextController = VideoPlayerController.file(File(offlinePath));
     } else {
       final uri = _jfProvider.buildMovieStreamUri(
@@ -152,18 +375,6 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
       if (!mounted || currentToken != _initToken) {
         await nextController.dispose();
         return;
-      }
-
-      Duration? targetSeek = explicitPosition;
-      if (targetSeek == null && resumeFromSaved) {
-        final savedSec = _jfProvider.savedMoviePositionSeconds(widget.movie.id);
-        if (savedSec > 5) {
-          targetSeek = Duration(seconds: savedSec);
-        } else if (widget.movie.playbackPositionTicks > 0) {
-          targetSeek = Duration(
-            milliseconds: widget.movie.playbackPositionTicks ~/ 10000,
-          );
-        }
       }
 
       if (targetSeek != null &&
@@ -254,8 +465,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   void _scheduleHideControls() {
     _hideControlsTimer?.cancel();
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      final ctrl = _controller;
-      if (mounted && ctrl != null && ctrl.value.isPlaying) {
+      if (mounted && _activeValue.isPlaying) {
         setState(() => _showControls = false);
       }
     });
@@ -269,20 +479,21 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   }
 
   Future<void> _skipRelative(Duration delta) async {
-    final ctrl = _controller;
-    if (ctrl == null || !ctrl.value.isInitialized) return;
-    final current = ctrl.value.position;
-    final total = ctrl.value.duration;
+    final val = _activeValue;
+    if (!val.isInitialized) return;
+    final current = val.position;
+    final total = val.duration;
     Duration next = current + delta;
     if (next.isNegative) next = Duration.zero;
     if (total > Duration.zero && next > total) next = total;
-    await ctrl.seekTo(next);
+    await _seekActive(next);
     _scheduleHideControls();
   }
 
   Future<void> _switchStreamMode(bool toHls) async {
     if (_useHls == toHls) return;
-    final currentPos = _controller?.value.position;
+    final currentPos =
+        _activeValue.isInitialized ? _activeValue.position : null;
     if (_useHls && !toHls) {
       unawaited(_jfProvider.stopHlsEncodingSession(_playSessionId));
     }
@@ -305,16 +516,23 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
     _initToken++;
     _hideControlsTimer?.cancel();
     _pipSub?.cancel();
+    if (_activeValue.isInitialized) {
+      unawaited(
+        _jfProvider.saveMovieProgress(widget.movie.id, _activeValue.position),
+      );
+    }
+    for (final sub in _mkSubs) {
+      sub.cancel();
+    }
+    _mkSubs.clear();
+    _mkPlayer?.dispose();
+    _mkValueNotifier.dispose();
+
     final ctrl = _controller;
     final listener = _controllerListener;
     if (ctrl != null) {
       if (listener != null) {
         ctrl.removeListener(listener);
-      }
-      if (ctrl.value.isInitialized) {
-        unawaited(
-          _jfProvider.saveMovieProgress(widget.movie.id, ctrl.value.position),
-        );
       }
       ctrl.dispose();
     }
@@ -328,6 +546,10 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final ctrl = _controller;
+    final mkVideoCtrl = _mkVideoController;
+    final activeListenable = _activeValueListenable;
+    final hasVideoSurface = (_useMediaKit && mkVideoCtrl != null) ||
+        (!_useMediaKit && ctrl != null && ctrl.value.isInitialized);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -338,27 +560,33 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
           fit: StackFit.expand,
           children: [
             // Video Surface
-            if (ctrl != null && ctrl.value.isInitialized)
+            if (hasVideoSurface && !_isInitializing)
               Center(
-                child: (_isZoomCrop &&
-                        ctrl.value.size.width > 0 &&
-                        ctrl.value.size.height > 0)
-                    ? SizedBox.expand(
-                        child: FittedBox(
-                          fit: BoxFit.cover,
-                          child: SizedBox(
-                            width: ctrl.value.size.width,
-                            height: ctrl.value.size.height,
+                child: _useMediaKit
+                    ? mkv.Video(
+                        controller: mkVideoCtrl!,
+                        fit: _isZoomCrop ? BoxFit.cover : BoxFit.contain,
+                        controls: mkv.NoVideoControls,
+                      )
+                    : (_isZoomCrop &&
+                            ctrl!.value.size.width > 0 &&
+                            ctrl.value.size.height > 0)
+                        ? SizedBox.expand(
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: ctrl.value.size.width,
+                                height: ctrl.value.size.height,
+                                child: VideoPlayer(ctrl),
+                              ),
+                            ),
+                          )
+                        : AspectRatio(
+                            aspectRatio: ctrl!.value.aspectRatio > 0
+                                ? ctrl.value.aspectRatio
+                                : 16 / 9,
                             child: VideoPlayer(ctrl),
                           ),
-                        ),
-                      )
-                    : AspectRatio(
-                        aspectRatio: ctrl.value.aspectRatio > 0
-                            ? ctrl.value.aspectRatio
-                            : 16 / 9,
-                        child: VideoPlayer(ctrl),
-                      ),
               )
             else if (_isInitializing)
               Center(
@@ -515,13 +743,13 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                               onPressed: () => _switchStreamMode(!_useHls),
                               icon: const Icon(
                                 Icons.hd_outlined,
-                                color: AppColors.neonCyan,
+                                color: Color(0xFF93C5FD),
                                 size: 18,
                               ),
                               label: Text(
                                 _useHls ? 'HLS' : 'DIRECT',
                                 style: const TextStyle(
-                                  color: AppColors.neonCyan,
+                                  color: Color(0xFF93C5FD),
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
                                 ),
@@ -557,9 +785,9 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                       ),
 
                       // Center Transport Controls (-10s, Play/Pause, +10s)
-                      if (ctrl != null && ctrl.value.isInitialized)
+                      if (hasVideoSurface && activeListenable != null)
                         ValueListenableBuilder<VideoPlayerValue>(
-                          valueListenable: ctrl,
+                          valueListenable: activeListenable,
                           builder: (_, val, _) {
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -578,9 +806,9 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                                 GestureDetector(
                                   onTap: () {
                                     if (val.isPlaying) {
-                                      ctrl.pause();
+                                      _pauseActive();
                                     } else {
-                                      ctrl.play();
+                                      _playActive();
                                       _scheduleHideControls();
                                     }
                                   },
@@ -628,9 +856,9 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                         ),
 
                       // Bottom Seek Bar & Speed Control
-                      if (ctrl != null && ctrl.value.isInitialized)
+                      if (hasVideoSurface && activeListenable != null)
                         ValueListenableBuilder<VideoPlayerValue>(
-                          valueListenable: ctrl,
+                          valueListenable: activeListenable,
                           builder: (_, val, _) {
                             final durMs = val.duration.inMilliseconds > 0
                                 ? val.duration.inMilliseconds.toDouble()
@@ -658,7 +886,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                                       max: durMs > 0 ? durMs : 1.0,
                                       onChanged: durMs > 1.0
                                           ? (v) {
-                                              ctrl.seekTo(
+                                              _seekActive(
                                                 Duration(
                                                   milliseconds: v.round(),
                                                 ),
@@ -684,7 +912,7 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                                         tooltip: 'Kecepatan Putar Film',
                                         onSelected: (spd) async {
                                           setState(() => _playbackSpeed = spd);
-                                          await ctrl.setPlaybackSpeed(spd);
+                                          await _setSpeedActive(spd);
                                         },
                                         itemBuilder: (_) => const [
                                           PopupMenuItem(

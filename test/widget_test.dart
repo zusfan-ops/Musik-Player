@@ -348,7 +348,18 @@ https://live.example.com/tvone/index.m3u8
       findsOneWidget,
     );
 
-    // Open Hallsem Cinema tab via Lainnya (More) menu
+    // Open Hallsem Cinema tab directly via bottom nav 'Film'
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('modern_bottom_nav')),
+        matching: find.text('Film'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Hallsem Cinema'), findsWidgets);
+    expect(find.text('Input API Code Jellyfin di Setting'), findsNothing);
+
+    // Verify Direktori Musik is accessible via Lainnya (More) menu
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('modern_bottom_nav')),
@@ -356,10 +367,9 @@ https://live.example.com/tvone/index.m3u8
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Hallsem Cinema (Film)'));
+    expect(find.text('Direktori Musik'), findsOneWidget);
+    await tester.tap(find.text('Direktori Musik'));
     await tester.pumpAndSettle();
-    expect(find.text('Hallsem Cinema'), findsWidgets);
-    expect(find.text('Input API Code Jellyfin di Setting'), findsNothing);
 
     // Open Profil & Setting tab via Lainnya (More) menu
     await tester.tap(
