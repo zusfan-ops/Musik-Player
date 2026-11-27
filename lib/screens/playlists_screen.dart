@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,83 @@ import '../theme/app_theme.dart';
 import '../widgets/track_tile.dart';
 import 'm3u_video_player_screen.dart';
 
+/// Derives a city name from a channel group title,
+/// e.g. `CCTV Kota Yogyakarta - UMBULHARJO` -> `Yogyakarta`,
+/// `DINAS PERHUBUNGAN KOTA SEMARANG` -> `Semarang`, `CCTV DKI Jakarta` -> `Jakarta`.
+String cityFromGroupTitle(String rawGroup) {
+  const noise = {
+    'cctv',
+    'tv',
+    'kota',
+    'kab',
+    'kab.',
+    'kabupaten',
+    'live',
+    'streaming',
+    'pemkot',
+    'pemkab',
+    'dki',
+    'dinas',
+    'perhubungan',
+    'diskominfo',
+    'dishub',
+    'dpu',
+    'dan',
+  };
+  final base = rawGroup
+      .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+      .split(' - ')
+      .first
+      .replaceAll(RegExp(r'\.(m3u8?|txt)$', caseSensitive: false), '')
+      .replaceAll(RegExp(r'[_\-]+'), ' ');
+  final words = base
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty && !noise.contains(w.toLowerCase()))
+      .toList();
+  if (words.isEmpty) return 'CCTV Lainnya';
+  final city = words
+      .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+      .join(' ');
+  return 'CCTV $city';
+}
+
+/// Area / district part of a group title (text after ` - `), or the group itself.
+String areaFromGroupTitle(String rawGroup) {
+  final parts = rawGroup.split(' - ');
+  final area = parts.length > 1 ? parts.sublist(1).join(' - ').trim() : '';
+  if (area.isNotEmpty && area.toLowerCase() != 'none') {
+    return area
+        .split(' ')
+        .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
+  }
+  return rawGroup.replaceAll(RegExp(r'\s+-\s*$'), '').trim();
+}
+
+bool _looksLikeCityGroup(String? group) {
+  if (group == null) return false;
+  final g = group.toLowerCase();
+  return g.contains('cctv') ||
+      g.contains('kota ') ||
+      g.contains('kabupaten') ||
+      g.contains('dinas ') ||
+      g.contains('diskominfo');
+}
+
+/// A playlist is a "city playlist" when most of its channels belong to city groups.
+bool isCityPlaylist(M3uPlaylist pl) {
+  if (pl.tracks.isEmpty) return false;
+  final hits = pl.tracks.where((t) => _looksLikeCityGroup(t.groupTitle)).length;
+  return hits * 2 >= pl.tracks.length ||
+      pl.name.toLowerCase().contains('cctv');
+}
+
+class _CityGroup {
+  final String city;
+  final List<TrackItem> tracks;
+  const _CityGroup(this.city, this.tracks);
+}
+
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
 
@@ -15,7 +93,41 @@ class PlaylistsScreen extends StatefulWidget {
 }
 
 class _PlaylistsScreenState extends State<PlaylistsScreen> {
-  String _filterType = 'Semua'; // Semua | File | Link
+  String _filterType = 'Kota'; // Kota | Semua | File | Link
+  static bool _bundledCctvLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBundledCctv());
+  }
+
+  Future<void> _loadBundledCctv() async {
+    if (_bundledCctvLoaded || !mounted) return;
+    _bundledCctvLoaded = true;
+    await context.read<MusicProvider>().importBundledCctvAssets();
+  }
+
+  Future<void> _pickAndImportFolder() async {
+    final provider = context.read<MusicProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final picked = await FilePicker.pickDirectory(
+      dialogTitle: 'Pilih folder berisi file M3U',
+    );
+    final dir = picked?.path;
+    if (dir == null || dir.isEmpty) return;
+    final count = await provider.importM3uFolder(dir);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          count > 0
+              ? '$count playlist TV dari folder berhasil dimuat!'
+              : 'Tidak ada file .m3u / .m3u8 di folder tersebut.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +138,45 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       if (_filterType == 'Link') return pl.isUrlSource;
       return true;
     }).toList();
+
+    // Rows: _CityGroup (expandable, channels grouped by city), String header,
+    // and M3uPlaylist cards (non-city playlists / other filters).
+    final List<Object> rows = [];
+    int cityCount = 0;
+    if (_filterType == 'Kota') {
+      final byCity = <String, List<TrackItem>>{};
+      final seenUrls = <String, Set<String>>{};
+      final others = <M3uPlaylist>[];
+      for (final pl in filtered) {
+        if (!isCityPlaylist(pl)) {
+          others.add(pl);
+          continue;
+        }
+        final city = cityFromGroupTitle(pl.name);
+        final seen = seenUrls.putIfAbsent(city, () => <String>{});
+        final bucket = byCity.putIfAbsent(city, () => []);
+        for (final t in pl.tracks) {
+          if (!seen.add(t.pathOrUrl)) continue;
+          bucket.add(t);
+        }
+      }
+      final cities = byCity.keys.toList()
+        ..sort((a, b) {
+          if (a == 'CCTV Lainnya' || a == 'Lainnya') return 1;
+          if (b == 'CCTV Lainnya' || b == 'Lainnya') return -1;
+          return a.toLowerCase().compareTo(b.toLowerCase());
+        });
+      cityCount = cities.length;
+      for (final city in cities) {
+        rows.add(_CityGroup(city, byCity[city]!));
+      }
+      if (others.isNotEmpty) {
+        rows.add('TV Lainnya');
+        rows.addAll(others);
+      }
+    } else {
+      rows.addAll(filtered);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -42,6 +193,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Impor Folder M3U',
+            icon: const Icon(Icons.folder_open_rounded),
+            onPressed: _pickAndImportFolder,
+          ),
           IconButton(
             tooltip: 'Tambah Playlist TV',
             icon: const Icon(Icons.add_circle_outline_rounded),
@@ -101,15 +257,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        for (final tab in const ['Semua', 'File', 'Link'])
+                        for (final tab in const ['Kota', 'Semua', 'Link'])
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
                               label: Text(
-                                tab == 'Semua'
-                                    ? 'Semua (${allPlaylists.length})'
-                                    : tab == 'File'
-                                        ? 'File Lokal (${allPlaylists.where((p) => !p.isUrlSource).length})'
+                                tab == 'Kota'
+                                    ? (cityCount > 0 ? 'Per Kota ($cityCount)' : 'Per Kota')
+                                    : tab == 'Semua'
+                                        ? 'Semua (${allPlaylists.length})'
                                         : 'Alamat Link (${allPlaylists.where((p) => p.isUrlSource).length})',
                                 style: TextStyle(
                                   fontWeight: _filterType == tab
@@ -190,14 +346,119 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, idx) {
-                    final pl = filtered[idx];
-                    return _PlaylistCardItem(playlist: pl);
+                    final row = rows[idx];
+                    if (row is _CityGroup) {
+                      return _CityExpansionCard(group: row);
+                    }
+                    if (row is String) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+                        child: Text(
+                          row,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.text(ctx),
+                          ),
+                        ),
+                      );
+                    }
+                    return _PlaylistCardItem(playlist: row as M3uPlaylist);
                   },
-                  childCount: filtered.length,
+                  childCount: rows.length,
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _CityExpansionCard extends StatelessWidget {
+  final _CityGroup group;
+  const _CityExpansionCard({required this.group});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.isDark(context)
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: const Icon(
+            Icons.location_city_rounded,
+            color: AppColors.netflixRed,
+          ),
+          title: Text(
+            group.city,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: AppColors.text(context),
+            ),
+          ),
+          subtitle: Text(
+            '${group.tracks.length} channel',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.subtext(context),
+            ),
+          ),
+          iconColor: AppColors.text(context),
+          collapsedIconColor: AppColors.subtext(context),
+          children: [
+            for (int i = 0; i < group.tracks.length; i++)
+              ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.videocam_rounded,
+                  color: AppColors.subtext(context),
+                  size: 20,
+                ),
+                title: Text(
+                  group.tracks[i].title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.text(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: Text(
+                  areaFromGroupTitle(group.tracks[i].groupTitle ?? ''),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.subtext(context),
+                    fontSize: 11.5,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.play_circle_outline_rounded,
+                  color: AppColors.subtext(context),
+                ),
+                onTap: () => M3uPlaybackLauncher.playItemList(
+                  context,
+                  group.tracks,
+                  initialIndex: i,
+                  forceVideoPlayer: true,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

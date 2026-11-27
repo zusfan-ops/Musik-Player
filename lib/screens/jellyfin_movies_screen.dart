@@ -6,6 +6,7 @@ import '../providers/profile_jellyfin_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/user_avatar_widget.dart';
 import 'jellyfin_movie_player_screen.dart';
+import 'jellyfin_music_tv_section.dart';
 
 class JellyfinMoviesScreen extends StatefulWidget {
   final VoidCallback onOpenSettings;
@@ -22,6 +23,16 @@ class JellyfinMoviesScreen extends StatefulWidget {
 class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
   String _searchQuery = '';
   String _selectedType = 'Semua'; // Semua | Movie | Episode | Video
+  JellyfinSection _section = JellyfinSection.film;
+
+  void _selectSection(JellyfinSection section, ProfileJellyfinProvider jf) {
+    setState(() => _section = section);
+    if (section == JellyfinSection.musik && !jf.musicLoaded) {
+      jf.refreshMusic();
+    } else if (section == JellyfinSection.tv && !jf.tvLoaded) {
+      jf.refreshTvChannels();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +202,13 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                     ),
                   )
                 : const Icon(Icons.refresh_rounded),
-            onPressed: jf.isLoadingMovies ? null : () => jf.refreshMovies(),
+            onPressed: jf.isLoadingMovies
+                ? null
+                : () {
+                    jf.refreshMovies();
+                    if (_section == JellyfinSection.musik) jf.refreshMusic();
+                    if (_section == JellyfinSection.tv) jf.refreshTvChannels();
+                  },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 14, left: 4),
@@ -239,13 +256,17 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
             ),
 
           // Netflix Cinema Featured Movie Billboard
-          if (featured != null && _searchQuery.isEmpty)
+          if (_section == JellyfinSection.film &&
+              featured != null &&
+              _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: _MovieHeroBanner(movie: featured),
             ),
 
           // Continue Watching Row
-          if (continueWatching.isNotEmpty && _searchQuery.isEmpty) ...[
+          if (_section == JellyfinSection.film &&
+              continueWatching.isNotEmpty &&
+              _searchQuery.isEmpty) ...[
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -282,10 +303,62 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final s in const [
+                          (
+                            sec: JellyfinSection.film,
+                            label: 'Film',
+                            icon: Icons.movie_rounded,
+                          ),
+                          (
+                            sec: JellyfinSection.musik,
+                            label: 'Musik',
+                            icon: Icons.library_music_rounded,
+                          ),
+                          (
+                            sec: JellyfinSection.tv,
+                            label: 'TV',
+                            icon: Icons.live_tv_rounded,
+                          ),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              avatar: Icon(
+                                s.icon,
+                                size: 18,
+                                color: _section == s.sec
+                                    ? Colors.white
+                                    : AppColors.text(context),
+                              ),
+                              label: Text(
+                                s.label,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _section == s.sec
+                                      ? Colors.white
+                                      : AppColors.text(context),
+                                ),
+                              ),
+                              selected: _section == s.sec,
+                              onSelected: (_) => _selectSection(s.sec, jf),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   TextField(
                     onChanged: (v) => setState(() => _searchQuery = v),
                     decoration: InputDecoration(
-                      hintText: 'Cari judul film, genre, atau sinopsis...',
+                      hintText: _section == JellyfinSection.film
+                          ? 'Cari judul film, genre, atau sinopsis...'
+                          : (_section == JellyfinSection.musik
+                              ? 'Cari lagu, artis, atau album...'
+                              : 'Cari channel TV atau acara...'),
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
                       fillColor: AppColors.card(context),
@@ -297,6 +370,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  if (_section == JellyfinSection.film)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -334,7 +408,15 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
             ),
           ),
 
-          if (jf.isLoadingMovies && jf.movies.isEmpty)
+          if (_section != JellyfinSection.film)
+            JellyfinMediaListSliver(
+              access: JellyfinProviderAccess(
+                jf: jf,
+                section: _section,
+                query: _searchQuery,
+              ),
+            )
+          else if (jf.isLoadingMovies && jf.movies.isEmpty)
             const SliverFillRemaining(
               hasScrollBody: false,
               child: Center(

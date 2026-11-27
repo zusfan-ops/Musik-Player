@@ -213,6 +213,169 @@ class JellyfinService {
         .toList();
   }
 
+  /// Fetches Music tracks (`Audio`) from Jellyfin.
+  static Future<List<JellyfinMediaEntry>> fetchMusicTracks({
+    required String serverUrl,
+    required String apiKey,
+    String? userId,
+    String searchQuery = '',
+    int limit = 500,
+  }) async {
+    final queryParams = <String, String>{
+      'Recursive': 'true',
+      'IncludeItemTypes': 'Audio',
+      'SortBy': 'AlbumArtist,Album,ParentIndexNumber,IndexNumber,SortName',
+      'SortOrder': 'Ascending',
+      'Fields': 'MediaSources,RunTimeTicks,AlbumArtist,Album',
+      'Limit': '$limit',
+      if (searchQuery.trim().isNotEmpty) 'SearchTerm': searchQuery.trim(),
+    };
+    final safeUser = (userId != null && userId.isNotEmpty)
+        ? Uri.encodeComponent(userId)
+        : null;
+    final basePath = safeUser != null
+        ? '$serverUrl/Users/$safeUser/Items'
+        : '$serverUrl/Items';
+    final uri = Uri.parse(basePath).replace(queryParameters: queryParams);
+    final res = await http
+        .get(uri, headers: buildAuthHeaders(apiKey))
+        .timeout(_timeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw HttpException(
+        'Gagal memuat musik Jellyfin (HTTP ${res.statusCode}).',
+      );
+    }
+    final decoded =
+        jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final rawItems = decoded['Items'] as List<dynamic>? ?? const [];
+    return rawItems
+        .whereType<Map<String, dynamic>>()
+        .map(JellyfinMediaEntry.fromApiJson)
+        .where((m) => m.id.isNotEmpty)
+        .toList();
+  }
+
+  /// Fetches Live TV channels from Jellyfin (`/LiveTv/Channels`).
+  static Future<List<JellyfinMediaEntry>> fetchLiveTvChannels({
+    required String serverUrl,
+    required String apiKey,
+    String? userId,
+    int limit = 500,
+  }) async {
+    final queryParams = <String, String>{
+      'AddCurrentProgram': 'true',
+      'SortBy': 'SortName',
+      'Limit': '$limit',
+      if (userId != null && userId.isNotEmpty) 'UserId': userId,
+    };
+    final uri = Uri.parse('$serverUrl/LiveTv/Channels')
+        .replace(queryParameters: queryParams);
+    final res = await http
+        .get(uri, headers: buildAuthHeaders(apiKey))
+        .timeout(_timeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw HttpException(
+        'Gagal memuat channel TV Jellyfin (HTTP ${res.statusCode}).',
+      );
+    }
+    final decoded =
+        jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final rawItems = decoded['Items'] as List<dynamic>? ?? const [];
+    return rawItems
+        .whereType<Map<String, dynamic>>()
+        .map(JellyfinMediaEntry.fromApiJson)
+        .where((m) => m.id.isNotEmpty)
+        .toList();
+  }
+
+  /// Direct audio stream URL (auth is sent via HTTP headers).
+  static Uri buildAudioStreamUri({
+    required String serverUrl,
+    required String itemId,
+    String? mediaSourceId,
+  }) {
+    final safeId = Uri.encodeComponent(itemId);
+    final params = <String, String>{
+      'static': 'true',
+      if (mediaSourceId != null && mediaSourceId.isNotEmpty)
+        'MediaSourceId': mediaSourceId,
+    };
+    return Uri.parse('$serverUrl/Audio/$safeId/stream')
+        .replace(queryParameters: params);
+  }
+
+  /// Opens a Live TV stream through `PlaybackInfo` and returns an HLS URL.
+  static Future<String> resolveLiveTvStreamUrl({
+    required String serverUrl,
+    required String apiKey,
+    required String channelId,
+    String? userId,
+  }) async {
+    final safeId = Uri.encodeComponent(channelId);
+    final headers = {
+      ...buildAuthHeaders(apiKey),
+      'Content-Type': 'application/json',
+    };
+    final infoUri = Uri.parse('$serverUrl/Items/$safeId/PlaybackInfo')
+        .replace(queryParameters: {
+      'AutoOpenLiveStream': 'true',
+      'IsPlayback': 'true',
+      if (userId != null && userId.isNotEmpty) 'UserId': userId,
+    });
+    final body = jsonEncode({
+      'DeviceProfile': {
+        'MaxStreamingBitrate': 20000000,
+        'DirectPlayProfiles': <dynamic>[],
+        'TranscodingProfiles': [
+          {
+            'Container': 'ts',
+            'Type': 'Video',
+            'AudioCodec': 'aac',
+            'VideoCodec': 'h264',
+            'Context': 'Streaming',
+            'Protocol': 'hls',
+            'MaxAudioChannels': '2',
+            'MinSegments': '1',
+            'BreakOnNonKeyFrames': true,
+          },
+        ],
+      },
+    });
+    final res =
+        await http.post(infoUri, headers: headers, body: body).timeout(_timeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw HttpException(
+        'Gagal membuka channel TV Jellyfin (HTTP ${res.statusCode}).',
+      );
+    }
+    final decoded =
+        jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final sources = decoded['MediaSources'] as List<dynamic>? ?? const [];
+    if (sources.isEmpty || sources.first is! Map<String, dynamic>) {
+      throw const HttpException('Channel TV Jellyfin tidak memiliki stream.');
+    }
+    final source = sources.first as Map<String, dynamic>;
+    final transcodingUrl = source['TranscodingUrl'] as String?;
+    if (transcodingUrl != null && transcodingUrl.isNotEmpty) {
+      return transcodingUrl.startsWith('http')
+          ? transcodingUrl
+          : '$serverUrl${transcodingUrl.startsWith('/') ? '' : '/'}$transcodingUrl';
+    }
+    final mediaSourceId = (source['Id'] as String?) ?? channelId;
+    return Uri.parse('$serverUrl/Videos/$safeId/master.m3u8').replace(
+      queryParameters: {
+        'MediaSourceId': mediaSourceId,
+        if (source['LiveStreamId'] != null)
+          'LiveStreamId': '${source['LiveStreamId']}',
+        'VideoCodec': 'h264',
+        'AudioCodec': 'aac',
+        'SegmentContainer': 'ts',
+        'MinSegments': '1',
+        'BreakOnNonKeyFrames': 'true',
+      },
+    ).toString();
+  }
+
   static String buildPrimaryImageUrl(String serverUrl, String itemId) {
     final safeId = Uri.encodeComponent(itemId);
     return '$serverUrl/Items/$safeId/Images/Primary?maxWidth=420&quality=85';

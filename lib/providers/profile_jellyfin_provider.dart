@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/jellyfin_config.dart';
 import '../models/jellyfin_profile_models.dart';
+import '../models/music_models.dart';
 import '../services/jellyfin_service.dart';
 
 class ProfileJellyfinProvider extends ChangeNotifier {
@@ -343,6 +344,120 @@ class ProfileJellyfinProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  // ---- Jellyfin Music & Live TV ----
+  List<JellyfinMediaEntry> _musicTracks = [];
+  List<JellyfinMediaEntry> _tvChannels = [];
+  bool _isLoadingMusic = false;
+  bool _isLoadingTv = false;
+  bool _musicLoaded = false;
+  bool _tvLoaded = false;
+  String? _musicError;
+  String? _tvError;
+
+  List<JellyfinMediaEntry> get musicTracks => List.unmodifiable(_musicTracks);
+  List<JellyfinMediaEntry> get tvChannels => List.unmodifiable(_tvChannels);
+  bool get isLoadingMusic => _isLoadingMusic;
+  bool get isLoadingTv => _isLoadingTv;
+  bool get musicLoaded => _musicLoaded;
+  bool get tvLoaded => _tvLoaded;
+  String? get musicError => _musicError;
+  String? get tvError => _tvError;
+
+  Future<void> refreshMusic() async {
+    if (!hasCredentials || _isLoadingMusic) return;
+    _isLoadingMusic = true;
+    _musicError = null;
+    notifyListeners();
+    try {
+      _musicTracks = await JellyfinService.fetchMusicTracks(
+        serverUrl: _serverUrl,
+        apiKey: _apiKey,
+        userId: _selectedUserId,
+      );
+      _musicLoaded = true;
+    } catch (e) {
+      _musicError = JellyfinService.sanitizeErrorMessage(e, _apiKey);
+    } finally {
+      _isLoadingMusic = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshTvChannels() async {
+    if (!hasCredentials || _isLoadingTv) return;
+    _isLoadingTv = true;
+    _tvError = null;
+    notifyListeners();
+    try {
+      _tvChannels = await JellyfinService.fetchLiveTvChannels(
+        serverUrl: _serverUrl,
+        apiKey: _apiKey,
+        userId: _selectedUserId,
+      );
+      _tvLoaded = true;
+    } catch (e) {
+      _tvError = JellyfinService.sanitizeErrorMessage(e, _apiKey);
+    } finally {
+      _isLoadingTv = false;
+      notifyListeners();
+    }
+  }
+
+  String artworkUrlForEntry(JellyfinMediaEntry entry) =>
+      JellyfinService.buildPrimaryImageUrl(_serverUrl, entry.id);
+
+  TrackItem musicEntryToTrack(JellyfinMediaEntry entry) {
+    final uri = JellyfinService.buildAudioStreamUri(
+      serverUrl: _serverUrl,
+      itemId: entry.id,
+      mediaSourceId: entry.mediaSourceId,
+    );
+    return TrackItem(
+      id: 'jf_${entry.id}',
+      title: entry.name,
+      artist: entry.artist ?? 'Hallsem Music',
+      album: entry.album ?? 'Hallsem Cinema • Musik',
+      groupTitle: 'Hallsem Musik',
+      sourceType: TrackSourceType.remoteStream,
+      pathOrUrl: uri.toString(),
+      directoryPath: 'jellyfin://music',
+      directoryName: 'Hallsem Cinema • Musik',
+      artworkUrl: entry.hasPrimaryImage ? artworkUrlForEntry(entry) : null,
+      durationSeconds: entry.durationSeconds,
+      isVideo: false,
+      httpHeaders: authHeaders,
+    );
+  }
+
+  static const String liveTvScheme = 'jellyfin-live://';
+
+  TrackItem tvEntryToTrack(JellyfinMediaEntry entry) {
+    return TrackItem(
+      id: 'jftv_${entry.id}',
+      title: entry.name,
+      artist: entry.currentProgram ?? 'Live TV',
+      album: 'Hallsem Cinema • TV',
+      groupTitle: 'TV Jellyfin',
+      sourceType: TrackSourceType.remoteStream,
+      pathOrUrl: '$liveTvScheme${entry.id}',
+      directoryPath: 'jellyfin://tv',
+      directoryName: 'Hallsem Cinema • TV',
+      artworkUrl: entry.hasPrimaryImage ? artworkUrlForEntry(entry) : null,
+      isVideo: true,
+      httpHeaders: authHeaders,
+    );
+  }
+
+  /// Opens a Live TV channel on the Jellyfin server and returns an HLS URL.
+  Future<String> resolveLiveTvStreamUrl(String channelId) {
+    return JellyfinService.resolveLiveTvStreamUrl(
+      serverUrl: _serverUrl,
+      apiKey: _apiKey,
+      channelId: channelId,
+      userId: _selectedUserId,
+    );
   }
 
   Future<void> saveMovieProgress(String movieId, Duration position) async {

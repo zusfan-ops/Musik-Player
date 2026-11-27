@@ -1041,6 +1041,151 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
+  static const List<String> _bundledCctvAssets = [
+    'assets/m3u/CCTV Bima.m3u',
+    'assets/m3u/CCTV Jakarta.m3u',
+    'assets/m3u/CCTV Jogja.m3u',
+    'assets/m3u/CCTV Magetan.m3u',
+    'assets/m3u/CCTV Mataram.m3u',
+    'assets/m3u/CCTV semarang.m3u',
+  ];
+
+  /// Loads built-in bundled M3U playlists from app assets as streaming URL
+  /// playlists (works on Android & Windows without any local `D:\` directory).
+  Future<int> importBundledCctvAssets() async {
+    final bundledNames = _bundledCctvAssets
+        .map((a) => p.basenameWithoutExtension(p.basename(a)).toLowerCase())
+        .toSet();
+    // Migrate away any stale local-file copies of bundled/D:\m3u CCTV playlists
+    _playlists.removeWhere((pl) {
+      if (pl.sourceType != M3uSourceType.file) return false;
+      final n = pl.name.toLowerCase();
+      final loc = pl.sourceLocation.toLowerCase();
+      return bundledNames.contains(n) || loc.contains(r'\m3u\');
+    });
+
+    int imported = 0;
+    for (final assetPath in _bundledCctvAssets) {
+      try {
+        final data = await rootBundle.load(assetPath);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        final fileName = p.basename(assetPath);
+        final rawBase = p.basenameWithoutExtension(fileName);
+        final nameLower = rawBase.toLowerCase();
+        final formattedName = rawBase
+            .split(RegExp(r'\s+'))
+            .where((w) => w.isNotEmpty)
+            .map((w) => w.toUpperCase() == 'CCTV'
+                ? 'CCTV'
+                : w[0].toUpperCase() + w.substring(1).toLowerCase())
+            .join(' ');
+        final existingIdx = _playlists.indexWhere(
+          (pl) =>
+              pl.sourceLocation == 'asset://$assetPath' ||
+              pl.name.toLowerCase() == nameLower,
+        );
+        final parsed = await M3uService.importFromBytes(
+          bytes: bytes,
+          displayFileName: fileName,
+          resolvedSourcePath: 'asset://$assetPath',
+          existingId: existingIdx >= 0 ? _playlists[existingIdx].id : null,
+        );
+        final playlist = M3uPlaylist(
+          id: parsed.id,
+          name: formattedName,
+          sourceType: M3uSourceType.url,
+          sourceLocation: 'asset://$assetPath',
+          tracks: parsed.tracks,
+          updatedAt: parsed.updatedAt,
+          isEnabled: parsed.isEnabled,
+        );
+        if (existingIdx >= 0) {
+          _playlists[existingIdx] = playlist;
+        } else {
+          _playlists.insert(0, playlist);
+        }
+        imported++;
+      } catch (_) {
+        // Skip if asset is unavailable in test environment
+      }
+    }
+    if (imported > 0) {
+      _invalidateLibraryCache();
+      await _persistPlaylists();
+      notifyListeners();
+    }
+    return imported;
+  }
+
+  /// Imports every `.m3u` / `.m3u8` file found inside [dirPath] as a TV playlist.
+  /// Existing playlists with the same path or same name are refreshed in place.
+  Future<int> importM3uFolder(String dirPath) async {
+    final dir = Directory(dirPath);
+    if (!await dir.exists()) return 0;
+
+    _isImportingM3u = true;
+    _lastError = null;
+    notifyListeners();
+
+    int imported = 0;
+    try {
+      final files = <File>[];
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        final ext = p.extension(entity.path).toLowerCase();
+        if (ext == '.m3u' || ext == '.m3u8') files.add(entity);
+      }
+      files.sort((a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()));
+
+      for (final file in files) {
+        try {
+          final name = p.basenameWithoutExtension(file.path).toLowerCase();
+          final existingIdx = _playlists.indexWhere(
+            (pl) =>
+                pl.sourceType == M3uSourceType.file &&
+                (p.normalize(pl.sourceLocation).toLowerCase() ==
+                        p.normalize(file.path).toLowerCase() ||
+                    pl.name.toLowerCase() == name),
+          );
+          final playlist = await M3uService.importFromFile(
+            filePath: file.path,
+            additionalSearchDirs: _knownLocalDirectories,
+            existingId: existingIdx >= 0 ? _playlists[existingIdx].id : null,
+          );
+          if (existingIdx >= 0) {
+            _playlists[existingIdx] = playlist;
+          } else {
+            _playlists.insert(0, playlist);
+          }
+          imported++;
+        } catch (e) {
+          _lastError = 'Gagal mengimpor ${p.basename(file.path)}: $e';
+        }
+      }
+
+      final normalizedDir = p.normalize(dirPath).toLowerCase();
+      final currentPaths =
+          files.map((f) => p.normalize(f.path).toLowerCase()).toSet();
+      _playlists.removeWhere((pl) {
+        if (pl.sourceType != M3uSourceType.file) return false;
+        final src = p.normalize(pl.sourceLocation).toLowerCase();
+        return (src.startsWith('$normalizedDir${p.separator}') ||
+                src.startsWith('$normalizedDir/')) &&
+            !currentPaths.contains(src);
+      });
+
+      _invalidateLibraryCache();
+      await _persistPlaylists();
+      return imported;
+    } finally {
+      _isImportingM3u = false;
+      notifyListeners();
+    }
+  }
+
   Future<M3uPlaylist> addM3uFromFilePath(
     String filePath, {
     String? customName,

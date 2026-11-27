@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
+import '../providers/profile_jellyfin_provider.dart';
 import '../services/newtube_service.dart';
 import '../theme/app_theme.dart';
 
@@ -254,6 +255,27 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     final item = widget.playlistItems[index];
     String effectiveSource = item.playableSource;
     Map<String, String>? effectiveHeaders = item.httpHeaders;
+
+    if (!item.playsFromLocalFile &&
+        effectiveSource.startsWith(ProfileJellyfinProvider.liveTvScheme)) {
+      final channelId = effectiveSource
+          .substring(ProfileJellyfinProvider.liveTvScheme.length);
+      final jf = context.read<ProfileJellyfinProvider>();
+      try {
+        final url = await jf.resolveLiveTvStreamUrl(channelId);
+        if (!mounted || token != _initToken) return;
+        effectiveSource = url;
+        effectiveHeaders = jf.authHeaders;
+      } catch (e) {
+        if (!mounted || token != _initToken) return;
+        setState(() {
+          _isInitializing = false;
+          _errorMessage =
+              'Gagal membuka channel TV "${item.title}": ${jf.sanitizeError(e)}';
+        });
+        return;
+      }
+    }
 
     if (!item.playsFromLocalFile &&
         !effectiveSource.contains('googlevideo.com')) {

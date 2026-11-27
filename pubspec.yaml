@@ -46,6 +46,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo2.png
+    - assets/m3u/
 
 flutter_launcher_icons:
   android: true

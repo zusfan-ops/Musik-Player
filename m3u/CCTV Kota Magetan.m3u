@@ -1,0 +1,49 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="sarangan_jl-taman-asri-s3-perum-t-asri" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Taman Asri - S3 Perum T. Asri"
+https://saranganvision.my.id:847/stream20/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-mayjend-sukowati-simpang-3-kpr-asabri" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Mayjend Sukowati - Simpang 3 KPR Asabri"
+https://saranganvision.my.id:842/stream7/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-mayjend-sungkono-simpang-4-pasar-sayur" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Mayjend Sungkono - Simpang 4 Pasar Sayur"
+https://saranganvision.my.id:850/stream1/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-s-parman-asrama-kodim" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. S. Parman Asrama Kodim"
+https://saranganvision.my.id:847/stream22/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-yos-sudarso-simpang-4-rani-puri" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Yos Sudarso - Simpang 4 Rani Puri"
+https://saranganvision.my.id:842/stream3/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-basuki-rahmat-timur-alun-alun" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Basuki Rahmat Timur - Alun-Alun"
+https://saranganvision.my.id:842/stream2/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-basuki-rahmat-barat-simpang-4-gubernur-suryo-alun-alun" group-title="Alun-Alun & Pusat Magetan","CCTV JL. Basuki Rahmat Barat - Simpang 4 Gubernur Suryo Alun-Alun"
+https://saranganvision.my.id:850/stream8/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-4-jl-timor-lombok" group-title="Alun-Alun & Pusat Magetan","CCTV Simpang 4 Jl Timor-Lombok"
+https://saranganvision.my.id:847/stream21/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-mongindisi-blok-m" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Mongindisi - Blok M"
+https://saranganvision.my.id:847/stream23/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-dr-soetomo-s3" group-title="Alun-Alun & Pusat Magetan","CCTV Jl. Dr. Soetomo - S3"
+https://saranganvision.my.id:842/stream5/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-4-panekan" group-title="Plaosan & Panekan","CCTV Simpang 4 Panekan"
+https://saranganvision.my.id:847/stream24/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-4-cepoko" group-title="Plaosan & Panekan","CCTV Simpang 4 Cepoko"
+https://saranganvision.my.id:847/stream18/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-3-sidorejo" group-title="Plaosan & Panekan","CCTV Simpang 3 Sidorejo"
+https://saranganvision.my.id:850/stream13/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_terminal-maospati" group-title="Maospati & Sekitarnya","CCTV Terminal Maospati"
+https://saranganvision.my.id:842/stream14/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-raya-maospati-simpang-4-pasar-jengglong" group-title="Maospati & Sekitarnya","CCTV Jl. Raya Maospati - Simpang 4 Pasar Jengglong"
+https://saranganvision.my.id:842/stream4/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_jl-raya-maospati-simpang-4-bani-solan" group-title="Maospati & Sekitarnya","CCTV Jl. Raya Maospati - Simpang 4 Bani Solan"
+https://saranganvision.my.id:842/stream6/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-4-mandoran-loket-wisata-t-sarangan" group-title="Sarangan & Wisata Magetan","CCTV Simpang 4 Mandoran - Loket Wisata T. Sarangan"
+https://saranganvision.my.id:845/stream101/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-3-singolangu-bawah-pintu-masuk-sarangan" group-title="Sarangan & Wisata Magetan","CCTV Simpang 3 Singolangu Bawah - Pintu Masuk Sarangan"
+https://saranganvision.my.id:845/stream102/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-3-omah-jowo-pintu-masuk-sarangan" group-title="Sarangan & Wisata Magetan","CCTV Simpang 3 Omah Jowo Pintu Masuk Sarangan"
+https://saranganvision.my.id:845/stream106/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_wisata-strawberry" group-title="Sarangan & Wisata Magetan","CCTV Wisata Strawberry"
+https://saranganvision.my.id:845/stream107/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_singolangu-atas-sarangan" group-title="Sarangan & Wisata Magetan","CCTV Singolangu Atas - Sarangan"
+https://saranganvision.my.id:845/stream104/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-3-pasar-plaosan" group-title="Plaosan & Panekan","CCTV Simpang 3 Pasar Plaosan"
+https://saranganvision.my.id:847/stream16/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-3-polsek-plaosan" group-title="Plaosan & Panekan","CCTV Simpang 3 Polsek Plaosan"
+https://saranganvision.my.id:845/stream24/file.m3u8
+#EXTINF:-1 tvg-id="sarangan_simpang-4-ngariboyo" group-title="Alun-Alun & Pusat Magetan","CCTV Simpang 4 Ngariboyo"
+https://saranganvision.my.id:850/stream25/file.m3u8

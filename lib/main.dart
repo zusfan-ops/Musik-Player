@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -11,6 +12,7 @@ import 'providers/finance_provider.dart';
 import 'providers/music_provider.dart';
 import 'providers/pos_provider.dart';
 import 'providers/profile_jellyfin_provider.dart';
+import 'screens/android_tv_shell.dart';
 import 'screens/directories_screen.dart';
 import 'screens/driving_mode_screen.dart';
 import 'screens/home_screen.dart';
@@ -117,16 +119,33 @@ class AppBootstrapGate extends StatefulWidget {
 }
 
 class _AppBootstrapGateState extends State<AppBootstrapGate> {
+  static const bool _kForceAndroidTv = bool.fromEnvironment('ANDROID_TV');
   bool _minimumSplashDone = false;
+  bool _isAndroidTv = _kForceAndroidTv;
 
   @override
   void initState() {
     super.initState();
+    if (!_isAndroidTv && Platform.isAndroid) {
+      unawaited(_detectAndroidTv());
+    }
     Future<void>.delayed(const Duration(milliseconds: 950), () {
       if (mounted) {
         setState(() => _minimumSplashDone = true);
       }
     });
+  }
+
+  Future<void> _detectAndroidTv() async {
+    try {
+      final isTv = await const MethodChannel('com.musikm3u.player/media_store')
+          .invokeMethod<bool>('isAndroidTv');
+      if (mounted && isTv == true) {
+        setState(() => _isAndroidTv = true);
+      }
+    } catch (_) {
+      // Safe fallback on tests / non-TV environments
+    }
   }
 
   @override
@@ -177,6 +196,9 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
           ),
         ),
       );
+    }
+    if (_isAndroidTv) {
+      return AndroidTvShell(autoCheckUpdates: widget.autoCheckUpdates);
     }
     return MainNavigationShell(autoCheckUpdates: widget.autoCheckUpdates);
   }

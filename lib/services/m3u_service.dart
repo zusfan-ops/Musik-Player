@@ -283,8 +283,9 @@ class M3uService {
     final trimmed = rawEntry.trim();
     if (trimmed.isEmpty) return null;
 
-    // 1. Explicit HTTP/HTTPS stream or file link
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // 1. Explicit remote stream or file link (http/https/rtsp/rtmp/ws/wss)
+    if (RegExp(r'^(https?|rtsp|rtmp|wss?)://', caseSensitive: false)
+        .hasMatch(trimmed)) {
       final uri = Uri.tryParse(trimmed);
       if (uri == null || uri.host.isEmpty) return null;
       return _ResolvedSource(

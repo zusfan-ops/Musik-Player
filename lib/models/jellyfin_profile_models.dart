@@ -102,6 +102,65 @@ class JellyfinUserSummary {
   }
 }
 
+/// Generic Jellyfin entry for Music tracks (`Audio`) and Live TV channels.
+class JellyfinMediaEntry {
+  final String id;
+  final String name;
+  final String itemType; // Audio | TvChannel
+  final String? artist;
+  final String? album;
+  final String? channelNumber;
+  final String? currentProgram;
+  final int? runTimeTicks;
+  final String? mediaSourceId;
+  final bool hasPrimaryImage;
+
+  const JellyfinMediaEntry({
+    required this.id,
+    required this.name,
+    required this.itemType,
+    this.artist,
+    this.album,
+    this.channelNumber,
+    this.currentProgram,
+    this.runTimeTicks,
+    this.mediaSourceId,
+    this.hasPrimaryImage = false,
+  });
+
+  int? get durationSeconds {
+    if (runTimeTicks == null || runTimeTicks! <= 0) return null;
+    return runTimeTicks! ~/ 10000000;
+  }
+
+  factory JellyfinMediaEntry.fromApiJson(Map<String, dynamic> json) {
+    final imageTags = json['ImageTags'] as Map<String, dynamic>? ?? const {};
+    final mediaSources = json['MediaSources'] as List<dynamic>? ?? const [];
+    final artists = json['Artists'] as List<dynamic>? ?? const [];
+    final program = json['CurrentProgram'] as Map<String, dynamic>?;
+
+    String? sourceId;
+    if (mediaSources.isNotEmpty && mediaSources.first is Map<String, dynamic>) {
+      sourceId = (mediaSources.first as Map<String, dynamic>)['Id'] as String?;
+    }
+
+    return JellyfinMediaEntry(
+      id: json['Id'] as String? ?? '',
+      name: json['Name'] as String? ?? 'Tanpa Judul',
+      itemType: json['Type'] as String? ?? 'Audio',
+      artist: artists.whereType<String>().isNotEmpty
+          ? artists.whereType<String>().join(', ')
+          : json['AlbumArtist'] as String?,
+      album: json['Album'] as String?,
+      channelNumber: json['Number'] as String?,
+      currentProgram: program?['Name'] as String?,
+      runTimeTicks: (json['RunTimeTicks'] as num?)?.toInt(),
+      mediaSourceId: sourceId,
+      hasPrimaryImage: imageTags.containsKey('Primary'),
+    );
+  }
+}
+
 class JellyfinMovieItem {
   final String id;
   final String name;

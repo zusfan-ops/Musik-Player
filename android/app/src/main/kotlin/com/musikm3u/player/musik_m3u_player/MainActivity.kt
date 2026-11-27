@@ -109,6 +109,19 @@ class MainActivity : AudioServiceActivity() {
                     "getSupportedAbis" -> {
                         result.success(Build.SUPPORTED_ABIS.toList())
                     }
+                    "isAndroidTv" -> {
+                        val uiModeManager =
+                            getSystemService(Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+                        val isTv =
+                            uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                                packageManager.hasSystemFeature(
+                                    android.content.pm.PackageManager.FEATURE_TELEVISION,
+                                ) ||
+                                packageManager.hasSystemFeature(
+                                    android.content.pm.PackageManager.FEATURE_LEANBACK,
+                                )
+                        result.success(isTv)
+                    }
                     "consumePendingWidgetAction" -> {
                         val action = pendingWidgetAction
                         pendingWidgetAction = null
