@@ -288,7 +288,7 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                       hintText: 'Cari judul film, genre, atau sinopsis...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: AppColors.surface,
+                      fillColor: AppColors.card(context),
                       contentPadding: EdgeInsets.zero,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -310,7 +310,17 @@ class _JellyfinMoviesScreenState extends State<JellyfinMoviesScreen> {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
-                              label: Text(item.label),
+                              label: Text(
+                                item.label,
+                                style: TextStyle(
+                                  fontWeight: _selectedType == item.val
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _selectedType == item.val
+                                      ? Colors.white
+                                      : AppColors.text(context),
+                                ),
+                              ),
                               selected: _selectedType == item.val,
                               onSelected: (_) =>
                                   setState(() => _selectedType = item.val),
@@ -454,6 +464,7 @@ class _MovieHeroBanner extends StatelessWidget {
                             Text(
                               movie.communityRating!.toStringAsFixed(1),
                               style: const TextStyle(
+                                color: Colors.white,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 12.5,
                               ),
@@ -468,6 +479,7 @@ class _MovieHeroBanner extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 23,
                       fontWeight: FontWeight.w900,
                       height: 1.15,
@@ -483,7 +495,7 @@ class _MovieHeroBanner extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
+                      color: Colors.white70,
                       fontSize: 12,
                     ),
                   ),
@@ -519,8 +531,11 @@ class _MovieHeroBanner extends StatelessWidget {
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           backgroundColor:
-                              AppColors.surfaceElevated.withValues(alpha: 0.8),
+                              Colors.black.withValues(alpha: 0.55),
                           foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 11,

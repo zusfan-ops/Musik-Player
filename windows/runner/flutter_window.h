@@ -27,6 +27,9 @@ class FlutterWindow : public Win32Window {
 
  private:
   void SetupCustomerDisplayChannel();
+  void SetupMediaStoreChannel();
+  bool EnterDesktopPip();
+  bool ExitDesktopPip();
 
   // The project to run.
   flutter::DartProject project_;
@@ -36,7 +39,14 @@ class FlutterWindow : public Win32Window {
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       customer_display_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      media_store_channel_;
   std::unique_ptr<CustomerDisplayWindow> customer_display_;
+
+  bool pip_active_ = false;
+  RECT saved_window_rect_{};
+  LONG_PTR saved_window_style_ = 0;
+  LONG_PTR saved_window_ex_style_ = 0;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

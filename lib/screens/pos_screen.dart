@@ -116,7 +116,7 @@ class _PosScreenState extends State<PosScreen>
   Widget build(BuildContext context) {
     final pos = context.watch<PosProvider>();
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.bg(context),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,10 +156,10 @@ class _PosScreenState extends State<PosScreen>
                     style: FilledButton.styleFrom(
                       backgroundColor: isOpen
                           ? AppColors.spotifyGreen.withValues(alpha: 0.16)
-                          : AppColors.surfaceElevated,
+                          : AppColors.elevated(context),
                       foregroundColor: isOpen
                           ? AppColors.spotifyGreen
-                          : AppColors.textPrimary,
+                          : AppColors.text(context),
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: _toggleCustomerDisplay,
@@ -482,7 +482,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
               hintText: 'Cari menu, produk, atau SKU...',
               prefixIcon: const Icon(Icons.search_rounded),
               filled: true,
-              fillColor: AppColors.surfaceElevated,
+              fillColor: AppColors.elevated(context),
               contentPadding: EdgeInsets.zero,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -537,7 +537,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
+                          color: AppColors.elevated(context),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: inCartQty > 0
@@ -663,7 +663,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
             width: width >= 1250 ? 390 : 340,
             margin: const EdgeInsets.fromLTRB(0, 8, 12, 12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
             ),
@@ -758,7 +758,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: AppColors.elevated(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -774,7 +774,7 @@ class _PosCashierTabState extends State<_PosCashierTab> {
 
   Widget _productPlaceholder(PosProduct prod) {
     return Container(
-      color: AppColors.surface,
+      color: AppColors.card(context),
       child: Center(
         child: Icon(
           prod.category.toLowerCase().contains('kopi')
@@ -835,7 +835,7 @@ class _CurrentOrderPanel extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.card(context),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -997,12 +997,14 @@ class _CurrentOrderPanel extends StatelessWidget {
               fontSize: bold ? 15 : 12.5,
             ),
           ),
-          Text(
-            r,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
-              fontSize: bold ? 16 : 13,
-              color: bold ? AppColors.spotifyGreen : AppColors.textPrimary,
+          Builder(
+            builder: (context) => Text(
+              r,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+                fontSize: bold ? 16 : 13,
+                color: bold ? AppColors.spotifyGreen : AppColors.text(context),
+              ),
             ),
           ),
         ],
@@ -1014,7 +1016,7 @@ class _CurrentOrderPanel extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: AppColors.elevated(context),
       builder: (sCtx) => SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -1259,7 +1261,7 @@ class _PosReceiptActionsSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: AppColors.elevated(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1312,7 +1314,7 @@ class _PosReceiptActionsSheet extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.card(context),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -1582,7 +1584,7 @@ class _PosProductsTabState extends State<_PosProductsTab> {
                 hintText: 'Cari produk (${pos.products.length})...',
                 prefixIcon: const Icon(Icons.search_rounded),
                 filled: true,
-                fillColor: AppColors.surfaceElevated,
+                fillColor: AppColors.elevated(context),
                 contentPadding: EdgeInsets.zero,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -1599,7 +1601,7 @@ class _PosProductsTabState extends State<_PosProductsTab> {
                 final prod = list[i];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  color: AppColors.surfaceElevated,
+                  color: AppColors.elevated(context),
                   child: ListTile(
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
@@ -1694,7 +1696,7 @@ class _PosProductsTabState extends State<_PosProductsTab> {
                           : Container(
                               width: 64,
                               height: 64,
-                              color: AppColors.surface,
+                              color: AppColors.card(context),
                               child: const Icon(
                                 Icons.add_photo_alternate_outlined,
                                 color: AppColors.textMuted,
@@ -1864,7 +1866,7 @@ class _PosProductsTabState extends State<_PosProductsTab> {
     return Container(
       width: 48,
       height: 48,
-      color: AppColors.surface,
+      color: AppColors.card(context),
       child: const Icon(Icons.inventory_2_outlined, color: AppColors.textMuted),
     );
   }
@@ -1914,7 +1916,7 @@ class _PosCustomersTabState extends State<_PosCustomersTab> {
                       hintText: 'Cari pelanggan (${pos.customers.length})...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: AppColors.surfaceElevated,
+                      fillColor: AppColors.elevated(context),
                       contentPadding: EdgeInsets.zero,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1944,7 +1946,7 @@ class _PosCustomersTabState extends State<_PosCustomersTab> {
                 final cust = list[i];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  color: AppColors.surfaceElevated,
+                  color: AppColors.elevated(context),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor:
@@ -2191,7 +2193,7 @@ class _PosReportsTabState extends State<_PosReportsTab> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
+            color: AppColors.elevated(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
           ),
@@ -2261,7 +2263,7 @@ class _PosReportsTabState extends State<_PosReportsTab> {
           const SizedBox(height: 6),
           for (final p in topProducts)
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 dense: true,
@@ -2308,7 +2310,7 @@ class _PosReportsTabState extends State<_PosReportsTab> {
         else
           for (final e in expenses)
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 dense: true,
@@ -2350,7 +2352,7 @@ class _PosReportsTabState extends State<_PosReportsTab> {
         else
           for (final o in orders.take(30))
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 title: Text(
@@ -2470,7 +2472,7 @@ class _KpiCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.elevated(context),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
       ),

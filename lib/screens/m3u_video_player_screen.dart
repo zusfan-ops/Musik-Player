@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
+import '../services/newtube_service.dart';
 import '../theme/app_theme.dart';
 
 /// Helper that routes M3U / media tracks automatically to Video Player when `isVideo == true`,
@@ -98,6 +99,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   String? _errorMessage;
   String _channelFilter = '';
   StreamSubscription<bool>? _pipSub;
+  MusicProvider? _musicRef;
 
   TrackItem get _currentItem => widget.playlistItems[_currentIndex];
 
@@ -163,6 +165,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
 
     // Pause background audio player immediately so music and video never overlap
     final music = context.read<MusicProvider>();
+    _musicRef = music;
     if (music.isPlaying) {
       unawaited(music.pause());
     }
@@ -249,17 +252,47 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     if (!mounted || token != _initToken) return;
 
     final item = widget.playlistItems[index];
+    String effectiveSource = item.playableSource;
+    Map<String, String>? effectiveHeaders = item.httpHeaders;
+
+    if (!item.playsFromLocalFile &&
+        !effectiveSource.contains('googlevideo.com')) {
+      final ytId = NewTubeService.extractVideoId(effectiveSource);
+      if (ytId != null) {
+        try {
+          final resolved = await NewTubeService.resolveVideoStream(ytId);
+          if (!mounted || token != _initToken) return;
+          if (resolved == null || resolved.url.isEmpty) {
+            setState(() {
+              _isInitializing = false;
+              _errorMessage =
+                  'Stream YouTube "${item.title}" tidak dapat diakses saat ini.';
+            });
+            return;
+          }
+          effectiveSource = resolved.url;
+          effectiveHeaders = resolved.headers;
+        } catch (e) {
+          if (!mounted || token != _initToken) return;
+          setState(() {
+            _isInitializing = false;
+            _errorMessage = 'Gagal memuat video YouTube "${item.title}": $e';
+          });
+          return;
+        }
+      }
+    }
 
     if (_useMediaKit) {
       mk.Player? mkPlayer;
       final List<StreamSubscription<dynamic>> localSubs = [];
       try {
         if (item.playsFromLocalFile) {
-          final f = File(item.playableSource);
+          final f = File(effectiveSource);
           if (!await f.exists()) {
             throw FileSystemException(
               'File video lokal tidak ditemukan',
-              item.playableSource,
+              effectiveSource,
             );
           }
         }
@@ -275,8 +308,8 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
         final mkVideoCtrl = mkv.VideoController(mkPlayer);
         final headers = item.playsFromLocalFile
             ? null
-            : (item.httpHeaders != null && item.httpHeaders!.isNotEmpty)
-                ? Map<String, String>.from(item.httpHeaders!)
+            : (effectiveHeaders != null && effectiveHeaders.isNotEmpty)
+                ? Map<String, String>.from(effectiveHeaders)
                 : const <String, String>{'User-Agent': 'Lavf/60.16.100'};
 
         void syncMkValue() {
@@ -324,7 +357,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
         _scheduleHideControls();
 
         await mkPlayer.open(
-          mk.Media(item.playableSource, httpHeaders: headers),
+          mk.Media(effectiveSource, httpHeaders: headers),
           play: true,
         );
         if (!mounted || token != _initToken) {
@@ -369,22 +402,22 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
 
     try {
       if (item.playsFromLocalFile) {
-        final f = File(item.playableSource);
+        final f = File(effectiveSource);
         if (!await f.exists()) {
           throw FileSystemException(
             'File video lokal tidak ditemukan',
-            item.playableSource,
+            effectiveSource,
           );
         }
         nextCtrl = VideoPlayerController.file(f);
       } else {
         final headers = <String, String>{
-          'User-Agent': item.httpHeaders?['User-Agent'] ??
+          'User-Agent': effectiveHeaders?['User-Agent'] ??
               'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-          if (item.httpHeaders != null) ...item.httpHeaders!,
+          if (effectiveHeaders != null) ...effectiveHeaders,
         };
         nextCtrl = VideoPlayerController.networkUrl(
-          Uri.parse(item.playableSource),
+          Uri.parse(effectiveSource),
           httpHeaders: headers,
         );
       }
@@ -496,6 +529,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     _hideControlsTimer?.cancel();
     _gestureHudTimer?.cancel();
     _pipSub?.cancel();
+    if (_isInPipMode && Platform.isWindows) {
+      unawaited(_musicRef?.exitPictureInPicture());
+    }
     _channelSearchCtrl.dispose();
     for (final sub in _mkSubs) {
       sub.cancel();
@@ -518,14 +554,15 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktopWide = screenWidth >= 900 && !_isFullscreenLandscape;
+    final isDesktopWide =
+        screenWidth >= 900 && !_isFullscreenLandscape && !_isInPipMode;
     final isLandscapeScreen = !isDesktopWide &&
         (MediaQuery.of(context).orientation == Orientation.landscape ||
             _isFullscreenLandscape);
 
     final Widget scaffoldContent = isDesktopWide
         ? Scaffold(
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.bg(context),
             body: SafeArea(
               child: Row(
                 children: [
@@ -539,9 +576,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                       ],
                     ),
                   ),
-                  const VerticalDivider(
+                  VerticalDivider(
                     width: 1,
-                    color: AppColors.surfaceHighlight,
+                    color: AppColors.highlight(context),
                   ),
                   SizedBox(
                     width: 340,
@@ -555,13 +592,13 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
             ? Scaffold(
                 backgroundColor: Colors.black,
                 endDrawer: Drawer(
-                  backgroundColor: AppColors.surface,
+                  backgroundColor: AppColors.card(context),
                   child: SafeArea(child: _buildChannelListPanel()),
                 ),
                 body: _buildVideoViewport(fullscreenMode: true),
               )
             : Scaffold(
-                backgroundColor: AppColors.background,
+                backgroundColor: AppColors.bg(context),
                 body: SafeArea(
                   child: Column(
                     children: [
@@ -570,9 +607,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                         child: _buildVideoViewport(fullscreenMode: false),
                       ),
                       _buildNowWatchingInfoStrip(),
-                      const Divider(
+                      Divider(
                         height: 1,
-                        color: AppColors.surfaceHighlight,
+                        color: AppColors.highlight(context),
                       ),
                       Expanded(
                         child: _buildChannelListPanel(),
@@ -841,6 +878,53 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+              if (_isInPipMode && Platform.isWindows)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_activeVideoListenable != null)
+                          ValueListenableBuilder<VideoPlayerValue>(
+                            valueListenable: _activeVideoListenable!,
+                            builder: (_, val, _) => IconButton(
+                              tooltip: val.isPlaying ? 'Jeda' : 'Putar',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 18,
+                              color: Colors.white,
+                              icon: Icon(
+                                val.isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                              ),
+                              onPressed: () =>
+                                  val.isPlaying ? _videoPause() : _videoPlay(),
+                            ),
+                          ),
+                        IconButton(
+                          tooltip: 'Keluar PiP',
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 18,
+                          color: Colors.white,
+                          icon: const Icon(Icons.open_in_full_rounded),
+                          onPressed: () => context
+                              .read<MusicProvider>()
+                              .exitPictureInPicture(),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1198,7 +1282,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
     final isFav = provider.isFavorite(item.id);
 
     return Container(
-      color: AppColors.surface,
+      color: AppColors.card(context),
       padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
       child: Row(
         children: [
@@ -1224,9 +1308,10 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: AppColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1234,8 +1319,10 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                   '${item.groupTitle ?? item.directoryName} • Channel ${_currentIndex + 1}/${widget.playlistItems.length}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.neonCyan,
+                  style: TextStyle(
+                    color: AppColors.isDark(context)
+                        ? const Color(0xFF93C5FD)
+                        : AppColors.neonCyan,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1246,9 +1333,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
           IconButton(
             tooltip: 'Mode Audio Saja',
             visualDensity: VisualDensity.compact,
-            icon: const Icon(
+            icon: Icon(
               Icons.headphones_rounded,
-              color: AppColors.textSecondary,
+              color: AppColors.subtext(context),
             ),
             onPressed: _switchToAudioOnlyMode,
           ),
@@ -1256,7 +1343,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
             visualDensity: VisualDensity.compact,
             icon: Icon(
               isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: isFav ? AppColors.spotifyGreen : AppColors.textSecondary,
+              color: isFav ? AppColors.spotifyGreen : AppColors.subtext(context),
             ),
             onPressed: () => provider.toggleFavorite(item),
           ),
@@ -1300,7 +1387,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               isDense: true,
               filled: true,
-              fillColor: AppColors.surfaceElevated,
+              fillColor: AppColors.elevated(context),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -1341,7 +1428,7 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                   style: TextStyle(
                     color: isPlayingThis
                         ? AppColors.netflixRed
-                        : AppColors.textPrimary,
+                        : AppColors.text(context),
                     fontWeight:
                         isPlayingThis ? FontWeight.w800 : FontWeight.w600,
                   ),
@@ -1350,9 +1437,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                   ch.groupTitle ?? ch.directoryName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: AppColors.subtext(context),
                   ),
                 ),
                 trailing: isPlayingThis
@@ -1361,9 +1448,9 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                         color: AppColors.netflixRed,
                         size: 20,
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.play_circle_outline_rounded,
-                        color: AppColors.textMuted,
+                        color: AppColors.subtext(context),
                         size: 20,
                       ),
                 onTap: () {

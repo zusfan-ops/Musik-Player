@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Sticky Translucent Netflix + Spotify Header
         SliverAppBar(
           pinned: true,
-          backgroundColor: AppColors.background.withValues(alpha: 0.97),
+          backgroundColor: AppColors.bg(context).withValues(alpha: 0.97),
           titleSpacing: 16,
           title: const Row(
             children: [
@@ -747,7 +747,7 @@ class _FilterPill extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? AppColors.spotifyGreen : AppColors.surfaceElevated,
+          color: selected ? AppColors.spotifyGreen : AppColors.elevated(context),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
@@ -758,7 +758,7 @@ class _FilterPill extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.black : AppColors.textPrimary,
+            color: selected ? Colors.white : AppColors.text(context),
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             fontSize: 12.5,
           ),
@@ -1177,8 +1177,8 @@ class _SpotifyQuickGrid extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
-                  item.accent.withValues(alpha: 0.11),
-                  AppColors.surfaceElevated,
+                  item.accent.withValues(alpha: 0.14),
+                  AppColors.elevated(context),
                 ),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
@@ -1210,7 +1210,8 @@ class _SpotifyQuickGrid extends StatelessWidget {
                             item.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
+                              color: AppColors.text(context),
                               fontWeight: FontWeight.w800,
                               fontSize: 12.5,
                             ),
@@ -1219,8 +1220,8 @@ class _SpotifyQuickGrid extends StatelessWidget {
                             item.subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: AppColors.subtext(context),
                               fontSize: 10.5,
                             ),
                           ),
@@ -1272,8 +1273,10 @@ class _SectionHeader extends StatelessWidget {
               children: [
                 Text(
                   badge,
-                  style: const TextStyle(
-                    color: AppColors.neonCyan,
+                  style: TextStyle(
+                    color: AppColors.isDark(context)
+                        ? const Color(0xFF93C5FD)
+                        : AppColors.neonCyan,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.1,
@@ -1283,8 +1286,8 @@ class _SectionHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: AppColors.text(context),
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
@@ -1770,7 +1773,7 @@ class _EmptyCalloutCard extends StatelessWidget {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.spotifyGreen,
-                  foregroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: onPrimary,
                 child: Text(
@@ -1825,7 +1828,7 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: AppColors.elevated(context),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Colors.black.withValues(alpha: 0.08),
@@ -1990,8 +1993,8 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
                       titleText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: AppColors.text(context),
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
                       ),
@@ -2001,8 +2004,8 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
                       subtitleText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: AppColors.subtext(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2019,7 +2022,7 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
                 tooltip: 'Lagu Sebelumnya',
                 onPressed: isPlayingOffline ? provider.playPrevious : null,
                 icon: const Icon(Icons.skip_previous_rounded, size: 26),
-                color: AppColors.textPrimary,
+                color: AppColors.text(context),
               ),
               const SizedBox(width: 4),
               InkWell(
@@ -2054,14 +2057,16 @@ class _OfflineMusicPlayerCard extends StatelessWidget {
                 tooltip: 'Lagu Berikutnya',
                 onPressed: isPlayingOffline ? provider.playNext : null,
                 icon: const Icon(Icons.skip_next_rounded, size: 26),
-                color: AppColors.textPrimary,
+                color: AppColors.text(context),
               ),
               const Spacer(),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: AppColors.text(context),
                   side: BorderSide(
-                    color: Colors.black.withValues(alpha: 0.14),
+                    color: AppColors.isDark(context)
+                        ? Colors.white.withValues(alpha: 0.18)
+                        : Colors.black.withValues(alpha: 0.14),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

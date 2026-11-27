@@ -77,13 +77,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.surfaceElevated, AppColors.surface],
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.elevated(context),
+                  AppColors.card(context),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+              border: Border.all(
+                color: AppColors.isDark(context)
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,12 +194,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
 
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   'Pilih Karakter Avatar Preset',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
-                    color: AppColors.textPrimary,
+                    color: AppColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -282,7 +289,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   decoration: InputDecoration(
                     labelText: 'Nama Tampilan Profil',
                     filled: true,
-                    fillColor: AppColors.surface,
+                    fillColor: AppColors.card(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -294,7 +301,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   decoration: InputDecoration(
                     labelText: 'Bio / Tagline Profil',
                     filled: true,
-                    fillColor: AppColors.surface,
+                    fillColor: AppColors.card(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -306,7 +313,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.spotifyGreen,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                     ),
                     onPressed: () async {
                       await jf.updateProfileInfo(
@@ -371,14 +378,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.surfaceElevated, AppColors.surface],
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.elevated(context),
+                  AppColors.card(context),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.black.withValues(alpha: 0.06),
+                color: AppColors.isDark(context)
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
               ),
             ),
             child: Column(
@@ -477,7 +489,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
           // ==================== PANDUAN PENGGUNAAN (ONBOARDING) ====================
           Material(
-            color: AppColors.surface,
+            color: AppColors.card(context),
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -513,7 +525,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
           // ==================== 4. INFORMASI DEVELOPER (zusfan.hallosemarang.com) ====================
           Material(
-            color: AppColors.surface,
+            color: AppColors.card(context),
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
@@ -615,7 +627,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
           // ==================== 5. PENGATURAN PEMUTAR & PENYIMPANAN ====================
           Material(
-            color: AppColors.surface,
+            color: AppColors.card(context),
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
@@ -761,6 +773,65 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     onTap: () => DrivingModeScreen.show(context),
                   ),
                   const Divider(height: 1, color: AppColors.surfaceHighlight),
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: AppThemeController.modeNotifier,
+                    builder: (_, mode, _) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.dark_mode_rounded,
+                                  color: AppColors.spotifyGreen,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Tema Tampilan',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final opt in const [
+                                  (ThemeMode.light, 'Terang'),
+                                  (ThemeMode.dark, 'Gelap'),
+                                  (ThemeMode.system, 'Sistem'),
+                                ])
+                                  ChoiceChip(
+                                    label: Text(
+                                      opt.$2,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: mode == opt.$1
+                                            ? FontWeight.w700
+                                            : FontWeight.w600,
+                                        color: mode == opt.$1
+                                            ? Colors.white
+                                            : (Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? const Color(0xFFF3F4F6)
+                                                : AppColors.textPrimary),
+                                      ),
+                                    ),
+                                    selected: mode == opt.$1,
+                                    onSelected: (_) =>
+                                        AppThemeController.setMode(opt.$1),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, color: AppColors.surfaceHighlight),
                   ListTile(
                     leading: const Icon(
                       Icons.system_update_rounded,
@@ -789,7 +860,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                               child: Text(
                                 'v${rel.versionClean}',
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Colors.white,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -839,7 +910,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: AppColors.elevated(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -897,7 +968,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.card(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1107,8 +1178,8 @@ class _DeveloperLinkRow extends StatelessWidget {
       ),
       subtitle: Text(
         value,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: TextStyle(
+          color: AppColors.text(context),
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
@@ -1139,7 +1210,7 @@ class _StatMiniCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),

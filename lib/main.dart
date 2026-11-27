@@ -27,6 +27,7 @@ import 'widgets/mini_player_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppThemeController.load();
   if (Platform.isWindows || Platform.isLinux) {
     try {
       MediaKit.ensureInitialized();
@@ -87,11 +88,16 @@ class MusikM3uApp extends StatelessWidget {
           create: (_) => FinanceProvider()..initialize(),
         ),
       ],
-      child: MaterialApp(
-        title: 'MediaCenter',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: AppBootstrapGate(autoCheckUpdates: autoScanOnInit),
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: AppThemeController.modeNotifier,
+        builder: (_, themeMode, _) => MaterialApp(
+          title: 'MediaCenter',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.darkTheme,
+          darkTheme: AppTheme.trueDarkTheme,
+          themeMode: themeMode,
+          home: AppBootstrapGate(autoCheckUpdates: autoScanOnInit),
+        ),
       ),
     );
   }
@@ -782,6 +788,25 @@ class _DesktopSidebarNav extends StatelessWidget {
                     label: 'Profil & Setting',
                     selected: selectedIndex == 5,
                     onTap: () => onSelected(5),
+                  ),
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: AppThemeController.modeNotifier,
+                    builder: (ctx, mode, _) {
+                      final isDark = mode == ThemeMode.dark ||
+                          (mode == ThemeMode.system &&
+                              MediaQuery.platformBrightnessOf(ctx) ==
+                                  Brightness.dark);
+                      return _SidebarItem(
+                        icon: isDark
+                            ? Icons.light_mode_rounded
+                            : Icons.dark_mode_rounded,
+                        label: isDark ? 'Mode Terang' : 'Mode Gelap',
+                        selected: false,
+                        onTap: () => AppThemeController.setMode(
+                          isDark ? ThemeMode.light : ThemeMode.dark,
+                        ),
+                      );
+                    },
                   ),
                   _SidebarItem(
                     icon: Icons.menu_book_rounded,

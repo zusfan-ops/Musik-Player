@@ -63,7 +63,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
     );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.bg(context),
       appBar: AppBar(
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +292,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
             hintText: 'Cari catatan keuangan, kategori, atau keterangan...',
             prefixIcon: const Icon(Icons.search_rounded),
             filled: true,
-            fillColor: AppColors.surfaceElevated,
+            fillColor: AppColors.elevated(context),
             contentPadding: EdgeInsets.zero,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -370,7 +370,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Center(
@@ -384,7 +384,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
         else
           for (final entry in entries)
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: CircleAvatar(
@@ -493,7 +493,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
         const SizedBox(height: 8),
         for (final acc in balances.entries)
           Card(
-            color: AppColors.surfaceElevated,
+            color: AppColors.elevated(context),
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: const Icon(
@@ -529,7 +529,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
         else
           for (final e in incCats.entries)
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 dense: true,
@@ -560,7 +560,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
         else
           for (final e in expCats.entries)
             Card(
-              color: AppColors.surfaceElevated,
+              color: AppColors.elevated(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 dense: true,
@@ -594,7 +594,7 @@ class _KeuanganScreenState extends State<KeuanganScreen>
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
+            color: AppColors.elevated(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
           ),

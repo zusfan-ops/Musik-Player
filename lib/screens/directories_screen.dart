@@ -87,7 +87,7 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.spotifyGreen,
-                            foregroundColor: Colors.black,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -131,7 +131,7 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
                       hintText: 'Cari nama folder, path direktori, atau lagu...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: AppColors.surface,
+                      fillColor: AppColors.card(context),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -267,7 +267,7 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
                   itemBuilder: (_, idx) {
                     final dir = provider.customDirectories[idx];
                     return Chip(
-                      backgroundColor: AppColors.surfaceElevated,
+                      backgroundColor: AppColors.elevated(context),
                       avatar: const Icon(
                         Icons.folder_open_rounded,
                         size: 16,
@@ -316,7 +316,7 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.spotifyGreen,
-                          foregroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                         ),
                         onPressed: provider.pickAndAddDirectory,
                         icon: const Icon(Icons.folder_open_rounded),
@@ -367,12 +367,14 @@ class _DirectoriesScreenState extends State<DirectoriesScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
+                          color: AppColors.elevated(context),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.folder_rounded,
-                          color: AppColors.neonCyan,
+                          color: AppColors.isDark(context)
+                              ? const Color(0xFF93C5FD)
+                              : AppColors.neonCyan,
                         ),
                       ),
                       title: Text(
@@ -432,14 +434,19 @@ class _DirectoryGridTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE9EFF5), Color(0xFFDDE5EE)],
+          gradient: LinearGradient(
+            colors: AppColors.isDark(context)
+                ? const [Color(0xFF1F242E), Color(0xFF181C24)]
+                : const [Color(0xFFE9EFF5), Color(0xFFDDE5EE)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: AppColors.neonCyan.withValues(alpha: 0.14),
+            color: (AppColors.isDark(context)
+                    ? const Color(0xFF93C5FD)
+                    : AppColors.neonCyan)
+                .withValues(alpha: 0.18),
           ),
         ),
         child: Column(
@@ -524,8 +531,8 @@ class _DirectoryGridTile extends StatelessWidget {
               group.directoryName,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: AppColors.text(context),
                 fontWeight: FontWeight.w800,
                 fontSize: 15.5,
               ),
@@ -533,8 +540,10 @@ class _DirectoryGridTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${group.trackCount} Lagu Offline',
-              style: const TextStyle(
-                color: AppColors.neonCyan,
+              style: TextStyle(
+                color: AppColors.isDark(context)
+                    ? const Color(0xFF93C5FD)
+                    : AppColors.neonCyan,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
@@ -556,17 +565,24 @@ class _DirectoryGridTile extends StatelessWidget {
   }
 
   Widget _defaultFolderIcon() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.neonCyan.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Icon(
-        Icons.folder_copy_rounded,
-        color: AppColors.neonCyan,
-        size: 28,
-      ),
+    return Builder(
+      builder: (ctx) {
+        final accent = AppColors.isDark(ctx)
+            ? const Color(0xFF93C5FD)
+            : AppColors.neonCyan;
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            Icons.folder_copy_rounded,
+            color: accent,
+            size: 28,
+          ),
+        );
+      },
     );
   }
 }
@@ -659,7 +675,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
           SliverAppBar(
             expandedHeight: 245,
             pinned: true,
-            backgroundColor: AppColors.surface,
+            backgroundColor: AppColors.card(context),
             actions: [
               IconButton(
                 tooltip: 'Cari Artwork Otomatis',
@@ -789,7 +805,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                             'Cari di dalam folder (${liveGroup.trackCount} lagu)...',
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
-                        fillColor: AppColors.surface,
+                        fillColor: AppColors.card(context),
                         contentPadding: EdgeInsets.zero,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -810,7 +826,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                   FloatingActionButton.small(
                     heroTag: 'play_dir_${liveGroup.directoryPath}',
                     backgroundColor: AppColors.spotifyGreen,
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     onPressed: tracks.isEmpty
                         ? null
                         : () => provider.playTrackList(tracks),

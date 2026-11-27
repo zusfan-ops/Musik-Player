@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../services/newtube_service.dart';
 import '../theme/app_theme.dart';
@@ -18,10 +19,11 @@ class _NewTubeScreenState extends State<NewTubeScreen>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchCtrl = TextEditingController();
   List<NewTubeItem> _results = const [];
+  List<NewTubeItem> _shorts = const [];
   List<NewTubePlaylistItem> _playlists = const [];
   bool _isSearching = false;
   bool _defaultVideoMode = false;
-  String _activeTab = 'Semua'; // Semua | Video | Playlist
+  String _activeTab = 'Semua'; // Semua | Video | Shorts | Playlist
   String? _loadingItemId;
   String? _error;
 
@@ -85,11 +87,13 @@ class _NewTubeScreenState extends State<NewTubeScreen>
       final results = await Future.wait([
         NewTubeService.searchVideos(q),
         NewTubeService.searchPlaylists(q),
+        NewTubeService.searchShorts(q).catchError((_) => const <NewTubeItem>[]),
       ]);
       if (!mounted) return;
       setState(() {
         _results = results[0] as List<NewTubeItem>;
         _playlists = results[1] as List<NewTubePlaylistItem>;
+        _shorts = results[2] as List<NewTubeItem>;
         _isSearching = false;
       });
     } catch (e) {
@@ -106,7 +110,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.card(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -122,6 +126,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
     required bool asVideo,
     bool queueOnly = false,
     int? itemIndex,
+    List<NewTubeItem>? overrideSourceList,
   }) async {
     if (_loadingItemId != null) return;
     setState(() => _loadingItemId = item.videoId);
@@ -184,9 +189,30 @@ class _NewTubeScreenState extends State<NewTubeScreen>
         return;
       }
 
+      final sourceList = overrideSourceList ?? _results;
+      final videoTracks = sourceList.isEmpty
+          ? <TrackItem>[track]
+          : sourceList
+              .map(
+                (r) => r.videoId == item.videoId
+                    ? track
+                    : r.toTrackItem(
+                        streamUrl:
+                            'https://www.youtube.com/watch?v=${r.videoId}',
+                        asVideo: true,
+                      ),
+              )
+              .toList();
+      final targetIdx = sourceList.isEmpty
+          ? 0
+          : sourceList
+              .indexWhere((r) => r.videoId == item.videoId)
+              .clamp(0, videoTracks.length - 1);
+
       await M3uPlaybackLauncher.playItemList(
         context,
-        [track],
+        videoTracks,
+        initialIndex: targetIdx,
         forceVideoPlayer: true,
       );
     } catch (e) {
@@ -206,6 +232,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final showPlaylists = _activeTab == 'Semua' || _activeTab == 'Playlist';
+    final showShorts = _activeTab == 'Semua' || _activeTab == 'Shorts';
     final showVideos = _activeTab == 'Semua' || _activeTab == 'Video';
 
     return Scaffold(
@@ -233,9 +260,13 @@ class _NewTubeScreenState extends State<NewTubeScreen>
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: AppColors.surfaceHighlight,
+                color: AppColors.highlight(context),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                border: Border.all(
+                  color: AppColors.isDark(context)
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.08),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -275,10 +306,10 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                   children: [
                     IconButton(
                       tooltip: 'Tempel Link YouTube',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.content_paste_rounded,
                         size: 20,
-                        color: AppColors.textSecondary,
+                        color: AppColors.subtext(context),
                       ),
                       onPressed: () async {
                         final clip = await Clipboard.getData('text/plain');
@@ -300,10 +331,29 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                   ],
                 ),
                 filled: true,
-                fillColor: AppColors.surface,
+                fillColor: AppColors.elevated(context),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: Colors.black.withValues(alpha: 0.12),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: Colors.black.withValues(alpha: 0.10),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(
+                    color: AppColors.netflixRed,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -328,13 +378,15 @@ class _NewTubeScreenState extends State<NewTubeScreen>
             ),
           ),
           const SizedBox(height: 8),
-          Padding(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 for (final tab in [
                   ('Semua', 'Semua'),
                   ('Video', 'Lagu & Video (${_results.length})'),
+                  ('Shorts', 'Shorts (${_shorts.length})'),
                   ('Playlist', 'Playlist (${_playlists.length})'),
                 ])
                   Padding(
@@ -342,7 +394,15 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                     child: ChoiceChip(
                       label: Text(
                         tab.$2,
-                        style: const TextStyle(fontSize: 11.5),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: _activeTab == tab.$1
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: _activeTab == tab.$1
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                       selected: _activeTab == tab.$1,
                       onSelected: (_) => setState(() => _activeTab = tab.$1),
@@ -434,10 +494,12 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.card(context),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.06),
+                    color: AppColors.isDark(context)
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.06),
                   ),
                 ),
                 child: Row(
@@ -569,25 +631,28 @@ class _NewTubeScreenState extends State<NewTubeScreen>
               ),
             ),
           Expanded(
-            child: _results.isEmpty && _playlists.isEmpty && !_isSearching
-                ? const Center(
+            child: _results.isEmpty &&
+                    _playlists.isEmpty &&
+                    _shorts.isEmpty &&
+                    !_isSearching
+                ? Center(
                     child: Text(
                       'Ketik judul lagu, artis, atau playlist YouTube.',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(color: AppColors.subtext(context)),
                     ),
                   )
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
                     children: [
                       if (showPlaylists && _playlists.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
                             'Playlist YouTube',
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 14,
-                              color: AppColors.textPrimary,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -616,22 +681,103 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                             ),
                         const SizedBox(height: 14),
                       ],
+                      if (showShorts && _shorts.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.bolt_rounded,
+                                color: AppColors.netflixRed,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'YouTube Shorts',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_activeTab == 'Semua')
+                          SizedBox(
+                            height: 252,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _shorts.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (_, idx) => SizedBox(
+                                width: 142,
+                                child: _buildShortCard(_shorts[idx]),
+                              ),
+                            ),
+                          )
+                        else
+                          LayoutBuilder(
+                            builder: (_, box) {
+                              final w = box.maxWidth;
+                              final cols = w >= 1100
+                                  ? 6
+                                  : (w >= 760 ? 4 : (w >= 480 ? 3 : 2));
+                              const spacing = 12.0;
+                              final cardW =
+                                  (w - spacing * (cols - 1)) / cols;
+                              return Wrap(
+                                spacing: spacing,
+                                runSpacing: 14,
+                                children: [
+                                  for (final s in _shorts)
+                                    SizedBox(
+                                      width: cardW,
+                                      height: cardW * 1.72,
+                                      child: _buildShortCard(s),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        const SizedBox(height: 16),
+                      ],
                       if (showVideos && _results.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
                           child: Text(
-                            'Lagu & Video',
+                            'Video & Musik',
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
-                        for (int i = 0; i < _results.length; i++) ...[
-                          _buildVideoCard(_results[i], i),
-                          const SizedBox(height: 10),
-                        ],
+                        LayoutBuilder(
+                          builder: (gridCtx, gridBox) {
+                            final w = gridBox.maxWidth;
+                            final cols = w >= 1180
+                                ? 4
+                                : (w >= 820 ? 3 : (w >= 540 ? 2 : 1));
+                            const spacing = 14.0;
+                            final cardW =
+                                (w - spacing * (cols - 1)) / cols;
+                            return Wrap(
+                              spacing: spacing,
+                              runSpacing: 16,
+                              children: [
+                                for (int i = 0; i < _results.length; i++)
+                                  SizedBox(
+                                    width: cardW,
+                                    child: _buildVideoCard(_results[i], i),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ],
                   ),
@@ -641,8 +787,96 @@ class _NewTubeScreenState extends State<NewTubeScreen>
     );
   }
 
+  Widget _buildShortCard(NewTubeItem item) {
+    final isLoading = _loadingItemId == item.videoId;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _playItem(
+        item,
+        asVideo: true,
+        overrideSourceList: _shorts,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              item.thumbnailUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                color: AppColors.darkNav,
+                child: const Icon(
+                  Icons.bolt_rounded,
+                  color: AppColors.netflixRed,
+                  size: 36,
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.78),
+                  ],
+                  stops: const [0.45, 1.0],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.netflixRed,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'SHORTS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            if (isLoading)
+              const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildVideoCard(NewTubeItem item, int index) {
     final isLoadingThis = _loadingItemId == item.videoId;
+    final authorInitial = item.author.trim().isNotEmpty
+        ? item.author.trim()[0].toUpperCase()
+        : 'Y';
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () => _playItem(
@@ -651,50 +885,55 @@ class _NewTubeScreenState extends State<NewTubeScreen>
         itemIndex: index,
       ),
       child: Container(
-        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.elevated(context),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          border: Border.all(
+            color: AppColors.isDark(context)
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.08),
+          ),
         ),
-        child: Row(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+            AspectRatio(
+              aspectRatio: 16 / 9,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
                   Image.network(
                     item.thumbnailUrl,
-                    width: 112,
-                    height: 66,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
-                      width: 112,
-                      height: 66,
-                      color: AppColors.surfaceElevated,
+                      color: AppColors.card(context),
                       child: const Icon(
                         Icons.smart_display_rounded,
                         color: AppColors.netflixRed,
+                        size: 40,
                       ),
                     ),
                   ),
                   Positioned(
-                    right: 4,
-                    bottom: 4,
+                    right: 8,
+                    bottom: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1.5,
+                        horizontal: 6,
+                        vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.82),
-                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.black.withValues(alpha: 0.84),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         item.formattedDuration,
                         style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -702,31 +941,59 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 15,
+                        backgroundColor: AppColors.netflixRed,
+                        child: Text(
+                          authorInitial,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                height: 1.25,
+                                color: AppColors.text(context),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.subtext(context),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.author,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   if (isLoadingThis)
                     const SizedBox(
                       width: 18,
@@ -743,7 +1010,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                       children: [
                         _NewTubeChipBtn(
                           icon: Icons.headphones_rounded,
-                          label: 'Audio BG',
+                          label: 'Audio',
                           color: AppColors.spotifyGreen,
                           onTap: () => _playItem(
                             item,
@@ -753,7 +1020,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
                         ),
                         _NewTubeChipBtn(
                           icon: Icons.ondemand_video_rounded,
-                          label: 'Video PiP',
+                          label: 'Video',
                           color: AppColors.netflixRed,
                           onTap: () => _playItem(item, asVideo: true),
                         ),
@@ -864,9 +1131,13 @@ class _PlaylistCompactCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.card(context),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: AppColors.isDark(context)
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,10 +1153,10 @@ class _PlaylistCompactCard extends StatelessWidget {
                       width: 168,
                       height: 88,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _plFallback(),
+                      errorBuilder: (_, _, _) => _plFallback(context),
                     )
                   else
-                    _plFallback(),
+                    _plFallback(context),
                   Positioned(
                     right: 6,
                     bottom: 6,
@@ -910,6 +1181,7 @@ class _PlaylistCompactCard extends StatelessWidget {
                           Text(
                             playlist.videoCountText,
                             style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
@@ -954,11 +1226,11 @@ class _PlaylistCompactCard extends StatelessWidget {
     );
   }
 
-  Widget _plFallback() {
+  Widget _plFallback(BuildContext context) {
     return Container(
       width: 168,
       height: 88,
-      color: AppColors.surfaceElevated,
+      color: AppColors.elevated(context),
       child: const Icon(
         Icons.queue_music_rounded,
         color: AppColors.spotifyGreen,
@@ -985,9 +1257,13 @@ class _PlaylistListTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.card(context),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          border: Border.all(
+            color: AppColors.isDark(context)
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
         ),
         child: Row(
           children: [
@@ -1002,14 +1278,14 @@ class _PlaylistListTile extends StatelessWidget {
                       errorBuilder: (_, _, _) => Container(
                         width: 96,
                         height: 60,
-                        color: AppColors.surfaceElevated,
+                        color: AppColors.elevated(context),
                         child: const Icon(Icons.queue_music_rounded),
                       ),
                     )
                   : Container(
                       width: 96,
                       height: 60,
-                      color: AppColors.surfaceElevated,
+                      color: AppColors.elevated(context),
                       child: const Icon(Icons.queue_music_rounded),
                     ),
             ),
@@ -1022,9 +1298,10 @@ class _PlaylistListTile extends StatelessWidget {
                     playlist.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13.5,
+                      color: AppColors.text(context),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -1032,8 +1309,8 @@ class _PlaylistListTile extends StatelessWidget {
                     '${playlist.author} • ${playlist.videoCountText}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: AppColors.subtext(context),
                       fontSize: 11.5,
                     ),
                   ),
@@ -1150,10 +1427,21 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
           httpHeaders: resolved.headers,
           asVideo: true,
         );
+        final videoTracks = List<TrackItem>.generate(
+          _items.length,
+          (i) => i == index
+              ? track
+              : _items[i].toTrackItem(
+                  streamUrl:
+                      'https://www.youtube.com/watch?v=${_items[i].videoId}',
+                  asVideo: true,
+                ),
+        );
         Navigator.pop(context);
         await M3uPlaybackLauncher.playItemList(
           context,
-          [track],
+          videoTracks,
+          initialIndex: index,
           forceVideoPlayer: true,
         );
       }
@@ -1193,16 +1481,17 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                           widget.playlist.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
+                            color: AppColors.text(context),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${widget.playlist.author} • ${_items.length} lagu',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: AppColors.subtext(context),
                             fontSize: 12,
                           ),
                         ),
@@ -1222,7 +1511,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                         style: IconButton.styleFrom(
                           backgroundColor: isAutoSync
                               ? AppColors.spotifyGreen.withValues(alpha: 0.18)
-                              : AppColors.surfaceElevated,
+                              : AppColors.elevated(context),
                         ),
                         onPressed: () => music.toggleAutoSyncYouTubePlaylist(
                           widget.playlist,
@@ -1233,7 +1522,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                               : Icons.sync_disabled_rounded,
                           color: isAutoSync
                               ? AppColors.spotifyGreen
-                              : AppColors.textSecondary,
+                              : AppColors.subtext(context),
                         ),
                       );
                     },
@@ -1242,7 +1531,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                   IconButton(
                     tooltip: 'Unduh Playlist Offline',
                     style: IconButton.styleFrom(
-                      backgroundColor: AppColors.surfaceElevated,
+                      backgroundColor: AppColors.elevated(context),
                     ),
                     onPressed: _items.isEmpty ||
                             context.watch<MusicProvider>().isDownloadingYouTube
@@ -1305,7 +1594,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: AppColors.surfaceHighlight),
+            Divider(height: 1, color: AppColors.highlight(context)),
             Expanded(
               child: _loading
                   ? const Center(
@@ -1331,7 +1620,7 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                                   errorBuilder: (_, _, _) => Container(
                                     width: 64,
                                     height: 44,
-                                    color: AppColors.surfaceElevated,
+                                    color: AppColors.elevated(context),
                                     child: const Icon(Icons.music_note_rounded),
                                   ),
                                 ),
@@ -1340,17 +1629,18 @@ class _YouTubePlaylistSheetState extends State<_YouTubePlaylistSheet> {
                                 item.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13.5,
+                                  color: AppColors.text(context),
                                 ),
                               ),
                               subtitle: Text(
                                 '${item.author} • ${item.formattedDuration}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                style: TextStyle(
+                                  color: AppColors.subtext(context),
                                   fontSize: 11.5,
                                 ),
                               ),
@@ -1443,13 +1733,13 @@ class _ModeTogglePill extends StatelessWidget {
             Icon(
               icon,
               size: 14,
-              color: selected ? Colors.white : AppColors.textPrimary,
+              color: selected ? Colors.white : AppColors.text(context),
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.white : AppColors.textPrimary,
+                color: selected ? Colors.white : AppColors.text(context),
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
               ),

@@ -83,7 +83,7 @@ class TrackTile extends StatelessWidget {
                     style: TextStyle(
                       color: isCurrent
                           ? AppColors.spotifyGreen
-                          : AppColors.textPrimary,
+                          : AppColors.text(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 14.5,
                     ),
@@ -100,8 +100,8 @@ class TrackTile extends StatelessWidget {
                               : track.artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: AppColors.subtext(context),
                             fontSize: 12,
                           ),
                         ),

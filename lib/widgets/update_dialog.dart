@@ -371,7 +371,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.spotifyGreen,
-                          foregroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

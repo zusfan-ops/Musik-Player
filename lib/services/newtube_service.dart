@@ -545,6 +545,133 @@ class NewTubeService {
     }
   }
 
+  /// Searches YouTube Shorts matching [query].
+  static Future<List<NewTubeItem>> searchShorts(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const [];
+    try {
+      final initialData = await _fetchYtInitialData(
+        'https://www.youtube.com/results?search_query=${Uri.encodeQueryComponent('$trimmed #shorts')}',
+      );
+      if (initialData == null) return const [];
+      final List<NewTubeItem> shorts = [];
+      final Set<String> seenIds = <String>{};
+      _collectShortsRenderers(initialData, shorts, seenIds, maxItems: 18);
+      if (shorts.length < 6) {
+        final List<NewTubeItem> candidates = [];
+        _collectVideoRenderers(
+          initialData,
+          candidates,
+          <String>{},
+          maxItems: 24,
+        );
+        for (final c in candidates) {
+          if (shorts.length >= 18) break;
+          if (seenIds.contains(c.videoId)) continue;
+          final durSec = c.duration?.inSeconds ?? 0;
+          if ((durSec > 0 && durSec <= 65) ||
+              c.title.toLowerCase().contains('#short')) {
+            seenIds.add(c.videoId);
+            shorts.add(c);
+          }
+        }
+      }
+      return shorts;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static void _collectShortsRenderers(
+    dynamic node,
+    List<NewTubeItem> out,
+    Set<String> seenIds, {
+    int maxItems = 18,
+  }) {
+    if (out.length >= maxItems) return;
+    if (node is List) {
+      for (final item in node) {
+        _collectShortsRenderers(item, out, seenIds, maxItems: maxItems);
+        if (out.length >= maxItems) return;
+      }
+      return;
+    }
+    if (node is! Map) return;
+
+    final sl = node['shortsLockupViewModel'];
+    if (sl is Map) {
+      String? videoId;
+      final onTap = sl['onTap'];
+      if (onTap is Map) {
+        final innertube = onTap['innertubeCommand'];
+        if (innertube is Map) {
+          final reel = innertube['reelWatchEndpoint'];
+          if (reel is Map) {
+            videoId = reel['videoId']?.toString();
+          }
+        }
+      }
+      if (videoId != null &&
+          videoId.length == 11 &&
+          seenIds.add(videoId)) {
+        String title = 'YouTube Short';
+        final overlay = sl['overlayMetadata'];
+        if (overlay is Map) {
+          final primary = overlay['primaryText'];
+          if (primary is Map && primary['content'] != null) {
+            title = primary['content'].toString();
+          }
+        }
+        String thumb = 'https://i.ytimg.com/vi/$videoId/hq720.jpg';
+        final thumbMap = sl['thumbnail'];
+        if (thumbMap is Map) {
+          final sources = thumbMap['sources'];
+          if (sources is List && sources.isNotEmpty && sources.last is Map) {
+            final u = (sources.last as Map)['url']?.toString();
+            if (u != null && u.startsWith('http')) thumb = u;
+          }
+        }
+        out.add(
+          NewTubeItem(
+            videoId: videoId,
+            title: title,
+            author: 'YouTube Shorts',
+            duration: const Duration(seconds: 60),
+            thumbnailUrl: thumb,
+          ),
+        );
+        return;
+      }
+    }
+
+    final reelItem = node['reelItemRenderer'];
+    if (reelItem is Map) {
+      final videoId = reelItem['videoId']?.toString();
+      if (videoId != null &&
+          videoId.length == 11 &&
+          seenIds.add(videoId)) {
+        final title = _readRunsText(reelItem['headline']).isNotEmpty
+            ? _readRunsText(reelItem['headline'])
+            : 'YouTube Short';
+        out.add(
+          NewTubeItem(
+            videoId: videoId,
+            title: title,
+            author: 'YouTube Shorts',
+            duration: const Duration(seconds: 60),
+            thumbnailUrl: 'https://i.ytimg.com/vi/$videoId/hq720.jpg',
+          ),
+        );
+        return;
+      }
+    }
+
+    for (final value in node.values) {
+      _collectShortsRenderers(value, out, seenIds, maxItems: maxItems);
+      if (out.length >= maxItems) return;
+    }
+  }
+
   /// Fetches tracks inside a YouTube playlist via Innertube browse (`VL<id>`).
   static Future<List<NewTubeItem>> fetchPlaylistVideos(String playlistId) async {
     if (playlistId.trim().isEmpty) return const [];
@@ -723,7 +850,11 @@ class NewTubeService {
     try {
       final req = http.Request('GET', uri);
       req.headers.addAll(headers);
-      req.headers['Range'] = 'bytes=0-63';
+      final urlStr = uri.toString().toLowerCase();
+      final isHls = urlStr.contains('.m3u8') || urlStr.contains('hls_playlist');
+      if (!isHls) {
+        req.headers['Range'] = 'bytes=0-63';
+      }
       final res = await client.send(req).timeout(const Duration(seconds: 5));
       unawaited(res.stream.drain<void>().catchError((_) {}));
       return res.statusCode >= 200 && res.statusCode < 400;
@@ -741,11 +872,15 @@ class NewTubeService {
     final yt = YoutubeExplode();
     try {
       final clients = [
-        YoutubeApiClient.android,
         YoutubeApiClient.androidVr,
-        YoutubeApiClient.ios,
         YoutubeApiClient.tv,
+        YoutubeApiClient.safari,
+        YoutubeApiClient.androidSdkless,
+        YoutubeApiClient.mweb,
+        YoutubeApiClient.ios,
+        YoutubeApiClient.android,
       ];
+      NewTubeResolvedStream? fallbackStream;
 
       for (final apiClient in clients) {
         try {
@@ -759,12 +894,18 @@ class NewTubeService {
           // Progressive muxed MP4 (e.g. itag 18) is the most reliable across
           // both ExoPlayer Audio (just_audio) and VideoPlayer on Android.
           if (manifest.muxed.isNotEmpty) {
-            candidates.add(manifest.muxed.withHighestBitrate().url);
+            final muxedUrl = manifest.muxed.withHighestBitrate().url;
+            candidates.add(muxedUrl);
+            fallbackStream ??=
+                NewTubeResolvedStream(url: muxedUrl.toString(), headers: headers);
           }
 
           if (preferVideo) {
             if (manifest.hls.isNotEmpty) {
-              candidates.add(manifest.hls.first.url);
+              final hlsUrl = manifest.hls.first.url;
+              candidates.add(hlsUrl);
+              fallbackStream ??=
+                  NewTubeResolvedStream(url: hlsUrl.toString(), headers: headers);
             }
           }
 
@@ -789,7 +930,7 @@ class NewTubeService {
           // Try next YoutubeApiClient
         }
       }
-      return null;
+      return fallbackStream;
     } finally {
       yt.close();
     }

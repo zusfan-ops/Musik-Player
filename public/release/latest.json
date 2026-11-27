@@ -1,8 +1,8 @@
 ﻿{
-    "version":  "1.10.2",
-    "build_number":  33,
-    "release_date":  "2026-11-26 16:40:21",
     "download_url":  "/release/1.10.2/M3UMusik-v1.10.2-arm64-v8a.apk",
     "changelog":  "Pembaruan rilis M3U Musik Player v1.10.2 (Build 33).",
-    "windows_download_url":  "/release/1.10.2/MediaCenter-Setup-v1.10.2-x64.exe"
+    "version":  "1.10.2",
+    "build_number":  33,
+    "windows_download_url":  "/release/1.10.2/MediaCenter-Setup-v1.10.2-x64.exe",
+    "release_date":  "2026-11-27 18:49:43"
 }

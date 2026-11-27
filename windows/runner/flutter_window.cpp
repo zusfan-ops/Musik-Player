@@ -75,6 +75,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetupCustomerDisplayChannel();
+  SetupMediaStoreChannel();
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -174,6 +175,86 @@ void FlutterWindow::SetupCustomerDisplayChannel() {
       });
 }
 
+void FlutterWindow::SetupMediaStoreChannel() {
+  media_store_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "com.musikm3u.player/media_store",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  media_store_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        const auto& method = call.method_name();
+        if (method == "enterPictureInPicture") {
+          result->Success(flutter::EncodableValue(EnterDesktopPip()));
+          return;
+        }
+        if (method == "exitPictureInPicture") {
+          result->Success(flutter::EncodableValue(ExitDesktopPip()));
+          return;
+        }
+        result->NotImplemented();
+      });
+}
+
+bool FlutterWindow::EnterDesktopPip() {
+  HWND hwnd = GetHandle();
+  if (!hwnd) return false;
+  if (pip_active_) return true;
+
+  ::GetWindowRect(hwnd, &saved_window_rect_);
+  saved_window_style_ = ::GetWindowLongPtrW(hwnd, GWL_STYLE);
+  saved_window_ex_style_ = ::GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+  if (::IsZoomed(hwnd)) {
+    ::ShowWindow(hwnd, SW_RESTORE);
+  }
+
+  RECT work_area{};
+  ::SystemParametersInfoW(SPI_GETWORKAREA, 0, &work_area, 0);
+  const int pip_w = 460;
+  const int pip_h = 265;
+  const int pip_x = work_area.right - pip_w - 20;
+  const int pip_y = work_area.bottom - pip_h - 20;
+
+  const LONG_PTR pip_style =
+      (saved_window_style_ & ~(WS_CAPTION | WS_MAXIMIZEBOX | WS_MINIMIZEBOX)) |
+      WS_POPUP | WS_THICKFRAME | WS_VISIBLE;
+  ::SetWindowLongPtrW(hwnd, GWL_STYLE, pip_style);
+  ::SetWindowPos(hwnd, HWND_TOPMOST, pip_x, pip_y, pip_w, pip_h,
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+  pip_active_ = true;
+  if (media_store_channel_) {
+    media_store_channel_->InvokeMethod("onPipChanged",
+                                       std::make_unique<flutter::EncodableValue>(true));
+  }
+  return true;
+}
+
+bool FlutterWindow::ExitDesktopPip() {
+  HWND hwnd = GetHandle();
+  if (!hwnd) return false;
+  if (!pip_active_) return true;
+
+  ::SetWindowLongPtrW(hwnd, GWL_STYLE, saved_window_style_);
+  ::SetWindowLongPtrW(hwnd, GWL_EXSTYLE, saved_window_ex_style_);
+  const int w = saved_window_rect_.right - saved_window_rect_.left;
+  const int h = saved_window_rect_.bottom - saved_window_rect_.top;
+  ::SetWindowPos(hwnd, HWND_NOTOPMOST, saved_window_rect_.left,
+                 saved_window_rect_.top, w > 200 ? w : 1366, h > 200 ? h : 800,
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+  pip_active_ = false;
+  if (media_store_channel_) {
+    media_store_channel_->InvokeMethod(
+        "onPipChanged", std::make_unique<flutter::EncodableValue>(false));
+  }
+  return true;
+}
+
 void FlutterWindow::OnDestroy() {
   if (customer_display_) {
     customer_display_->SetOnClosedCallback(nullptr);
@@ -181,6 +262,7 @@ void FlutterWindow::OnDestroy() {
     customer_display_.reset();
   }
   customer_display_channel_.reset();
+  media_store_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

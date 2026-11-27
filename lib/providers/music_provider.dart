@@ -432,7 +432,7 @@ class MusicProvider extends ChangeNotifier {
     if (_initialized) return;
 
     _attachPlayerListeners();
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isWindows) {
       _widgetChannel.setMethodCallHandler((call) async {
         if (call.method == 'onWidgetAction') {
           await _handleWidgetAction(call.arguments as String?);
@@ -2730,9 +2730,21 @@ class MusicProvider extends ChangeNotifier {
   }
 
   Future<bool> enterPictureInPicture() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid && !Platform.isWindows) return false;
     try {
-      final ok = await _widgetChannel.invokeMethod<bool>('enterPictureInPicture');
+      final ok =
+          await _widgetChannel.invokeMethod<bool>('enterPictureInPicture');
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> exitPictureInPicture() async {
+    if (!Platform.isWindows) return false;
+    try {
+      final ok =
+          await _widgetChannel.invokeMethod<bool>('exitPictureInPicture');
       return ok ?? false;
     } catch (_) {
       return false;

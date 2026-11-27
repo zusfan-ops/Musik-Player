@@ -111,6 +111,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                     : tab == 'File'
                                         ? 'File Lokal (${allPlaylists.where((p) => !p.isUrlSource).length})'
                                         : 'Alamat Link (${allPlaylists.where((p) => p.isUrlSource).length})',
+                                style: TextStyle(
+                                  fontWeight: _filterType == tab
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _filterType == tab
+                                      ? Colors.white
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
                               selected: _filterType == tab,
                               onSelected: (_) =>
@@ -162,7 +170,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.spotifyGreen,
-                          foregroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                         ),
                         onPressed: () => AddM3uBottomSheet.show(context),
                         icon: const Icon(Icons.playlist_add_rounded),
@@ -267,9 +275,13 @@ class _PlaylistCardItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        border: Border.all(
+          color: AppColors.isDark(context)
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -567,7 +579,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           SliverAppBar(
             expandedHeight: 250,
             pinned: true,
-            backgroundColor: AppColors.surface,
+            backgroundColor: AppColors.card(context),
             actions: [
               IconButton(
                 tooltip: 'Cek Kesehatan Link M3U (Auto-Hide Link Mati)',
@@ -733,7 +745,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             hintText: 'Cari channel IPTV, lagu, atau grup...',
                             prefixIcon: const Icon(Icons.search_rounded),
                             filled: true,
-                            fillColor: AppColors.surface,
+                            fillColor: AppColors.card(context),
                             contentPadding: EdgeInsets.zero,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -758,7 +770,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       FloatingActionButton.small(
                         heroTag: 'play_m3u_${playlist.id}',
                         backgroundColor: AppColors.spotifyGreen,
-                        foregroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                         onPressed: tracks.isEmpty
                             ? null
                             : () => M3uPlaybackLauncher.playItemList(
@@ -795,7 +807,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceHighlight,
+                        color: AppColors.highlight(context),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -994,7 +1006,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.spotifyGreen,
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: _submitting
@@ -1056,7 +1068,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                   labelText: 'Nama Playlist (Opsional)',
                   hintText: 'Contoh: Lagu Santai / Radio Musik',
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: AppColors.elevated(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1072,7 +1084,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                   hintText:
                       'https://iptv-org.github.io/iptv/countries/id.m3u\nhttps://server.com/playlist2.m3u8',
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: AppColors.elevated(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1154,7 +1166,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                   labelText: 'Nama Playlist TV Offline',
                   hintText: 'Contoh: Favorit Perjalanan Offline',
                   filled: true,
-                  fillColor: AppColors.surfaceElevated,
+                  fillColor: AppColors.elevated(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1166,7 +1178,7 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.spotifyGreen,
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: provider.allTracks.isEmpty || _submitting
