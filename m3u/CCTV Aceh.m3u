@@ -1,0 +1,19 @@
+#EXTM3U
+# CCTV Kota Banda Aceh - https://cctv.bandaacehkota.go.id/
+# Server stream: cctv-stream.bandaacehkota.info (Restreamer, pola memfs/<uuid>.m3u8)
+
+#EXTINF:-1 group-title="Underpass",CCTV Banda Aceh 1
+https://cctv-stream.bandaacehkota.info/memfs/4d43bfe3-89a4-4858-9715-51085407a3c0.m3u8
+
+#EXTINF:-1 group-title="Kartini",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/54cc9a46-6e66-4a61-b65c-fd148871ba3f.m3u8
+#EXTINF:-1 group-title="Bustanus Salatin",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/fc8168e4-868c-4492-8468-4998ffd4f8f3.m3u8
+#EXTINF:-1 group-title="Diponegoro",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/f69d3a9d-1e15-43ac-9d7f-45f37bf9e2b8.m3u8
+#EXTINF:-1 group-title="Lhong Raya",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/a9cbcff3-4231-4d7b-b35a-b9d127342bd7.m3u8
+#EXTINF:-1 group-title="Pelabuhan",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/79579919-e536-4e8e-9fb8-e573af3bdd7a.m3u8
+#EXTINF:-1 group-title="SP Ranup",CCTV Banda Aceh 1
+https://api.bandaacehkota.go.id/cctv/memfs/563a15fa-e447-4ae1-a779-165693035eed.m3u8
