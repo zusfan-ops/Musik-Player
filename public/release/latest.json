@@ -1,9 +1,9 @@
 ﻿{
-    "version":  "1.12.1",
-    "build_number":  37,
-    "release_date":  "2026-11-28 09:02:55",
-    "download_url":  "/release/1.12.1/M3UMusik-v1.12.1-arm64-v8a.apk",
-    "changelog":  "Pembaruan rilis M3U Musik Player v1.12.1 (Build 37).",
-    "windows_download_url":  "/release/1.12.1/MediaCenter-Setup-v1.12.1-x64.exe",
-    "tv_download_url":  "/release/1.12.1/MediaCenter-TV-v1.12.1-arm64-v8a.apk"
+    "version":  "1.13.0",
+    "build_number":  38,
+    "release_date":  "2026-11-28 17:02:40",
+    "download_url":  "/release/1.13.0/M3UMusik-v1.13.0-arm64-v8a.apk",
+    "changelog":  "Pembaruan rilis M3U Musik Player v1.13.0 (Build 38).",
+    "windows_download_url":  "/release/1.13.0/MediaCenter-Setup-v1.13.0-x64.exe",
+    "tv_download_url":  "/release/1.13.0/MediaCenter-TV-v1.13.0-arm64-v8a.apk"
 }
