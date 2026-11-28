@@ -1,0 +1,117 @@
+#EXTM3U
+# CCTV Kabupaten Kudus - portal https://streaming.kuduskab.go.id/ (server stream: stream.kuduskab.go.id, Ant Media)
+
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Ngembal
+https://stream.kuduskab.go.id/memfs/4ecf5ed5-7597-48df-a005-2a5840a947da.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Barongan
+https://stream.kuduskab.go.id/memfs/8fc79897-03d6-443a-b3e6-0471e283d570.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Wisata-Colo
+https://stream.kuduskab.go.id/memfs/e80f877d-7099-4400-aed8-117b2b2a3d68.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Jember 2
+https://stream.kuduskab.go.id/memfs/844eca36-2c0e-4ffa-b207-9dca5e4ab8fe.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",simpang-Klenteng1
+https://stream.kuduskab.go.id/memfs/a6026e65-5fda-4ca6-863b-7d14939307a3.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Margorejo 01
+https://stream.kuduskab.go.id/memfs/707d656a-7fb3-4b82-85dc-956598ef8308.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Kirig Mejobo
+https://stream.kuduskab.go.id/memfs/67670b26-c298-4296-a5ed-617f2db87e3c.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",simpang-klenteng2
+https://stream.kuduskab.go.id/memfs/6ac764b9-0a08-4d95-8ea6-618cf0c7cb7a.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD Arah Kota
+https://stream.kuduskab.go.id/memfs/b2e6de86-4d67-4797-a6e8-7e57871d0a0a.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD Arah Sekwan
+https://stream.kuduskab.go.id/memfs/0472115e-fc3d-4d00-9f4e-8cf243d8180b.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Jember 1
+https://stream.kuduskab.go.id/memfs/3a840b71-0834-4b7f-af12-79ce2288ddc9.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Blimbing Kidul
+https://stream.kuduskab.go.id/memfs/4bd9eb3e-006b-49db-bedc-a07dd2d6e2a6.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Dawe2
+https://stream.kuduskab.go.id/memfs/4e3a10aa-5a41-4398-8334-20c9cf1edd23.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Kedungdowo 2
+https://stream.kuduskab.go.id/memfs/262a34c8-0589-4132-ba19-891e7a14e7bc.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Kemala Bhayangkari 2 Polres Kudus
+https://stream.kuduskab.go.id/memfs/32bedd28-d54e-4661-8882-0a53ca399f28.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Pentol PTZ
+https://stream.kuduskab.go.id/memfs/d4aac048-02f5-49c9-a600-5265f6a846af.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang-Jepang
+https://stream.kuduskab.go.id/memfs/41c7a35d-179c-4348-ab33-09194a2101bb.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Panjang
+https://stream.kuduskab.go.id/memfs/b97c64c2-c9d2-4ecf-9eaf-ec8b01de63ba.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang-Jember
+https://stream.kuduskab.go.id/memfs/5981471c-5c9e-4869-9418-2096ba08b8fa.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD Arah Ploso
+https://stream.kuduskab.go.id/memfs/92afed5e-f79f-48dc-9796-35683ad02956.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang-Menara
+https://stream.kuduskab.go.id/memfs/547f59c2-2b57-4927-a09b-e3b0021dd589.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Samirejo Dawe
+https://stream.kuduskab.go.id/memfs/3f4f5053-b7ec-42fa-ae48-a2934728689d.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Penthol dari GOR
+https://stream.kuduskab.go.id/memfs/f165093d-3bdc-482b-8a7d-05498dfaab9e.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Jember 5
+https://stream.kuduskab.go.id/memfs/502e7443-48d2-4eb4-af61-55d3b025237d.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD Arah Demak
+https://stream.kuduskab.go.id/memfs/57857535-c053-4469-b296-2d316b4bb2b4.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Krawang 1
+https://stream.kuduskab.go.id/memfs/103e4939-1aee-48b3-bc05-d87f75d0a731.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Penthol dari Rendeng
+https://stream.kuduskab.go.id/memfs/7bcb07f0-68c6-438d-bcaf-2017e48147b8.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Jember 4
+https://stream.kuduskab.go.id/memfs/da410e35-be37-41f6-8c91-47416f158e9c.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Getas Pejaten (Polres 3)
+https://stream.kuduskab.go.id/memfs/d7ce1337-5131-43a1-bf06-5535259db1c7.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Sppg kudus jekulo honggosoco
+https://stream.kuduskab.go.id/memfs/7b493855-e692-4040-8e1d-89a0fde151f7.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Bae Gondangmanis
+https://stream.kuduskab.go.id/memfs/b107e246-9adc-4d1a-b2b0-eb4624b502d7.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Dawe1
+https://stream.kuduskab.go.id/memfs/908c5b34-ff8f-4dd2-9f6b-1ea0dca0cba1.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Pentol dari Kota
+https://stream.kuduskab.go.id/memfs/e997882d-1a7d-43a6-ae87-93b07e469777.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",SPPG Papringan 01
+https://stream.kuduskab.go.id/memfs/a6e0dfcf-cb12-4ffa-85eb-ce394a954604.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Penthol dari Pati
+https://stream.kuduskab.go.id/memfs/b684c726-eaf3-45c2-9495-a789694ff33c.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Alun-alun
+https://stream.kuduskab.go.id/memfs/a5250e0e-1227-4afa-bf03-66a28eb9fa21.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD
+https://stream.kuduskab.go.id/memfs/c14c2097-e42d-4a67-b135-85a33c4e9cec.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang-Matahari
+https://stream.kuduskab.go.id/memfs/a89d331c-ed5e-483f-b9f3-dc324e48d359.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Jember 3
+https://stream.kuduskab.go.id/memfs/005e9fe9-241a-48d2-be99-69ef0a0c8c5b.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Johar
+https://stream.kuduskab.go.id/memfs/865bbc05-d698-45dc-8f8b-ee38b11855d8.m3u8
+#EXTINF:-1 group-title="CCTV Kudus",Simpang Prima
+https://stream.kuduskab.go.id/memfs/e424b907-6835-4ed2-a7e6-06b988705b09.m3u8
+
+# --- 15 kamera tidak merespons saat dicek (offline) ---
+# #EXTINF:-1 group-title="CCTV Kudus",SPPG Singocandi
+# https://stream.kuduskab.go.id/memfs/86f403fc-15d0-4568-b2cc-fdd8d7984283.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang Krawang 2
+# https://stream.kuduskab.go.id/memfs/8b93e41c-f2fc-4b28-a356-eb6775519349.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang Jetak
+# https://stream.kuduskab.go.id/memfs/8d4f74b4-28e2-409c-9593-525c3d594bc4.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang Jati
+# https://stream.kuduskab.go.id/memfs/e010b9a0-6ad2-456b-8a5e-6a217ea9d67e.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",SPPG Dersalam
+# https://stream.kuduskab.go.id/memfs/32f200a8-9c57-4d9c-906f-86fb88986d39.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",simpang-pegadaian
+# https://stream.kuduskab.go.id/memfs/f1766611-32e0-4357-ac6a-f732986fcd19.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang Tanjung
+# https://stream.kuduskab.go.id/memfs/4685afda-b1bc-42fb-9e53-af62eb1e0f49.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang Kencing
+# https://stream.kuduskab.go.id/memfs/bfb7f870-8f7c-4ff3-9da2-def6114d37ff.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",SPPG Bae Gondangmanis 2
+# https://stream.kuduskab.go.id/memfs/b6ecdbd6-4b2c-4fd1-a51e-45001402ea1a.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Tiket Colo Keluar
+# https://stream.kuduskab.go.id/memfs/c768157b-59aa-4402-89af-6e530d11cc35.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",simpang-sempalan
+# https://stream.kuduskab.go.id/memfs/c26dd885-07be-40a4-9b6c-358bf9fa6ab1.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",SPPG Dawe Tergo
+# https://stream.kuduskab.go.id/memfs/c5100243-e434-476e-ac6a-d49c5d00ab47.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Tiket Masuk Colo
+# https://stream.kuduskab.go.id/memfs/5c2d54ac-de10-4420-924c-d3b927599113.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Terminal-Bakalan
+# https://stream.kuduskab.go.id/memfs/b1bfef7b-4ac5-49a5-b2fc-928a2bcf5fbd.m3u8
+# #EXTINF:-1 group-title="CCTV Kudus",Simpang DPRD PTZ
+# https://stream.kuduskab.go.id/memfs/1807453f-3d1c-47d8-8f31-158032482938.m3u8
