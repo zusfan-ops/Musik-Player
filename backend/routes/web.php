@@ -1,9 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => response()->json(['service' => 'MediaCenter API', 'docs' => '/api/v1/app-config']));
+Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AdminController::class, 'showLogin'])->name('login');
