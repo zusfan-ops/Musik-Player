@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +14,7 @@ import '../models/pos_models.dart';
 import '../providers/finance_provider.dart';
 import '../providers/music_provider.dart';
 import '../providers/pos_provider.dart';
+import '../services/backend_api_service.dart';
 import '../services/pos_customer_display_service.dart';
 import '../services/pos_pdf_service.dart';
 import '../services/pos_printer_service.dart';
@@ -40,6 +42,13 @@ class _PosScreenState extends State<PosScreen>
   late final TabController _tabCtrl;
   PosProvider? _posRef;
   MusicProvider? _musicRef;
+  Timer? _storeAlertTimer;
+  int _lastQueuedOrders = 0;
+  int _lastPendingJukebox = 0;
+  String _storeName = '';
+  String _mapsReviewUrl = '';
+  bool _hasStaffPin = false;
+  bool _staffLocked = false;
 
   @override
   void initState() {
@@ -48,8 +57,101 @@ class _PosScreenState extends State<PosScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         unawaited(_initCustomerDisplay());
+        unawaited(_pollStoreAlerts(initial: true));
       }
     });
+    _storeAlertTimer = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) => unawaited(_pollStoreAlerts()),
+    );
+  }
+
+  Future<void> _pollStoreAlerts({bool initial = false}) async {
+    final token = await BackendApiService.instance.getToken();
+    if (token == null || token.isEmpty) return;
+    final data = await BackendApiService.instance.fetchMyStore();
+    if (!mounted || data == null) return;
+    final store = data['store'] as Map<String, dynamic>?;
+    final orders = (data['orders'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((o) => o['status'] == 'queued')
+        .length;
+    final jukebox = (data['jukebox_requests'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((j) => j['status'] == 'pending')
+        .length;
+
+    if (!initial && (orders > _lastQueuedOrders || jukebox > _lastPendingJukebox)) {
+      unawaited(SystemSound.play(SystemSoundType.alert));
+      final parts = <String>[];
+      if (orders > _lastQueuedOrders) parts.add('$orders order web antre');
+      if (jukebox > _lastPendingJukebox) parts.add('$jukebox request lagu baru');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.spotifyGreen,
+          content: Text('Notifikasi Toko: ${parts.join(' • ')}!'),
+          action: SnackBarAction(
+            label: 'Lihat',
+            textColor: Colors.black,
+            onPressed: _openStoreSheetGuarded,
+          ),
+        ),
+      );
+    }
+
+    setState(() {
+      _lastQueuedOrders = orders;
+      _lastPendingJukebox = jukebox;
+      _storeName = store?['name']?.toString() ?? _storeName;
+      _mapsReviewUrl = store?['google_maps_review_url']?.toString() ?? '';
+      _hasStaffPin = data['has_staff_pin'] == true;
+    });
+  }
+
+  Future<void> _openStoreSheetGuarded() async {
+    if (_hasStaffPin && _staffLocked) {
+      final pinCtrl = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Masukkan PIN Owner'),
+          content: TextField(
+            controller: pinCtrl,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'PIN (4-8 digit)'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final valid = await BackendApiService.instance.verifyStaffPin(
+                  pinCtrl.text.trim(),
+                );
+                if (ctx.mounted) Navigator.of(ctx).pop(valid);
+              },
+              child: const Text('Buka'),
+            ),
+          ],
+        ),
+      );
+      pinCtrl.dispose();
+      if (ok != true || !mounted) {
+        if (ok == false && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PIN Owner salah.')),
+          );
+        }
+        return;
+      }
+      setState(() => _staffLocked = false);
+    }
+    if (!mounted) return;
+    await showStoreSettingsAndQrSheet(context);
+    if (mounted) unawaited(_pollStoreAlerts(initial: true));
   }
 
   Future<void> _initCustomerDisplay() async {
@@ -105,6 +207,7 @@ class _PosScreenState extends State<PosScreen>
 
   @override
   void dispose() {
+    _storeAlertTimer?.cancel();
     _posRef?.removeListener(_syncCustomerDisplay);
     _musicRef?.removeListener(_syncCustomerDisplay);
     if (PosCustomerDisplayService.instance.isSupported) {
@@ -149,9 +252,48 @@ class _PosScreenState extends State<PosScreen>
             ),
           ),
           IconButton(
+            tooltip: 'Tunjukkan QR Rating Google Maps',
+            icon: const Icon(Icons.star_rate_rounded, color: Color(0xFFFBBF24)),
+            onPressed: () {
+              if (_mapsReviewUrl.isNotEmpty) {
+                unawaited(
+                  showGoogleMapsReviewQrDialog(
+                    context,
+                    storeName: _storeName.isEmpty ? 'Toko' : _storeName,
+                    reviewUrl: _mapsReviewUrl,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Isi Link Google Maps Review di menu Toko Online & QR terlebih dahulu.',
+                    ),
+                  ),
+                );
+                unawaited(_openStoreSheetGuarded());
+              }
+            },
+          ),
+          if (_hasStaffPin)
+            IconButton(
+              tooltip: _staffLocked ? 'Mode Kasir Terkunci' : 'Kunci Mode Kasir',
+              icon: Icon(
+                _staffLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                color: _staffLocked ? Colors.amber : Colors.white70,
+              ),
+              onPressed: () {
+                if (_staffLocked) {
+                  unawaited(_openStoreSheetGuarded());
+                } else {
+                  setState(() => _staffLocked = true);
+                }
+              },
+            ),
+          IconButton(
             tooltip: 'Toko Online & QR',
             icon: const Icon(Icons.storefront_rounded),
-            onPressed: () => showStoreSettingsAndQrSheet(context),
+            onPressed: _openStoreSheetGuarded,
           ),
           if (PosCustomerDisplayService.instance.isSupported)
             ValueListenableBuilder<CustomerDisplayInfo>(

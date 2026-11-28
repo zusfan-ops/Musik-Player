@@ -30,6 +30,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('/m3u-sources/{m3uSource}', [AdminController::class, 'deleteM3uSource'])->name('m3u-sources.delete');
             Route::post('/ads', [AdminController::class, 'storeAd'])->name('ads.store');
             Route::post('/ads/{ad}/toggle', [AdminController::class, 'toggleAd'])->name('ads.toggle');
+            Route::post('/ads/{ad}/approve', [AdminController::class, 'approveAd'])->name('ads.approve');
+            Route::post('/ads/{ad}/reject', [AdminController::class, 'rejectAd'])->name('ads.reject');
             Route::delete('/ads/{ad}', [AdminController::class, 'deleteAd'])->name('ads.delete');
         });
 
@@ -53,4 +55,13 @@ Route::get('/{storeSlug}', [StorefrontController::class, 'show'])
     ->name('storefront.show');
 Route::post('/{storeSlug}/order', [StorefrontController::class, 'placeOrder'])
     ->where('storeSlug', '[a-z0-9\-]{3,64}')
+    ->middleware('throttle:20,1')
     ->name('storefront.order');
+Route::post('/{storeSlug}/review', [StorefrontController::class, 'submitReview'])
+    ->where('storeSlug', '[a-z0-9\-]{3,64}')
+    ->middleware('throttle:10,1')
+    ->name('storefront.review');
+Route::post('/{storeSlug}/jukebox', [StorefrontController::class, 'requestJukebox'])
+    ->where('storeSlug', '[a-z0-9\-]{3,64}')
+    ->middleware('throttle:15,1')
+    ->name('storefront.jukebox');

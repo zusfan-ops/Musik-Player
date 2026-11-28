@@ -15,9 +15,11 @@ class AdCampaign extends Model
         'target_url',
         'placement',
         'is_active',
+        'approval_status',
         'impressions_count',
         'clicks_count',
         'created_by',
+        'store_id',
     ];
 
     protected function casts(): array

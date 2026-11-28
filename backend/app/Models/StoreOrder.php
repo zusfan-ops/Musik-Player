@@ -16,6 +16,8 @@ class StoreOrder extends Model
         'notes',
         'items_json',
         'total_amount',
+        'discount_amount',
+        'voucher_code',
         'status',
     ];
 
@@ -24,6 +26,7 @@ class StoreOrder extends Model
         return [
             'items_json' => 'array',
             'total_amount' => 'float',
+            'discount_amount' => 'float',
         ];
     }
 }

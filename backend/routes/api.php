@@ -75,9 +75,17 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/store/me', [StoreApiController::class, 'myStore']);
         Route::put('/store/me', [StoreApiController::class, 'upsertMyStore']);
+        Route::post('/store/me/qris', [StoreApiController::class, 'uploadQris']);
+        Route::post('/store/me/verify-pin', [StoreApiController::class, 'verifyStaffPin']);
         Route::get('/store/orders', [StoreApiController::class, 'ordersIndex']);
         Route::patch('/store/orders/{order}', [StoreApiController::class, 'updateOrderStatus']);
         Route::post('/stores/{slug}/bookings', [StoreApiController::class, 'bookTable']);
         Route::patch('/store/bookings/{booking}', [StoreApiController::class, 'updateBookingStatus']);
+        Route::post('/store/vouchers', [StoreApiController::class, 'storeVoucher']);
+        Route::delete('/store/vouchers/{voucher}', [StoreApiController::class, 'deleteVoucher']);
+        Route::post('/store/jukebox/now-playing', [StoreApiController::class, 'updateNowPlaying']);
+        Route::patch('/store/jukebox/{jukeboxRequest}', [StoreApiController::class, 'updateJukeboxStatus']);
+        Route::post('/store/finance/sync', [StoreApiController::class, 'syncFinance']);
+        Route::post('/store/boost-ad', [StoreApiController::class, 'submitBoostAd']);
     });
 });

@@ -752,9 +752,14 @@
                                 Reach: {{ $st['reach_7d'] }}<br>
                                 24j: {{ $st['impressions_24h'] }}t / {{ $st['clicks_24h'] }}k
                             </td>
-                            <td>{{ $ad->is_active ? 'Aktif' : 'Nonaktif' }}</td>
+                            <td>{{ $ad->is_active ? 'Aktif' : 'Nonaktif' }} ({{ $ad->approval_status ?? 'approved' }})</td>
                             <td>
-                                <form style="display:inline" method="POST" action="{{ route('admin.ads.toggle', $ad) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
+                                @if (($ad->approval_status ?? 'approved') === 'pending')
+                                    <form style="display:inline" method="POST" action="{{ route('admin.ads.approve', $ad) }}">@csrf<button class="btn-sec" type="submit" style="border-color:#22c55e;color:#4ade80;">Approve</button></form>
+                                    <form style="display:inline" method="POST" action="{{ route('admin.ads.reject', $ad) }}">@csrf<button class="btn-sec" type="submit" style="border-color:#ef4444;color:#f87171;">Reject</button></form>
+                                @else
+                                    <form style="display:inline" method="POST" action="{{ route('admin.ads.toggle', $ad) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
+                                @endif
                                 <form style="display:inline" method="POST" action="{{ route('admin.ads.delete', $ad) }}">@csrf @method('DELETE')<button class="btn" type="submit">Hapus</button></form>
                             </td>
                         </tr>

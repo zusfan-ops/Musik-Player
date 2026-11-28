@@ -703,15 +703,28 @@ class BackendApiService {
   }
 
   Future<List<Map<String, dynamic>>> fetchDiscoverStores({
+    String? storeType,
+    bool onlyOpen = false,
+    double? lat,
+    double? lng,
     http.Client? client,
   }) async {
     final activeClient = client ?? http.Client();
     try {
+      final params = <String, String>{};
+      if (storeType != null && storeType.isNotEmpty) {
+        params['store_type'] = storeType;
+      }
+      if (onlyOpen) params['only_open'] = '1';
+      if (lat != null && lng != null) {
+        params['lat'] = lat.toString();
+        params['lng'] = lng.toString();
+      }
+      final uri = Uri.parse('$baseUrl/stores/discover').replace(
+        queryParameters: params.isEmpty ? null : params,
+      );
       final res = await activeClient
-          .get(
-            Uri.parse('$baseUrl/stores/discover'),
-            headers: const {'Accept': 'application/json'},
-          )
+          .get(uri, headers: const {'Accept': 'application/json'})
           .timeout(_timeout);
       if (res.statusCode < 200 || res.statusCode >= 300) return const [];
       final decoded =
@@ -846,6 +859,11 @@ class BackendApiService {
     double? longitude,
     String? whatsappNumber,
     int tablesCount = 0,
+    String? googleMapsReviewUrl,
+    String? openingHours,
+    bool? isOpen,
+    String? staffPin,
+    bool clearStaffPin = false,
     List<Map<String, dynamic>>? products,
   }) async {
     final token = await getToken();
@@ -870,6 +888,18 @@ class BackendApiService {
               if (whatsappNumber != null)
                 'whatsapp_number': whatsappNumber.trim(),
               'tables_count': tablesCount,
+              if (googleMapsReviewUrl != null)
+                'google_maps_review_url': googleMapsReviewUrl.trim().isEmpty
+                    ? null
+                    : googleMapsReviewUrl.trim(),
+              if (openingHours != null)
+                'opening_hours': openingHours.trim().isEmpty
+                    ? null
+                    : openingHours.trim(),
+              if (isOpen != null) 'is_open': isOpen,
+              if (staffPin != null && staffPin.trim().isNotEmpty)
+                'staff_pin': staffPin.trim(),
+              if (clearStaffPin) 'clear_staff_pin': true,
               if (products != null) 'products': products,
             }),
           )
@@ -881,6 +911,207 @@ class BackendApiService {
           'Gagal menyimpan toko (HTTP ${res.statusCode}).';
     } catch (e) {
       return 'Gagal menghubungi server: $e';
+    }
+  }
+
+  Future<String?> uploadStoreQris(String filePath) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+    try {
+      final req = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/store/me/qris'),
+      );
+      req.headers['Accept'] = 'application/json';
+      req.headers['Authorization'] = 'Bearer $token';
+      req.files.add(await http.MultipartFile.fromPath('qris_file', filePath));
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['message'] as String? ?? 'Gagal upload QRIS.';
+    } catch (e) {
+      return 'Gagal upload QRIS: $e';
+    }
+  }
+
+  Future<bool> verifyStaffPin(String pin) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/store/me/verify-pin'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'pin': pin}),
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return false;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['valid'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> createStoreVoucher({
+    required String code,
+    required String discountType,
+    required double discountValue,
+    double minOrder = 0,
+    int? maxUses,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/store/vouchers'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'code': code.trim().toUpperCase(),
+              'discount_type': discountType,
+              'discount_value': discountValue,
+              'min_order': minOrder,
+              if (maxUses != null) 'max_uses': maxUses,
+            }),
+          )
+          .timeout(_timeout);
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['message'] as String? ?? 'Gagal membuat voucher.';
+    } catch (e) {
+      return 'Gagal membuat voucher: $e';
+    }
+  }
+
+  Future<void> deleteStoreVoucher(int voucherId) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return;
+    try {
+      await http
+          .delete(
+            Uri.parse('$baseUrl/store/vouchers/$voucherId'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(_timeout);
+    } catch (_) {}
+  }
+
+  Future<void> updateStoreNowPlaying(String? title, String? artist) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return;
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/store/jukebox/now-playing'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'title': title, 'artist': artist}),
+          )
+          .timeout(_timeout);
+    } catch (_) {}
+  }
+
+  Future<void> updateJukeboxStatus(int requestId, String status) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return;
+    try {
+      await http
+          .patch(
+            Uri.parse('$baseUrl/store/jukebox/$requestId'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'status': status}),
+          )
+          .timeout(_timeout);
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>?> syncStoreFinance(
+    List<Map<String, dynamic>> entries,
+  ) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return null;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/store/finance/sync'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'entries': entries}),
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> submitBoostAd({
+    required String title,
+    String? description,
+    required String mediaType,
+    String? mediaFilePath,
+    String? mediaUrl,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+    try {
+      final req = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/store/boost-ad'),
+      );
+      req.headers['Accept'] = 'application/json';
+      req.headers['Authorization'] = 'Bearer $token';
+      req.fields['title'] = title.trim();
+      req.fields['media_type'] = mediaType;
+      req.fields['placement'] = 'home_feed';
+      if (description != null && description.trim().isNotEmpty) {
+        req.fields['description'] = description.trim();
+      }
+      if (mediaFilePath != null && mediaFilePath.isNotEmpty) {
+        req.files.add(
+          await http.MultipartFile.fromPath('media_file', mediaFilePath),
+        );
+      } else if (mediaUrl != null && mediaUrl.trim().isNotEmpty) {
+        req.fields['media_url'] = mediaUrl.trim();
+      }
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['message'] as String? ?? 'Gagal mengajukan Boost Toko.';
+    } catch (e) {
+      return 'Gagal mengajukan Boost Toko: $e';
     }
   }
 

@@ -731,6 +731,28 @@ class AdminController extends Controller
         return back()->with('status', 'Status iklan diperbarui.');
     }
 
+    public function approveAd(Request $request, AdCampaign $ad): RedirectResponse
+    {
+        $ad->update([
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
+        $this->audit($request->user(), 'ad_approved', 'ad_campaign', (string) $ad->id);
+
+        return back()->with('status', "Iklan \"{$ad->title}\" disetujui dan diaktifkan.");
+    }
+
+    public function rejectAd(Request $request, AdCampaign $ad): RedirectResponse
+    {
+        $ad->update([
+            'approval_status' => 'rejected',
+            'is_active' => false,
+        ]);
+        $this->audit($request->user(), 'ad_rejected', 'ad_campaign', (string) $ad->id);
+
+        return back()->with('status', "Iklan \"{$ad->title}\" ditolak.");
+    }
+
     public function deleteAd(Request $request, AdCampaign $ad): RedirectResponse
     {
         $id = $ad->id;

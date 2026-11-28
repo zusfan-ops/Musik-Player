@@ -2518,6 +2518,8 @@ class _StoreDiscoveryAndAdsSectionState
   List<Map<String, dynamic>> _stores = const [];
   List<Map<String, dynamic>> _ads = const [];
   bool _loading = true;
+  String _filterType = '';
+  bool _onlyOpen = false;
 
   @override
   void initState() {
@@ -2528,7 +2530,10 @@ class _StoreDiscoveryAndAdsSectionState
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        BackendApiService.instance.fetchDiscoverStores(),
+        BackendApiService.instance.fetchDiscoverStores(
+          storeType: _filterType.isEmpty ? null : _filterType,
+          onlyOpen: _onlyOpen,
+        ),
         BackendApiService.instance.fetchNativeAds(placement: 'home_feed'),
       ]);
       if (!mounted) return;
@@ -2608,6 +2613,51 @@ class _StoreDiscoveryAndAdsSectionState
             ),
           ],
         ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              FilterChip(
+                label: const Text('Semua'),
+                selected: _filterType.isEmpty && !_onlyOpen,
+                onSelected: (_) {
+                  setState(() {
+                    _filterType = '';
+                    _onlyOpen = false;
+                  });
+                  _loadData();
+                },
+              ),
+              const SizedBox(width: 6),
+              FilterChip(
+                label: const Text('Coffeeshop'),
+                selected: _filterType == 'coffeeshop',
+                onSelected: (sel) {
+                  setState(() => _filterType = sel ? 'coffeeshop' : '');
+                  _loadData();
+                },
+              ),
+              const SizedBox(width: 6),
+              FilterChip(
+                label: const Text('Resto'),
+                selected: _filterType == 'resto',
+                onSelected: (sel) {
+                  setState(() => _filterType = sel ? 'resto' : '');
+                  _loadData();
+                },
+              ),
+              const SizedBox(width: 6),
+              FilterChip(
+                label: const Text('Buka Sekarang'),
+                selected: _onlyOpen,
+                onSelected: (sel) {
+                  setState(() => _onlyOpen = sel);
+                  _loadData();
+                },
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
         SizedBox(
           height: 218,
@@ -2686,6 +2736,28 @@ class _StoreDiscoveryCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    if ((store['rating_count'] as num? ?? 0) > 0) ...[
+                      Text(
+                        '★ ${store['rating_avg']}',
+                        style: const TextStyle(
+                          color: Color(0xFFFBBF24),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      store['is_open'] == false ? 'TUTUP' : 'BUKA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: store['is_open'] == false
+                            ? Colors.redAccent
+                            : const Color(0xFF4ADE80),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     if (hasGps)
                       const Icon(
                         Icons.my_location_rounded,

@@ -38,8 +38,21 @@ class Store extends Model
         'longitude',
         'whatsapp_number',
         'tables_count',
+        'qris_image_url',
+        'google_maps_review_url',
+        'opening_hours',
+        'is_open',
+        'staff_pin_hash',
+        'now_playing_title',
+        'now_playing_artist',
+        'rating_avg',
+        'rating_count',
         'is_active',
         'views_count',
+    ];
+
+    protected $hidden = [
+        'staff_pin_hash',
     ];
 
     protected function casts(): array
@@ -48,6 +61,9 @@ class Store extends Model
             'latitude' => 'float',
             'longitude' => 'float',
             'tables_count' => 'integer',
+            'is_open' => 'boolean',
+            'rating_avg' => 'float',
+            'rating_count' => 'integer',
             'is_active' => 'boolean',
             'views_count' => 'integer',
         ];
@@ -76,6 +92,31 @@ class Store extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(StoreBooking::class)->orderByDesc('booking_time');
+    }
+
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(StoreVoucher::class)->orderByDesc('created_at');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(StoreReview::class)->orderByDesc('created_at');
+    }
+
+    public function jukeboxRequests(): HasMany
+    {
+        return $this->hasMany(StoreJukeboxRequest::class)->orderByDesc('created_at');
+    }
+
+    public function financeEntries(): HasMany
+    {
+        return $this->hasMany(StoreFinanceEntry::class)->orderByDesc('occurred_at');
+    }
+
+    public function adCampaigns(): HasMany
+    {
+        return $this->hasMany(AdCampaign::class)->orderByDesc('created_at');
     }
 
     public function scopePubliclyVisible(Builder $query): Builder
