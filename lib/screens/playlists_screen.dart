@@ -95,7 +95,16 @@ class PlaylistsScreen extends StatefulWidget {
 class _PlaylistsScreenState extends State<PlaylistsScreen> {
   String _filterType = 'Kota'; // Kota | Semua | File | Link
   String _selectedCategory = 'Semua';
+  String _globalChannelQuery = '';
+  String _globalChannelKind = 'Semua'; // Semua | Video | Audio
+  final TextEditingController _globalSearchCtrl = TextEditingController();
   static bool _bundledCctvLoaded = false;
+
+  @override
+  void dispose() {
+    _globalSearchCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _showReorderSheet(
     BuildContext context,
@@ -249,6 +258,22 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       }
       return true;
     }).toList();
+
+    final globalQuery = _globalChannelQuery.trim().toLowerCase();
+    final List<TrackItem> globalMatches = [];
+    if (globalQuery.isNotEmpty) {
+      final seen = <String>{};
+      for (final pl in filtered) {
+        for (final t in pl.tracks) {
+          if (_globalChannelKind == 'Video' && !t.isVideo) continue;
+          if (_globalChannelKind == 'Audio' && t.isVideo) continue;
+          final hay = '${t.title} ${t.groupTitle ?? ''} ${pl.name}'.toLowerCase();
+          if (hay.contains(globalQuery) && seen.add(t.pathOrUrl)) {
+            globalMatches.add(t);
+          }
+        }
+      }
+    }
 
     // Rows: _CityGroup (expandable, channels grouped by city), String header,
     // and M3uPlaylist cards (non-city playlists / other filters).
@@ -441,6 +466,91 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _globalSearchCtrl,
+                          onChanged: (v) =>
+                              setState(() => _globalChannelQuery = v),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                            hintText: 'Cari channel global (nama / kota)...',
+                            suffixIcon: _globalChannelQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18),
+                                    onPressed: () {
+                                      _globalSearchCtrl.clear();
+                                      setState(() => _globalChannelQuery = '');
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        value: _globalChannelKind,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(value: 'Semua', child: Text('Semua')),
+                          DropdownMenuItem(value: 'Video', child: Text('TV / Video')),
+                          DropdownMenuItem(value: 'Audio', child: Text('Audio / Radio')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _globalChannelKind = v);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (globalMatches.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 240),
+                      decoration: BoxDecoration(
+                        color: AppColors.card(context),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.highlight(context)),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: globalMatches.length,
+                        itemBuilder: (_, idx) {
+                          final ch = globalMatches[idx];
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(
+                              ch.isVideo
+                                  ? Icons.live_tv_rounded
+                                  : Icons.music_note_rounded,
+                              size: 18,
+                            ),
+                            title: Text(
+                              ch.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              ch.groupTitle ?? ch.directoryName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                            onTap: () => M3uPlaybackLauncher.playItemList(
+                              context,
+                              globalMatches,
+                              initialIndex: idx,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   if (provider.lastGithubM3uSyncAt != null ||
                       provider.lastGithubM3uSyncError != null) ...[
                     const SizedBox(height: 8),

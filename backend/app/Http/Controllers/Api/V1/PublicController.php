@@ -109,7 +109,7 @@ class PublicController extends Controller
     public function m3uSources(): JsonResponse
     {
         $sources = M3uSource::query()
-            ->where('is_active', true)
+            ->published()
             ->orderByDesc('updated_at')
             ->get()
             ->map(function (M3uSource $src) {
@@ -121,6 +121,11 @@ class PublicController extends Controller
                     'id' => $src->id,
                     'name' => $src->name,
                     'category' => $src->category,
+                    'region' => $src->region,
+                    'city' => $src->city,
+                    'language' => $src->language,
+                    'stream_status' => $src->stream_status ?? 'online',
+                    'status_reason' => $src->status_reason,
                     'source_type' => $src->source_type,
                     'download_url' => $downloadUrl,
                     'sha256' => $src->content_sha256,
@@ -134,8 +139,12 @@ class PublicController extends Controller
 
     public function downloadM3uSource(M3uSource $m3uSource): StreamedResponse|JsonResponse
     {
+        $isPublished = $m3uSource->is_active && (
+            $m3uSource->status === 'published' ||
+            ($m3uSource->status === 'scheduled' && $m3uSource->scheduled_at !== null && $m3uSource->scheduled_at->lte(now()))
+        );
         if (
-            !$m3uSource->is_active ||
+            !$isPublished ||
             $m3uSource->source_type !== 'file' ||
             !$m3uSource->file_path ||
             !Storage::disk('local')->exists($m3uSource->file_path)

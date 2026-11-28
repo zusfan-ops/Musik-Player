@@ -56,5 +56,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/playlists/{playlist}', [SyncController::class, 'playlistsShow']);
         Route::put('/playlists/{playlist}', [SyncController::class, 'playlistsUpdate']);
         Route::delete('/playlists/{playlist}', [SyncController::class, 'playlistsDestroy']);
+
+        Route::get('/watch-progress', [SyncController::class, 'watchProgressIndex']);
+        Route::put('/watch-progress', [SyncController::class, 'watchProgressUpsert']);
     });
 });

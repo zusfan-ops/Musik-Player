@@ -290,6 +290,143 @@ class BackendApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchDevices({http.Client? client}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return const [];
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient.get(
+        Uri.parse('$baseUrl/me/devices'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return const [];
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<bool> revokeDevice(int deviceId, {http.Client? client}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient.delete(
+        Uri.parse('$baseUrl/me/devices/$deviceId'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout);
+      return res.statusCode >= 200 && res.statusCode < 300;
+    } catch (_) {
+      return false;
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<String?> exportAccountData({http.Client? client}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return null;
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient.get(
+        Uri.parse('$baseUrl/me/export'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      return utf8.decode(res.bodyBytes);
+    } catch (_) {
+      return null;
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWatchProgress({
+    http.Client? client,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return const [];
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient.get(
+        Uri.parse('$baseUrl/watch-progress'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return const [];
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<bool> pushWatchProgress({
+    required String contentKey,
+    required String title,
+    required String contentType,
+    required int positionSeconds,
+    int durationSeconds = 0,
+    String? streamUrl,
+    http.Client? client,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .put(
+            Uri.parse('$baseUrl/watch-progress'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'items': [
+                {
+                  'content_key': contentKey,
+                  'title': title,
+                  'content_type': contentType,
+                  'position_seconds': positionSeconds,
+                  'duration_seconds': durationSeconds,
+                  if (streamUrl != null &&
+                      (streamUrl.startsWith('http://') ||
+                          streamUrl.startsWith('https://')))
+                    'stream_url': streamUrl,
+                },
+              ],
+            }),
+          )
+          .timeout(_timeout);
+      return res.statusCode >= 200 && res.statusCode < 300;
+    } catch (_) {
+      return false;
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
   /// Builds a privacy-safe sync payload: NEVER includes local filesystem paths.
   static Map<String, dynamic> buildSafeSyncPayload({
     required List<M3uPlaylist> playlists,

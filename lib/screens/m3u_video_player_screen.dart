@@ -642,14 +642,49 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                 ),
               );
 
-    return PopScope(
-      canPop: !_isFullscreenLandscape,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _isFullscreenLandscape) {
-          setState(() => _setFullscreenMode(false));
-        }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.space): () {
+          final val = _activeVideoValue;
+          if (val == null || !val.isInitialized) return;
+          if (val.isPlaying) {
+            _videoPause();
+          } else {
+            _videoPlay();
+            _scheduleHideControls();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+          final val = _activeVideoValue;
+          if (val == null || !val.isInitialized || _isLiveStream) return;
+          final target = val.position - const Duration(seconds: 10);
+          _videoSeek(target < Duration.zero ? Duration.zero : target);
+          _showGestureHud(Icons.replay_10_rounded, '-10 dtk');
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+          final val = _activeVideoValue;
+          if (val == null || !val.isInitialized || _isLiveStream) return;
+          final target = val.position + const Duration(seconds: 10);
+          final clamped = target > val.duration ? val.duration : target;
+          _videoSeek(clamped);
+          _showGestureHud(Icons.forward_10_rounded, '+10 dtk');
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF): () {
+          setState(() => _setFullscreenMode(!_isFullscreenLandscape));
+        },
       },
-      child: scaffoldContent,
+      child: Focus(
+        autofocus: true,
+        child: PopScope(
+          canPop: !_isFullscreenLandscape,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && _isFullscreenLandscape) {
+              setState(() => _setFullscreenMode(false));
+            }
+          },
+          child: scaffoldContent,
+        ),
+      ),
     );
   }
 

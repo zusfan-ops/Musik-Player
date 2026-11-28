@@ -335,7 +335,7 @@
         <!-- Panel: Sumber M3U -->
         <section id="panel-m3u" class="panel">
             <div class="card">
-                <h2>Tambah Sumber M3U (Link URL atau Upload File .m3u/.m3u8)</h2>
+                <h2>CMS Katalog M3U (Link URL atau Upload File .m3u/.m3u8)</h2>
                 <form method="POST" action="{{ route('admin.m3u-sources.store') }}" enctype="multipart/form-data">
                     @csrf
                     <div class="form-row">
@@ -352,6 +352,17 @@
                             <option value="file">Upload File (.m3u / .m3u8)</option>
                         </select>
                     </div>
+                    <div class="form-row">
+                        <input name="region" placeholder="Wilayah (mis. Jawa Tengah)">
+                        <input name="city" placeholder="Kota (mis. Semarang)">
+                        <input name="language" placeholder="Bahasa (mis. Indonesia)">
+                        <select name="status">
+                            <option value="published">Publish Langsung</option>
+                            <option value="draft">Simpan sebagai Draft</option>
+                            <option value="scheduled">Jadwalkan Publikasi</option>
+                        </select>
+                    </div>
+                    <input type="datetime-local" name="scheduled_at" placeholder="Jadwal Publish (jika scheduled)">
                     <div id="m3u-url-wrap">
                         <input name="source_url" placeholder="https://example.com/playlist.m3u8">
                     </div>
@@ -363,26 +374,54 @@
             </div>
 
             <div class="card">
-                <h2>Daftar Sumber M3U Backend ({{ $m3uSources->count() }})</h2>
+                <h2>Daftar Katalog M3U Backend ({{ $m3uSources->count() }})</h2>
                 <table>
-                    <thead><tr><th>Nama</th><th>Kategori</th><th>Tipe</th><th>Sumber</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Nama &amp; Wilayah</th><th>Status CMS</th><th>Stream</th><th>Sumber</th><th>Versi / Aksi</th></tr></thead>
                     <tbody>
                     @forelse ($m3uSources as $src)
                         <tr>
-                            <td><strong>{{ $src->name }}</strong></td>
-                            <td><span class="pill">{{ $src->category }}</span></td>
-                            <td>{{ strtoupper($src->source_type) }}</td>
-                            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            <td>
+                                <strong>{{ $src->name }}</strong>
+                                <div style="font-size:11.5px;color:var(--muted);">
+                                    {{ $src->category }}
+                                    @if ($src->city || $src->region) &bull; {{ $src->city ?? $src->region }} @endif
+                                    @if ($src->language) &bull; {{ $src->language }} @endif
+                                </div>
+                            </td>
+                            <td>
+                                <span class="pill">{{ strtoupper($src->status ?? 'published') }}</span>
+                                <div style="font-size:11px;color:var(--muted);">{{ $src->is_active ? 'Aktif' : 'Nonaktif' }}</div>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ route('admin.m3u-sources.stream-status', $src) }}" style="display:flex;gap:4px;align-items:center;">
+                                    @csrf
+                                    <select name="stream_status" style="margin:0;width:auto;padding:4px 6px;font-size:11.5px;">
+                                        @foreach (['online', 'degraded', 'offline'] as $st)
+                                            <option value="{{ $st }}" @selected(($src->stream_status ?? 'online') === $st)>{{ $st }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button class="btn-sec" type="submit" style="padding:4px 8px;font-size:11px;">Set</button>
+                                </form>
+                            </td>
+                            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                                 {{ $src->source_type === 'url' ? $src->source_url : basename((string) $src->file_path) }}
                             </td>
-                            <td>{{ $src->is_active ? 'Aktif' : 'Nonaktif' }}</td>
                             <td>
+                                @if (($src->status ?? 'published') !== 'published')
+                                    <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.publish', $src) }}">@csrf<button class="btn-sec" type="submit">Publish</button></form>
+                                @endif
                                 <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.toggle', $src) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
+                                @if ($src->versions->count() > 1)
+                                    @php $prevVer = $src->versions->skip(1)->first(); @endphp
+                                    @if ($prevVer)
+                                        <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.rollback', [$src, $prevVer]) }}">@csrf<button class="btn-sec" type="submit">Rollback v{{ $prevVer->version_number }}</button></form>
+                                    @endif
+                                @endif
                                 <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.delete', $src) }}">@csrf @method('DELETE')<button class="btn" type="submit">Hapus</button></form>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" style="color:var(--muted);">Belum ada sumber M3U di backend.</td></tr>
+                        <tr><td colspan="5" style="color:var(--muted);">Belum ada sumber M3U di backend.</td></tr>
                     @endforelse
                     </tbody>
                 </table>

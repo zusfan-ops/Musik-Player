@@ -10,10 +10,12 @@ use App\Models\SyncedFavorite;
 use App\Models\SyncedPlaylist;
 use App\Models\SyncedPlaylistItem;
 use App\Models\SyncedSetting;
+use App\Models\WatchProgress;
 use App\Support\SyncSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SyncController extends Controller
 {
@@ -315,9 +317,73 @@ class SyncController extends Controller
             $user->syncedPlaylists()->forceDelete();
             $user->syncedFavorites()->delete();
             $user->syncedSetting()->delete();
+            WatchProgress::where('user_id', $user->id)->delete();
             $user->update(['sync_revision' => 0]);
         });
 
         return response()->json(['message' => 'Seluruh data sinkronisasi telah dihapus.']);
+    }
+
+    public function watchProgressIndex(Request $request): JsonResponse
+    {
+        $items = WatchProgress::where('user_id', $request->user()->id)
+            ->orderByDesc('updated_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (WatchProgress $w) => [
+                'content_key' => $w->content_key,
+                'title' => $w->title,
+                'content_type' => $w->content_type,
+                'position_seconds' => $w->position_seconds,
+                'duration_seconds' => $w->duration_seconds,
+                'stream_url' => $w->stream_url,
+                'updated_at' => $w->updated_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['data' => $items]);
+    }
+
+    public function watchProgressUpsert(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:50'],
+            'items.*.content_key' => ['required', 'string', 'max:120'],
+            'items.*.title' => ['required', 'string', 'max:200'],
+            'items.*.content_type' => ['required', 'in:video,series,stream'],
+            'items.*.position_seconds' => ['required', 'integer', 'min:0', 'max:864000'],
+            'items.*.duration_seconds' => ['nullable', 'integer', 'min:0', 'max:864000'],
+            'items.*.stream_url' => ['nullable', 'string', 'max:1024'],
+        ]);
+
+        $userId = $request->user()->id;
+        $saved = 0;
+
+        foreach ($data['items'] as $item) {
+            $safeUrl = null;
+            if (!empty($item['stream_url'])) {
+                try {
+                    $safeUrl = SyncSanitizer::sanitizeRemoteUrl((string) $item['stream_url'], 'stream_url');
+                } catch (ValidationException) {
+                    $safeUrl = null;
+                }
+            }
+
+            WatchProgress::updateOrCreate(
+                [
+                    'user_id' => $userId,
+                    'content_key' => $item['content_key'],
+                ],
+                [
+                    'title' => $item['title'],
+                    'content_type' => $item['content_type'],
+                    'position_seconds' => $item['position_seconds'],
+                    'duration_seconds' => $item['duration_seconds'] ?? 0,
+                    'stream_url' => $safeUrl,
+                ]
+            );
+            $saved++;
+        }
+
+        return response()->json(['saved' => $saved]);
     }
 }

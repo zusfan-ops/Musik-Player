@@ -9,6 +9,7 @@ use App\Models\Announcement;
 use App\Models\AppRelease;
 use App\Models\FeedbackReport;
 use App\Models\M3uSource;
+use App\Models\M3uSourceVersion;
 use App\Models\User;
 use App\Models\UserDevice;
 use Illuminate\Http\RedirectResponse;
@@ -86,7 +87,7 @@ class AdminController extends Controller
         $user = $request->user();
         $announcements = Announcement::orderBy('sort_order')->orderByDesc('updated_at')->get();
         $releases = AppRelease::orderByDesc('build_number')->orderBy('platform')->get();
-        $m3uSources = M3uSource::orderByDesc('updated_at')->get();
+        $m3uSources = M3uSource::with('versions')->orderByDesc('updated_at')->get();
         $feedbacks = FeedbackReport::orderByDesc('created_at')->limit(50)->get();
         $auditLogs = AdminAuditLog::with('adminUser')->orderByDesc('created_at')->limit(30)->get();
         $users = $user->role === User::ROLE_SUPER_ADMIN
@@ -233,6 +234,11 @@ class AdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'category' => ['required', 'string', 'max:60'],
+            'region' => ['nullable', 'string', 'max:80'],
+            'city' => ['nullable', 'string', 'max:80'],
+            'language' => ['nullable', 'string', 'max:40'],
+            'status' => ['sometimes', 'in:draft,published,scheduled'],
+            'scheduled_at' => ['nullable', 'date', 'required_if:status,scheduled'],
             'source_type' => ['required', 'in:url,file'],
             'source_url' => ['nullable', 'url', 'max:1024', 'required_if:source_type,url'],
             'm3u_file' => ['nullable', 'file', 'max:5120', 'required_if:source_type,file'],
@@ -260,23 +266,123 @@ class AdminController extends Controller
             $sha = hash('sha256', $bytes);
         }
 
+        $status = $data['status'] ?? 'published';
         $src = M3uSource::create([
             'name' => trim($data['name']),
             'category' => trim($data['category']),
+            'region' => isset($data['region']) ? trim((string) $data['region']) ?: null : null,
+            'city' => isset($data['city']) ? trim((string) $data['city']) ?: null : null,
+            'language' => isset($data['language']) ? trim((string) $data['language']) ?: null : null,
             'source_type' => $data['source_type'],
             'source_url' => $sourceUrl,
             'file_path' => $filePath,
             'content_sha256' => $sha,
             'is_active' => true,
+            'status' => $status,
+            'stream_status' => 'online',
+            'scheduled_at' => $status === 'scheduled' ? ($data['scheduled_at'] ?? null) : null,
+            'published_at' => $status === 'published' ? now() : null,
+            'created_by' => $request->user()->id,
+        ]);
+
+        M3uSourceVersion::create([
+            'm3u_source_id' => $src->id,
+            'version_number' => 1,
+            'name' => $src->name,
+            'category' => $src->category,
+            'region' => $src->region,
+            'city' => $src->city,
+            'language' => $src->language,
+            'source_type' => $src->source_type,
+            'source_url' => $src->source_url,
+            'file_path' => $src->file_path,
+            'content_sha256' => $src->content_sha256,
+            'status' => $src->status,
             'created_by' => $request->user()->id,
         ]);
 
         $this->audit($request->user(), 'm3u_source_created', 'm3u_source', (string) $src->id, [
             'name' => $src->name,
             'source_type' => $src->source_type,
+            'status' => $src->status,
         ]);
 
-        return back()->with('status', "Sumber M3U \"{$src->name}\" berhasil disimpan.");
+        return back()->with('status', "Sumber M3U \"{$src->name}\" ({$src->status}) berhasil disimpan.");
+    }
+
+    public function publishM3uSource(Request $request, M3uSource $m3uSource): RedirectResponse
+    {
+        $m3uSource->update([
+            'status' => 'published',
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+        $this->snapshotM3uVersion($m3uSource, $request->user()->id);
+        $this->audit($request->user(), 'm3u_source_published', 'm3u_source', (string) $m3uSource->id);
+
+        return back()->with('status', "Sumber M3U \"{$m3uSource->name}\" dipublikasikan.");
+    }
+
+    public function updateM3uStreamStatus(Request $request, M3uSource $m3uSource): RedirectResponse
+    {
+        $data = $request->validate([
+            'stream_status' => ['required', 'in:online,degraded,offline'],
+            'status_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $m3uSource->update([
+            'stream_status' => $data['stream_status'],
+            'status_reason' => $data['status_reason'] ?: null,
+        ]);
+        $this->audit($request->user(), 'm3u_stream_status_updated', 'm3u_source', (string) $m3uSource->id, $data);
+
+        return back()->with('status', 'Status stream M3U diperbarui.');
+    }
+
+    public function rollbackM3uSource(Request $request, M3uSource $m3uSource, M3uSourceVersion $version): RedirectResponse
+    {
+        if ($version->m3u_source_id !== $m3uSource->id) {
+            return back()->withErrors(['m3u' => 'Versi tidak cocok dengan sumber M3U ini.']);
+        }
+
+        $m3uSource->update([
+            'name' => $version->name,
+            'category' => $version->category,
+            'region' => $version->region,
+            'city' => $version->city,
+            'language' => $version->language,
+            'source_type' => $version->source_type,
+            'source_url' => $version->source_url,
+            'file_path' => $version->file_path,
+            'content_sha256' => $version->content_sha256,
+            'status' => $version->status,
+        ]);
+        $this->snapshotM3uVersion($m3uSource, $request->user()->id);
+        $this->audit($request->user(), 'm3u_source_rolled_back', 'm3u_source', (string) $m3uSource->id, [
+            'version_number' => $version->version_number,
+        ]);
+
+        return back()->with('status', "Sumber M3U dikembalikan ke versi v{$version->version_number}.");
+    }
+
+    private function snapshotM3uVersion(M3uSource $src, ?int $userId): void
+    {
+        $nextVer = ((int) M3uSourceVersion::where('m3u_source_id', $src->id)->max('version_number')) + 1;
+        M3uSourceVersion::create([
+            'm3u_source_id' => $src->id,
+            'version_number' => $nextVer,
+            'name' => $src->name,
+            'category' => $src->category,
+            'region' => $src->region,
+            'city' => $src->city,
+            'language' => $src->language,
+            'source_type' => $src->source_type,
+            'source_url' => $src->source_url,
+            'file_path' => $src->file_path,
+            'content_sha256' => $src->content_sha256,
+            'status' => $src->status,
+            'created_by' => $userId,
+        ]);
     }
 
     public function toggleM3uSource(Request $request, M3uSource $m3uSource): RedirectResponse

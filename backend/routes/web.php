@@ -23,6 +23,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/releases', [AdminController::class, 'storeRelease'])->name('releases.store');
             Route::post('/m3u-sources', [AdminController::class, 'storeM3uSource'])->name('m3u-sources.store');
             Route::post('/m3u-sources/{m3uSource}/toggle', [AdminController::class, 'toggleM3uSource'])->name('m3u-sources.toggle');
+            Route::post('/m3u-sources/{m3uSource}/publish', [AdminController::class, 'publishM3uSource'])->name('m3u-sources.publish');
+            Route::post('/m3u-sources/{m3uSource}/stream-status', [AdminController::class, 'updateM3uStreamStatus'])->name('m3u-sources.stream-status');
+            Route::post('/m3u-sources/{m3uSource}/rollback/{version}', [AdminController::class, 'rollbackM3uSource'])->name('m3u-sources.rollback');
             Route::delete('/m3u-sources/{m3uSource}', [AdminController::class, 'deleteM3uSource'])->name('m3u-sources.delete');
         });
 

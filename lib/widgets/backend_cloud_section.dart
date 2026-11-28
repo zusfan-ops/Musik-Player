@@ -337,6 +337,95 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
     confirmPassCtrl.dispose();
   }
 
+  Future<void> _showDevicesDialog() async {
+    setState(() => _busy = true);
+    var devices = await _api.fetchDevices();
+    if (mounted) setState(() => _busy = false);
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Perangkat & Sesi Aktif'),
+          content: SizedBox(
+            width: 380,
+            child: devices.isEmpty
+                ? const Text('Belum ada perangkat terdaftar atau sedang offline.')
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: devices.map((d) {
+                      final id = (d['id'] as num?)?.toInt() ?? 0;
+                      final name = d['device_name']?.toString() ?? 'Perangkat';
+                      final plat = d['platform']?.toString() ?? '-';
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.devices_rounded),
+                        title: Text(name, style: const TextStyle(fontSize: 13.5)),
+                        subtitle: Text(plat, style: const TextStyle(fontSize: 11.5)),
+                        trailing: id > 0
+                            ? TextButton(
+                                onPressed: () async {
+                                  final ok = await _api.revokeDevice(id);
+                                  if (ok) {
+                                    devices = await _api.fetchDevices();
+                                    if (ctx.mounted) setDlg(() {});
+                                  }
+                                },
+                                child: const Text(
+                                  'Cabut',
+                                  style: TextStyle(color: AppColors.netflixRed),
+                                ),
+                              )
+                            : null,
+                      );
+                    }).toList(),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportAccountData() async {
+    setState(() => _busy = true);
+    final raw = await _api.exportAccountData();
+    if (mounted) setState(() => _busy = false);
+    if (raw == null) {
+      _snack('Gagal mengekspor data akun (pastikan terhubung ke server).');
+      return;
+    }
+    try {
+      const fileName = 'mediacenter-account-export.json';
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Ekspor Data Akun MediaCenter',
+          fileName: fileName,
+          bytes: Uint8List.fromList(utf8.encode(raw)),
+        );
+        if (uri != null) _snack('Data akun diekspor ke $fileName.');
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final file = File(p.join(tempDir.path, fileName));
+        await file.writeAsString(raw);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/json')],
+            subject: 'Ekspor Data Akun MediaCenter',
+          ),
+        );
+      }
+    } catch (e) {
+      _snack('Gagal menyimpan file ekspor: $e');
+    }
+  }
+
   Future<void> _showFeedbackDialog({
     String initialCategory = 'complaint',
     String dialogTitle = 'Ajukan Keluhan / Masalah',
@@ -501,6 +590,16 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                     onPressed: _busy ? null : _showEditAccountDialog,
                     icon: const Icon(Icons.manage_accounts_rounded, size: 18),
                     label: const Text('Edit Akun & Sandi'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _showDevicesDialog,
+                    icon: const Icon(Icons.devices_rounded, size: 18),
+                    label: const Text('Perangkat & Sesi'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _exportAccountData,
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    label: const Text('Ekspor Data Akun'),
                   ),
                   OutlinedButton(
                     onPressed: _busy
