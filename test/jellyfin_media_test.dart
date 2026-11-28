@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musik_m3u_player/models/jellyfin_profile_models.dart';
+import 'package:musik_m3u_player/models/music_models.dart';
+import 'package:musik_m3u_player/services/backend_api_service.dart';
 import 'package:musik_m3u_player/services/github_m3u_sync_service.dart';
 import 'package:musik_m3u_player/services/jellyfin_service.dart';
 import 'package:musik_m3u_player/services/update_checker_service.dart';
@@ -115,5 +117,39 @@ void main() {
       isTv: false,
     );
     expect(phoneAsset?['name'], 'M3UMusik-v1.11.1-arm64-v8a.apk');
+  });
+
+  test('BackendApiService sync payload never leaks local device file paths', () {
+    final localTrack = TrackItem(
+      id: 'trk-local',
+      title: 'Lagu Lokal',
+      artist: 'Artis',
+      album: 'Album',
+      sourceType: TrackSourceType.localFile,
+      pathOrUrl: r'C:\Users\Lenovo\Music\secret_folder\lagu.mp3',
+      directoryPath: r'C:\Users\Lenovo\Music\secret_folder',
+      directoryName: 'secret_folder',
+    );
+    final localPlaylist = M3uPlaylist(
+      id: 'pl-local',
+      name: 'Playlist Lokal',
+      sourceType: M3uSourceType.file,
+      sourceLocation: '/storage/emulated/0/Music/list.m3u',
+      tracks: [localTrack],
+      updatedAt: DateTime(2026),
+    );
+
+    final payload = BackendApiService.buildSafeSyncPayload(
+      playlists: [localPlaylist],
+      favorites: [localTrack],
+      themeMode: 'dark',
+      shuffleEnabled: false,
+      repeatMode: 'off',
+    );
+    final encoded = payload.toString();
+    expect(encoded.contains(r'C:\Users'), isFalse);
+    expect(encoded.contains('/storage/emulated/0'), isFalse);
+    expect(encoded.contains('metadata_only'), isTrue);
+    expect(encoded.contains('local_metadata'), isTrue);
   });
 }

@@ -7,6 +7,7 @@ import '../providers/music_provider.dart';
 import '../providers/profile_jellyfin_provider.dart';
 import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/backend_cloud_section.dart';
 import '../widgets/user_avatar_widget.dart';
 import 'driving_mode_screen.dart';
 import 'onboarding_screen.dart';
@@ -520,6 +521,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               onTap: () => OnboardingScreen.show(context),
             ),
           ),
+
+          const SizedBox(height: 18),
+
+          const BackendCloudSection(),
 
           const SizedBox(height: 18),
 

@@ -1,0 +1,409 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/music_provider.dart';
+import '../services/backend_api_service.dart';
+import '../theme/app_theme.dart';
+
+/// Optional Cloud Account, Cross-Device Sync, Announcements, Analytics Opt-In,
+/// and Privacy Controls for ProfileSettingsScreen (strictly guest-first).
+class BackendCloudSection extends StatefulWidget {
+  const BackendCloudSection({super.key});
+
+  @override
+  State<BackendCloudSection> createState() => _BackendCloudSectionState();
+}
+
+class _BackendCloudSectionState extends State<BackendCloudSection> {
+  final _api = BackendApiService.instance;
+  bool _isLoggedIn = false;
+  String? _email;
+  String? _name;
+  bool _analyticsOptIn = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadState());
+  }
+
+  Future<void> _loadState() async {
+    final acc = await _api.getAccountState();
+    final optIn = await _api.isAnalyticsOptedIn();
+    if (!mounted) return;
+    setState(() {
+      _isLoggedIn = acc.isLoggedIn;
+      _email = acc.email;
+      _name = acc.name;
+      _analyticsOptIn = optIn;
+    });
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _showAuthDialog({bool isRegister = false}) async {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool registerMode = isRegister;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: Text(registerMode ? 'Daftar Akun (Opsional)' : 'Masuk Akun Cloud'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Login bersifat opsional untuk sinkronisasi metadata playlist & favorit. Aplikasi tetap berjalan penuh secara offline.',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              if (registerMode) ...[
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nama'),
+                ),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Kata Sandi (min. 8 karakter)'),
+              ),
+              TextButton(
+                onPressed: () => setDlg(() => registerMode = !registerMode),
+                child: Text(
+                  registerMode
+                      ? 'Sudah punya akun? Masuk'
+                      : 'Belum punya akun? Daftar',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final err = registerMode
+                    ? await _api.register(
+                        name: nameCtrl.text,
+                        email: emailCtrl.text,
+                        password: passCtrl.text,
+                      )
+                    : await _api.login(
+                        email: emailCtrl.text,
+                        password: passCtrl.text,
+                      );
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                await _loadState();
+                _snack(err ?? 'Berhasil terhubung ke akun cloud!');
+              },
+              child: Text(registerMode ? 'Daftar' : 'Masuk'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFeedbackDialog() async {
+    final msgCtrl = TextEditingController();
+    String category = 'bug';
+    bool diagnosticsConsent = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Kirim Laporan / Feedback'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: category,
+                items: const [
+                  DropdownMenuItem(value: 'bug', child: Text('Bug / Error')),
+                  DropdownMenuItem(value: 'playback', child: Text('Pemutaran Media')),
+                  DropdownMenuItem(value: 'feature', child: Text('Saran Fitur')),
+                  DropdownMenuItem(value: 'other', child: Text('Lainnya')),
+                ],
+                onChanged: (v) => setDlg(() => category = v ?? 'bug'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: msgCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Tulis kendala atau saran Anda...',
+                ),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: diagnosticsConsent,
+                onChanged: (v) => setDlg(() => diagnosticsConsent = v ?? false),
+                title: const Text(
+                  'Sertakan info platform dasar (tanpa daftar musik/path)',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (msgCtrl.text.trim().length < 5) {
+                  _snack('Pesan minimal 5 karakter.');
+                  return;
+                }
+                Navigator.pop(ctx);
+                final res = await _api.submitFeedback(
+                  category: category,
+                  message: msgCtrl.text,
+                  diagnosticsConsent: diagnosticsConsent,
+                );
+                _snack(res);
+              },
+              child: const Text('Kirim'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final music = context.read<MusicProvider>();
+    return Material(
+      color: AppColors.card(context),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: AppColors.isDark(context)
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_sync_rounded, color: AppColors.spotifyGreen),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isLoggedIn
+                            ? 'Akun Cloud: ${_name ?? _email ?? "Aktif"}'
+                            : 'Mode Guest (Offline-First)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                          color: AppColors.text(context),
+                        ),
+                      ),
+                      Text(
+                        _isLoggedIn
+                            ? (_email ?? 'Sinkronisasi opt-in aktif')
+                            : 'Musik lokal & M3U tetap berjalan penuh tanpa akun',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.subtext(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (!_isLoggedIn)
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : () => _showAuthDialog(),
+                    icon: const Icon(Icons.login_rounded, size: 18),
+                    label: const Text('Masuk / Daftar (Opsional)'),
+                  )
+                else ...[
+                  FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            setState(() => _busy = true);
+                            final msg = await _api.syncNow(music);
+                            if (mounted) setState(() => _busy = false);
+                            _snack(msg);
+                          },
+                    icon: const Icon(Icons.sync_rounded, size: 18),
+                    label: const Text('Sinkronkan Sekarang'),
+                  ),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            await _api.logout();
+                            await _loadState();
+                            _snack('Keluar ke mode Guest.');
+                          },
+                    child: const Text('Keluar'),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final err = await _api.deleteAccount();
+                            await _loadState();
+                            _snack(err ?? 'Akun & data cloud telah dihapus.');
+                          },
+                    child: const Text(
+                      'Hapus Akun',
+                      style: TextStyle(color: AppColors.netflixRed),
+                    ),
+                  ),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final list = await _api.fetchAnnouncements();
+                    if (!context.mounted) return;
+                    showDialog<void>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Pengumuman'),
+                        content: SizedBox(
+                          width: 360,
+                          child: list.isEmpty
+                              ? const Text('Belum ada pengumuman terbaru atau perangkat offline.')
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: list
+                                      .map(
+                                        (a) => ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                          subtitle: Text(a.body),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Tutup'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.campaign_rounded, size: 18),
+                  label: const Text('Pengumuman'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _showFeedbackDialog,
+                  icon: const Icon(Icons.feedback_outlined, size: 18),
+                  label: const Text('Laporan / Feedback'),
+                ),
+              ],
+            ),
+            const Divider(height: 22),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _analyticsOptIn,
+              onChanged: (v) async {
+                await _api.setAnalyticsOptIn(v);
+                if (mounted) setState(() => _analyticsOptIn = v);
+                _snack(v
+                    ? 'Analitik anonim diaktifkan (tanpa data file/URL pribadi).'
+                    : 'Analitik dimatikan.');
+              },
+              title: Text(
+                'Analitik Penggunaan Anonim (Opt-In)',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text(context),
+                ),
+              ),
+              subtitle: Text(
+                'Hanya event agregat. Tidak pernah mengirim path lokal, judul lagu, atau URL playlist.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.subtext(context)),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                TextButton(
+                  onPressed: () async {
+                    final id = await _api.resetInstallationId();
+                    _snack('ID analitik direset ($id).');
+                  },
+                  child: const Text('Reset identitas analitik'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final msg = await _api.deleteDeviceAnalytics();
+                    _snack(msg);
+                  },
+                  child: const Text('Hapus data analitik perangkat ini'),
+                ),
+                TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Kebijakan Privasi Singkat'),
+                      content: const Text(
+                        '1. MediaCenter berjalan 100% offline & guest-first tanpa login.\n'
+                        '2. Path file lokal dan isi media pribadi tidak pernah diunggah.\n'
+                        '3. Token akun disimpan aman di Keystore/Credential Manager.\n'
+                        '4. Analitik bersifat opt-in dengan ID acak yang bisa direset atau dihapus kapan saja.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Tutup'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  child: const Text('Kebijakan Privasi'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: MediaCenter / M3U Musik Player API
+  version: 1.0.0
+  description: Guest-first, offline-first backend API for MediaCenter (Flutter Mobile, Android TV, Windows).
+servers:
+  - url: https://mediacenter.ordr.my.id/api/v1
+paths:
+  /health:
+    get:
+      summary: Health check (no secrets exposed)
+      responses:
+        '200': { description: OK }
+  /app-config:
+    get:
+      summary: Public guest-first app configuration & privacy summary
+      responses:
+        '200': { description: App config }
+  /announcements:
+    get:
+      summary: Active scheduled announcements (supports ETag)
+      responses:
+        '200': { description: Announcement list }
+        '304': { description: Not Modified }
+  /releases/latest:
+    get:
+      summary: Latest release metadata for platform/abi
+      parameters:
+        - name: platform
+          in: query
+          schema: { type: string, enum: [android, android_tv, windows] }
+        - name: abi
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Release metadata }
+  /analytics/events:
+    post:
+      summary: Submit opt-in pseudonymous analytics event batch
+      responses:
+        '202': { description: Accepted }
+  /analytics/installation/{installationId}:
+    delete:
+      summary: Delete analytics history for an installation ID
+      parameters:
+        - name: installationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+  /feedback:
+    post:
+      summary: Submit voluntary bug/feature report
+      responses:
+        '201': { description: Created }
+  /auth/register:
+    post:
+      summary: Optional account registration (returns Sanctum Bearer token)
+      responses:
+        '201': { description: Registered }
+  /auth/login:
+    post:
+      summary: Optional login (returns Sanctum Bearer token)
+      responses:
+        '200': { description: Logged in }
+        '401': { description: Invalid credentials }
+  /auth/logout:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Revoke current token & device session
+      responses:
+        '200': { description: Logged out }
+  /auth/refresh:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Rotate Sanctum Bearer token
+      responses:
+        '200': { description: Token refreshed }
+  /auth/forgot-password:
+    post:
+      summary: Request password reset email
+      responses:
+        '200': { description: Request accepted }
+  /auth/reset-password:
+    post:
+      summary: Reset password with token
+      responses:
+        '200': { description: Password reset }
+  /me:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Current user profile
+      responses:
+        '200': { description: Profile }
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update profile / password / analytics opt-in
+      responses:
+        '200': { description: Updated }
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Delete account and all synced data
+      responses:
+        '200': { description: Deleted }
+  /me/devices:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List active logged-in devices
+      responses:
+        '200': { description: Device list }
+  /me/devices/{device}:
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Revoke specific device session
+      parameters:
+        - name: device
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Revoked }
+  /me/export:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Export user account and synced data JSON
+      responses:
+        '200': { description: Exported JSON }
+  /sync:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Fetch full synced playlists, favorites, and settings
+      responses:
+        '200': { description: Sync snapshot }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Upsert synced data with revision conflict detection (207 if conflicts)
+      responses:
+        '200': { description: Synced }
+        '207': { description: Partial sync with conflicts }
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Delete all synced data for current user
+      responses:
+        '200': { description: Deleted }
+  /playlists:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List synced playlists
+      responses:
+        '200': { description: Paginated playlists }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create synced playlist
+      responses:
+        '201': { description: Created }
+  /playlists/{playlist}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Get single synced playlist
+      responses:
+        '200': { description: Playlist }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Update synced playlist (returns 409 on revision conflict)
+      responses:
+        '200': { description: Updated }
+        '409': { description: Revision conflict }
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Delete synced playlist
+      responses:
+        '200': { description: Deleted }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
