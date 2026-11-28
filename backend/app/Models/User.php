@@ -23,9 +23,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
         'role',
         'is_active',
+        'suspended_until',
+        'suspension_reason',
         'sync_revision',
         'analytics_opted_in',
     ];
@@ -41,9 +44,23 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'suspended_until' => 'datetime',
             'sync_revision' => 'integer',
             'analytics_opted_in' => 'boolean',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        if (!$this->is_active) {
+            return true;
+        }
+        return $this->suspended_until !== null && $this->suspended_until->isFuture();
+    }
+
+    public function store(): HasOne
+    {
+        return $this->hasOne(Store::class);
     }
 
     public function isAdmin(): bool

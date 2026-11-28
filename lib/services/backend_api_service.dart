@@ -135,11 +135,28 @@ class BackendApiService {
     required String name,
     required String email,
     required String password,
+    String? phone,
+    bool activateStore = false,
+    String? storeName,
+    String? storeSlug,
+    String? storeType,
+    String? storeAddress,
+    int? tablesCount,
   }) async {
     return _authenticate('/auth/register', {
       'name': name.trim(),
       'email': email.trim(),
       'password': password,
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      'activate_store': activateStore,
+      if (activateStore) ...{
+        if (storeName != null) 'store_name': storeName.trim(),
+        if (storeSlug != null) 'store_slug': storeSlug.trim().toLowerCase(),
+        if (storeType != null) 'store_type': storeType,
+        if (storeAddress != null && storeAddress.trim().isNotEmpty)
+          'store_address': storeAddress.trim(),
+        if (tablesCount != null) 'tables_count': tablesCount,
+      },
       'device_name': 'MediaCenter $_platformName',
       'platform': _platformName,
     });
@@ -682,6 +699,353 @@ class BackendApiService {
       return 'Gagal mengirim laporan (HTTP ${res.statusCode}).';
     } catch (e) {
       return 'Tidak dapat terhubung ke server: $e';
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDiscoverStores({
+    http.Client? client,
+  }) async {
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .get(
+            Uri.parse('$baseUrl/stores/discover'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return const [];
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchStoreDetail(
+    String slug, {
+    http.Client? client,
+  }) async {
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .get(
+            Uri.parse('$baseUrl/stores/${Uri.encodeComponent(slug)}'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<void> trackStoreView(String slug, {int? productId}) async {
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/stores/${Uri.encodeComponent(slug)}/track'),
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              if (productId != null) 'product_id': productId,
+            }),
+          )
+          .timeout(_timeout);
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNativeAds({
+    String placement = 'home_feed',
+    http.Client? client,
+  }) async {
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .get(
+            Uri.parse('$baseUrl/ads?placement=$placement'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return const [];
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<void> trackAdClick(int adId) async {
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/ads/$adId/click'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> fetchMyStore() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return null;
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/store/me'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> upsertMyStore({
+    required String name,
+    required String slug,
+    required String storeType,
+    String? description,
+    String? address,
+    double? latitude,
+    double? longitude,
+    String? whatsappNumber,
+    int tablesCount = 0,
+    List<Map<String, dynamic>>? products,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+    try {
+      final res = await http
+          .put(
+            Uri.parse('$baseUrl/store/me'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'name': name.trim(),
+              'slug': slug.trim().toLowerCase(),
+              'store_type': storeType,
+              if (description != null) 'description': description.trim(),
+              if (address != null) 'address': address.trim(),
+              if (latitude != null) 'latitude': latitude,
+              if (longitude != null) 'longitude': longitude,
+              if (whatsappNumber != null)
+                'whatsapp_number': whatsappNumber.trim(),
+              'tables_count': tablesCount,
+              if (products != null) 'products': products,
+            }),
+          )
+          .timeout(_timeout);
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded['message'] as String? ??
+          'Gagal menyimpan toko (HTTP ${res.statusCode}).';
+    } catch (e) {
+      return 'Gagal menghubungi server: $e';
+    }
+  }
+
+  Future<String?> updateStoreOrderStatus(int orderId, String status) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+    try {
+      final res = await http
+          .patch(
+            Uri.parse('$baseUrl/store/orders/$orderId'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'status': status}),
+          )
+          .timeout(_timeout);
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      return 'Gagal memperbarui status pesanan.';
+    } catch (e) {
+      return 'Gagal menghubungi server: $e';
+    }
+  }
+
+  Future<String?> bookCoffeeshopTable({
+    required String slug,
+    required String tableNumber,
+    required int guestsCount,
+    required DateTime bookingTime,
+    required String customerWhatsapp,
+    String? notes,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return 'Hanya user terdaftar yang dapat booking meja. Silakan login terlebih dahulu.';
+    }
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/stores/${Uri.encodeComponent(slug)}/bookings'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'table_number': tableNumber,
+              'guests_count': guestsCount,
+              'booking_time': bookingTime.toIso8601String(),
+              'customer_whatsapp': customerWhatsapp.trim(),
+              if (notes != null && notes.trim().isNotEmpty)
+                'notes': notes.trim(),
+            }),
+          )
+          .timeout(_timeout);
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode >= 200 && res.statusCode < 300) return null;
+      return decoded['message'] as String? ?? 'Gagal booking meja.';
+    } catch (e) {
+      return 'Gagal menghubungi server: $e';
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchFeedbackTickets({
+    http.Client? client,
+  }) async {
+    final activeClient = client ?? http.Client();
+    try {
+      final installId = await getOrCreateInstallationId();
+      final token = await getToken();
+      final uri = Uri.parse('$baseUrl/feedback').replace(
+        queryParameters: {'installation_id': installId},
+      );
+      final res = await activeClient
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final data = decoded['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {
+      return const [];
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<Map<String, dynamic>> submitFeedbackTicket({
+    required String category,
+    required String message,
+    bool diagnosticsConsent = false,
+  }) async {
+    try {
+      final installId = await getOrCreateInstallationId();
+      final token = await getToken();
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/feedback'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'installation_id': installId,
+              'category': category,
+              'message': message.trim(),
+              'platform': _platformName,
+              'diagnostics_consent': diagnosticsConsent,
+              if (diagnosticsConsent)
+                'diagnostics': {'platform': _platformName},
+            }),
+          )
+          .timeout(_timeout);
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return {
+          'ok': true,
+          'message': decoded['message'] ?? 'Laporan berhasil dikirim.',
+          'data': decoded['data'],
+        };
+      }
+      return {
+        'ok': false,
+        'message':
+            decoded['message'] ?? 'Gagal mengirim laporan (HTTP ${res.statusCode}).',
+      };
+    } catch (e) {
+      return {'ok': false, 'message': 'Tidak dapat terhubung ke server: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> replyFeedbackTicket({
+    required int ticketId,
+    required String message,
+  }) async {
+    try {
+      final installId = await getOrCreateInstallationId();
+      final token = await getToken();
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/feedback/$ticketId/reply'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'installation_id': installId,
+              'message': message.trim(),
+            }),
+          )
+          .timeout(_timeout);
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return {
+          'ok': true,
+          'message': decoded['message'] ?? 'Balasan terkirim.',
+          'data': decoded['data'],
+        };
+      }
+      return {
+        'ok': false,
+        'message': decoded['message'] ?? 'Gagal mengirim balasan.',
+      };
+    } catch (e) {
+      return {'ok': false, 'message': 'Tidak dapat terhubung ke server: $e'};
     }
   }
 }

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdCampaign;
 use App\Models\AdminAuditLog;
 use App\Models\AnalyticsEvent;
 use App\Models\Announcement;
 use App\Models\AppRelease;
+use App\Models\FeedbackMessage;
 use App\Models\FeedbackReport;
 use App\Models\M3uSource;
 use App\Models\M3uSourceVersion;
@@ -89,10 +91,11 @@ class AdminController extends Controller
         $announcements = Announcement::orderBy('sort_order')->orderByDesc('updated_at')->get();
         $releases = AppRelease::orderByDesc('build_number')->orderBy('platform')->get();
         $m3uSources = M3uSource::with('versions')->orderByDesc('updated_at')->get();
-        $feedbacks = FeedbackReport::orderByDesc('created_at')->limit(50)->get();
+        $ads = AdCampaign::orderByDesc('created_at')->get();
+        $feedbacks = FeedbackReport::with(['user', 'messages'])->orderByDesc('updated_at')->limit(50)->get();
         $auditLogs = AdminAuditLog::with('adminUser')->orderByDesc('created_at')->limit(30)->get();
         $users = $user->role === User::ROLE_SUPER_ADMIN
-            ? User::orderByDesc('created_at')->limit(50)->get()
+            ? User::with(['store.products'])->orderByDesc('created_at')->limit(100)->get()
             : collect();
 
         $recentPropsEvents = AnalyticsEvent::whereNotNull('properties')
@@ -218,6 +221,7 @@ class AdminController extends Controller
             'announcements',
             'releases',
             'm3uSources',
+            'ads',
             'feedbacks',
             'auditLogs',
             'users',
@@ -481,6 +485,37 @@ class AdminController extends Controller
         return back()->with('status', 'Status laporan diperbarui.');
     }
 
+    public function replyFeedback(Request $request, FeedbackReport $feedback): RedirectResponse
+    {
+        $data = $request->validate([
+            'body' => ['required', 'string', 'min:2', 'max:2000'],
+            'status' => ['nullable', 'in:open,in_review,resolved,closed'],
+        ]);
+
+        $admin = $request->user();
+        FeedbackMessage::create([
+            'feedback_report_id' => $feedback->id,
+            'sender_type' => 'admin',
+            'sender_id' => $admin->id,
+            'sender_name' => $admin->name ?? 'Admin',
+            'body' => trim($data['body']),
+        ]);
+
+        $feedback->admin_notes = trim($data['body']);
+        if (!empty($data['status'])) {
+            $feedback->status = $data['status'];
+        } elseif ($feedback->status === 'open') {
+            $feedback->status = 'in_review';
+        }
+        $feedback->save();
+
+        $this->audit($admin, 'feedback_replied', 'feedback_report', (string) $feedback->id, [
+            'status' => $feedback->status,
+        ]);
+
+        return back()->with('status', 'Balasan admin terkirim ke pengguna.');
+    }
+
     public function pruneAnalytics(Request $request): RedirectResponse
     {
         Artisan::call('analytics:prune');
@@ -494,12 +529,111 @@ class AdminController extends Controller
         if ($targetUser->id === $request->user()->id) {
             return back()->withErrors(['user' => 'Tidak dapat menonaktifkan akun sendiri.']);
         }
-        $targetUser->update(['is_active' => !$targetUser->is_active]);
-        if (!$targetUser->is_active) {
+        $nextActive = !$targetUser->is_active;
+        $targetUser->update([
+            'is_active' => $nextActive,
+            'suspended_until' => $nextActive ? null : $targetUser->suspended_until,
+            'suspension_reason' => $nextActive ? null : $targetUser->suspension_reason,
+        ]);
+        if (!$nextActive) {
             $targetUser->tokens()->delete();
         }
         $this->audit($request->user(), 'user_status_toggled', 'user', (string) $targetUser->id, ['is_active' => $targetUser->is_active]);
         return back()->with('status', 'Status pengguna diperbarui.');
+    }
+
+    public function suspendUser(Request $request, User $targetUser): RedirectResponse
+    {
+        if ($targetUser->id === $request->user()->id) {
+            return back()->withErrors(['user' => 'Tidak dapat mensuspend akun sendiri.']);
+        }
+
+        $data = $request->validate([
+            'mode' => ['required', 'in:temporary,permanent,unsuspend'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($data['mode'] === 'unsuspend') {
+            $targetUser->update([
+                'is_active' => true,
+                'suspended_until' => null,
+                'suspension_reason' => null,
+            ]);
+        } elseif ($data['mode'] === 'permanent') {
+            $targetUser->update([
+                'is_active' => false,
+                'suspended_until' => null,
+                'suspension_reason' => $data['reason'] ?? 'Pelanggaran kebijakan',
+            ]);
+            $targetUser->tokens()->delete();
+        } else {
+            $days = (int) ($data['days'] ?? 7);
+            $targetUser->update([
+                'is_active' => true,
+                'suspended_until' => now()->addDays($days),
+                'suspension_reason' => $data['reason'] ?? "Suspend sementara {$days} hari",
+            ]);
+            $targetUser->tokens()->delete();
+        }
+
+        $this->audit($request->user(), 'user_suspended', 'user', (string) $targetUser->id, $data);
+
+        return back()->with('status', "Status suspend pengguna {$targetUser->email} diperbarui.");
+    }
+
+    public function deleteUser(Request $request, User $targetUser): RedirectResponse
+    {
+        if ($targetUser->id === $request->user()->id) {
+            return back()->withErrors(['user' => 'Tidak dapat menghapus akun sendiri.']);
+        }
+
+        $email = $targetUser->email;
+        $id = $targetUser->id;
+        $targetUser->tokens()->delete();
+        $targetUser->delete();
+        $this->audit($request->user(), 'user_deleted', 'user', (string) $id, ['email' => $email]);
+
+        return back()->with('status', "Pengguna {$email} beserta tokonya berhasil dihapus.");
+    }
+
+    public function storeAd(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:140'],
+            'description' => ['nullable', 'string', 'max:300'],
+            'media_type' => ['required', 'in:image,video'],
+            'media_url' => ['required', 'url:http,https', 'max:1024'],
+            'target_url' => ['nullable', 'url:http,https', 'max:1024'],
+            'placement' => ['required', 'in:home_feed,store_feed'],
+        ]);
+
+        $ad = AdCampaign::create([
+            ...$data,
+            'is_active' => true,
+            'created_by' => $request->user()->id,
+        ]);
+
+        $this->audit($request->user(), 'ad_created', 'ad_campaign', (string) $ad->id, ['title' => $ad->title]);
+
+        return back()->with('status', 'Iklan berhasil ditambahkan.');
+    }
+
+    public function toggleAd(Request $request, AdCampaign $ad): RedirectResponse
+    {
+        $ad->update(['is_active' => !$ad->is_active]);
+        $this->audit($request->user(), 'ad_toggled', 'ad_campaign', (string) $ad->id, ['is_active' => $ad->is_active]);
+
+        return back()->with('status', 'Status iklan diperbarui.');
+    }
+
+    public function deleteAd(Request $request, AdCampaign $ad): RedirectResponse
+    {
+        $id = $ad->id;
+        $ad->delete();
+        $this->audit($request->user(), 'ad_deleted', 'ad_campaign', (string) $id);
+
+        return back()->with('status', 'Iklan dihapus.');
     }
 
     private function audit(User $admin, string $action, string $targetType, string $targetId, array $details = []): void

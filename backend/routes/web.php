@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\StorefrontController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
@@ -27,15 +28,29 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/m3u-sources/{m3uSource}/stream-status', [AdminController::class, 'updateM3uStreamStatus'])->name('m3u-sources.stream-status');
             Route::post('/m3u-sources/{m3uSource}/rollback/{version}', [AdminController::class, 'rollbackM3uSource'])->name('m3u-sources.rollback');
             Route::delete('/m3u-sources/{m3uSource}', [AdminController::class, 'deleteM3uSource'])->name('m3u-sources.delete');
+            Route::post('/ads', [AdminController::class, 'storeAd'])->name('ads.store');
+            Route::post('/ads/{ad}/toggle', [AdminController::class, 'toggleAd'])->name('ads.toggle');
+            Route::delete('/ads/{ad}', [AdminController::class, 'deleteAd'])->name('ads.delete');
         });
 
         Route::middleware('admin.role:super_admin,analytics_admin')->group(function () {
             Route::post('/feedback/{feedback}/status', [AdminController::class, 'updateFeedbackStatus'])->name('feedback.status');
+            Route::post('/feedback/{feedback}/reply', [AdminController::class, 'replyFeedback'])->name('feedback.reply');
             Route::post('/analytics/prune', [AdminController::class, 'pruneAnalytics'])->name('analytics.prune');
         });
 
         Route::middleware('admin.role:super_admin')->group(function () {
             Route::post('/users/{targetUser}/toggle', [AdminController::class, 'toggleUserActive'])->name('users.toggle');
+            Route::post('/users/{targetUser}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
+            Route::delete('/users/{targetUser}', [AdminController::class, 'deleteUser'])->name('users.delete');
         });
     });
 });
+
+// Public Storefront Domain Routes: https://mediacenter.ordr.my.id/{namatoko}
+Route::get('/{storeSlug}', [StorefrontController::class, 'show'])
+    ->where('storeSlug', '[a-z0-9\-]{3,64}')
+    ->name('storefront.show');
+Route::post('/{storeSlug}/order', [StorefrontController::class, 'placeOrder'])
+    ->where('storeSlug', '[a-z0-9\-]{3,64}')
+    ->name('storefront.order');

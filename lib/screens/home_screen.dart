@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
 import '../providers/profile_jellyfin_provider.dart';
+import '../services/backend_api_service.dart';
 import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/store_management_sheets.dart';
 import '../widgets/track_tile.dart';
 import '../widgets/user_avatar_widget.dart';
 import 'directories_screen.dart';
@@ -287,6 +289,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           _YouTubeOfflineSection(
                             onOpenYouTube: () => widget.onNavigateTab(3),
                           ),
+                        const SizedBox(height: 16),
+                        const _StoreDiscoveryAndAdsSection(),
                       ],
                     ),
                   ),
@@ -302,6 +306,13 @@ class _HomeScreenState extends State<HomeScreen> {
               playlists: playlists,
               directories: directories,
               onNavigateTab: widget.onNavigateTab,
+            ),
+          ),
+
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: _StoreDiscoveryAndAdsSection(),
             ),
           ),
 
@@ -2490,6 +2501,288 @@ class _YouTubeOfflineSection extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _StoreDiscoveryAndAdsSection extends StatefulWidget {
+  const _StoreDiscoveryAndAdsSection();
+
+  @override
+  State<_StoreDiscoveryAndAdsSection> createState() =>
+      _StoreDiscoveryAndAdsSectionState();
+}
+
+class _StoreDiscoveryAndAdsSectionState
+    extends State<_StoreDiscoveryAndAdsSection> {
+  List<Map<String, dynamic>> _stores = const [];
+  List<Map<String, dynamic>> _ads = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final results = await Future.wait([
+        BackendApiService.instance.fetchDiscoverStores(),
+        BackendApiService.instance.fetchNativeAds(placement: 'home_feed'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _stores = results[0];
+        _ads = results[1];
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  List<Widget> _buildMixedCards() {
+    final items = <Widget>[];
+    int adIndex = 0;
+
+    for (var i = 0; i < _stores.length; i++) {
+      items.add(_StoreDiscoveryCard(store: _stores[i]));
+      if ((i + 1) % 2 == 0 && adIndex < _ads.length) {
+        items.add(
+          SizedBox(
+            width: 280,
+            child: NativeAdCard(ad: _ads[adIndex]),
+          ),
+        );
+        adIndex++;
+      }
+    }
+
+    while (adIndex < _ads.length) {
+      items.add(
+        SizedBox(
+          width: 280,
+          child: NativeAdCard(ad: _ads[adIndex]),
+        ),
+      );
+      adIndex++;
+    }
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || (_stores.isEmpty && _ads.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+
+    final cards = _buildMixedCards();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.storefront_rounded,
+              color: Color(0xFF22C55E),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Toko & Rekomendasi Pilihan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Muat ulang toko',
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              color: Colors.white60,
+              onPressed: _loadData,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 218,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: cards.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (_, idx) => cards[idx],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StoreDiscoveryCard extends StatelessWidget {
+  const _StoreDiscoveryCard({required this.store});
+
+  final Map<String, dynamic> store;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = store['name']?.toString() ?? 'Toko';
+    final storeType = store['store_type']?.toString() ?? 'retail';
+    final address = store['address']?.toString() ?? '';
+    final isCoffeeshop = storeType.toLowerCase() == 'coffeeshop';
+    final hasGps = store['latitude'] != null && store['longitude'] != null;
+    final products = (store['products'] as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .take(3)
+            .toList() ??
+        const <Map<String, dynamic>>[];
+
+    return SizedBox(
+      width: 280,
+      child: Material(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => showStoreDetailSheet(context, store),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCoffeeshop
+                            ? const Color(0xFFEA580C).withValues(alpha: 0.2)
+                            : const Color(0xFF22C55E).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        storeType.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isCoffeeshop
+                              ? const Color(0xFFFB923C)
+                              : const Color(0xFF4ADE80),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (hasGps)
+                      const Icon(
+                        Icons.my_location_rounded,
+                        size: 14,
+                        color: Color(0xFF38BDF8),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (products.isEmpty)
+                  const Text(
+                    'Lihat profil & detail toko',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  )
+                else
+                  ...products.map(
+                    (p) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.circle,
+                            size: 5,
+                            color: Colors.white38,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              p['name']?.toString() ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Rp ${p['price'] ?? 0}',
+                            style: const TextStyle(
+                              color: Color(0xFF4ADE80),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Text(
+                      isCoffeeshop ? 'Detail & Booking Meja' : 'Lihat Produk',
+                      style: const TextStyle(
+                        color: Color(0xFF38BDF8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 14,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -17,7 +17,9 @@ import '../services/pos_customer_display_service.dart';
 import '../services/pos_pdf_service.dart';
 import '../services/pos_printer_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_guide_and_support_sheet.dart';
 import '../widgets/audio_waveform_visualizer.dart';
+import '../widgets/store_management_sheets.dart';
 import 'keuangan_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -138,6 +140,19 @@ class _PosScreenState extends State<PosScreen>
           ],
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: FilledButton.tonalIcon(
+              onPressed: () => showAppGuideAndSupportSheet(context),
+              icon: const Icon(Icons.support_agent_rounded, size: 18),
+              label: const Text('Bantuan'),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Toko Online & QR',
+            icon: const Icon(Icons.storefront_rounded),
+            onPressed: () => showStoreSettingsAndQrSheet(context),
+          ),
           if (PosCustomerDisplayService.instance.isSupported)
             ValueListenableBuilder<CustomerDisplayInfo>(
               valueListenable: PosCustomerDisplayService.instance.infoNotifier,

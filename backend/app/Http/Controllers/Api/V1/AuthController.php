@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\SyncFavoriteResource;
 use App\Http\Resources\SyncPlaylistResource;
 use App\Http\Resources\SyncSettingResource;
+use App\Models\Store;
 use App\Models\User;
 use App\Models\UserDevice;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AuthController extends Controller
@@ -22,19 +24,54 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', PasswordRule::min(8)],
             'device_name' => ['nullable', 'string', 'max:120'],
             'platform' => ['nullable', 'string', 'in:android,android_tv,windows,linux,macos,ios'],
             'app_version' => ['nullable', 'string', 'max:32'],
+            'activate_store' => ['sometimes', 'boolean'],
+            'store_name' => ['nullable', 'string', 'min:2', 'max:120', 'required_if:activate_store,true'],
+            'store_slug' => [
+                'nullable',
+                'string',
+                'min:3',
+                'max:64',
+                'regex:/^[a-z0-9\-]+$/',
+                Rule::notIn(Store::RESERVED_SLUGS),
+                'unique:stores,slug',
+                'required_if:activate_store,true',
+            ],
+            'store_type' => ['nullable', Rule::in(Store::TYPES)],
+            'store_address' => ['nullable', 'string', 'max:300'],
+            'tables_count' => ['nullable', 'integer', 'min:0', 'max:200'],
         ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => strtolower($data['email']),
-            'password' => $data['password'],
-            'role' => User::ROLE_USER,
-            'is_active' => true,
-        ]);
+        $user = DB::transaction(function () use ($data) {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => strtolower($data['email']),
+                'phone' => isset($data['phone']) ? trim((string) $data['phone']) ?: null : null,
+                'password' => $data['password'],
+                'role' => User::ROLE_USER,
+                'is_active' => true,
+            ]);
+
+            if (!empty($data['activate_store']) && !empty($data['store_name']) && !empty($data['store_slug'])) {
+                $storeType = $data['store_type'] ?? 'umum';
+                Store::create([
+                    'user_id' => $user->id,
+                    'name' => trim((string) $data['store_name']),
+                    'slug' => strtolower(trim((string) $data['store_slug'])),
+                    'store_type' => $storeType,
+                    'address' => $data['store_address'] ?? null,
+                    'whatsapp_number' => $user->phone,
+                    'tables_count' => $data['tables_count'] ?? ($storeType === 'coffeeshop' ? 10 : 0),
+                    'is_active' => true,
+                ]);
+            }
+
+            return $user;
+        });
 
         if (config('mail.default') && config('mail.default') !== 'log' && config('mail.default') !== 'array') {
             try {
@@ -72,10 +109,11 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if (!$user->is_active) {
+        if ($user->isSuspended()) {
+            $reason = $user->suspension_reason ? " ({$user->suspension_reason})" : '';
             return response()->json([
-                'message' => 'Akun dinonaktifkan.',
-                'error_code' => 'ACCOUNT_DISABLED',
+                'message' => "Akun sedang disuspend / dinonaktifkan{$reason}.",
+                'error_code' => 'ACCOUNT_SUSPENDED',
             ], 403);
         }
 

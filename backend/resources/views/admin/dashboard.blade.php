@@ -214,13 +214,18 @@
                     <span>Rilis Aplikasi</span>
                     <span class="nav-badge">{{ $releases->count() }}</span>
                 </button>
-                @endif
-                @if ($user->hasAdminRole(['analytics_admin']))
+                <button class="nav-btn" data-panel="ads">
+                    <span>Iklan Native</span>
+                    <span class="nav-badge">{{ $ads->count() }}</span>
+                </button>
+        @endif
+
+        @if ($user->hasAdminRole(['analytics_admin']))
                 <button class="nav-btn" data-panel="feedback">
                     <span>Laporan &amp; Feedback</span>
                     <span class="nav-badge">{{ $feedbacks->where('status', 'open')->count() }}</span>
                 </button>
-                @endif
+        @endif
                 <button class="nav-btn" data-panel="audit">
                     <span>Log Audit &amp; Pengguna</span>
                 </button>
@@ -422,7 +427,8 @@
                 </div>
             </div>
 
-            @if ($user->hasAdminRole(['analytics_admin']))
+
+        @if ($user->hasAdminRole(['analytics_admin']))
             <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
                 <div>
                     <h2 style="margin-bottom:4px;">Retensi Event Analitik ({{ $analyticsSummary['retention_days'] ?? 90 }} Hari)</h2>
@@ -433,7 +439,7 @@
                     <button class="btn-sec" type="submit">Hapus Event Lama Sekarang</button>
                 </form>
             </div>
-            @endif
+        @endif
         </section>
 
         @if ($user->hasAdminRole(['content_admin']))
@@ -514,14 +520,14 @@
                             <td>
                                 @if (($src->status ?? 'published') !== 'published')
                                     <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.publish', $src) }}">@csrf<button class="btn-sec" type="submit">Publish</button></form>
-                                @endif
+        @endif
                                 <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.toggle', $src) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
                                 @if ($src->versions->count() > 1)
                                     @php $prevVer = $src->versions->skip(1)->first(); @endphp
                                     @if ($prevVer)
                                         <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.rollback', [$src, $prevVer]) }}">@csrf<button class="btn-sec" type="submit">Rollback v{{ $prevVer->version_number }}</button></form>
-                                    @endif
-                                @endif
+        @endif
+        @endif
                                 <form style="display:inline" method="POST" action="{{ route('admin.m3u-sources.delete', $src) }}">@csrf @method('DELETE')<button class="btn" type="submit">Hapus</button></form>
                             </td>
                         </tr>
@@ -598,38 +604,120 @@
                 </table>
             </div>
         </section>
+
+                <!-- Panel: Iklan Native -->
+        <section id="panel-ads" class="panel">
+            <div class="card">
+                <h2>Tambah Iklan Native (Image / Video)</h2>
+                <form method="POST" action="{{ route('admin.ads.store') }}">
+                    @csrf
+                    <div class="form-row">
+                        <input name="title" placeholder="Judul Iklan" required>
+                        <select name="media_type">
+                            <option value="image">Image (Banner / Poster)</option>
+                            <option value="video">Video (MP4 / Stream)</option>
+                        </select>
+                        <select name="placement">
+                            <option value="home_feed">Home Feed (Disisipkan antar card)</option>
+                            <option value="store_feed">Store Feed</option>
+                        </select>
+                    </div>
+                    <input name="media_url" placeholder="URL Media Gambar/Video (https://...)" required>
+                    <input name="target_url" placeholder="URL Tujuan saat diklik (opsional, https://...)">
+                    <textarea name="description" rows="2" placeholder="Deskripsi singkat iklan"></textarea>
+                    <button class="btn" type="submit">Simpan Iklan</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Daftar Iklan ({{ $ads->count() }})</h2>
+                <table>
+                    <thead><tr><th>Judul</th><th>Media</th><th>Lokasi</th><th>Tayang / Klik</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                    @forelse ($ads as $ad)
+                        <tr>
+                            <td><strong>{{ $ad->title }}</strong></td>
+                            <td>{{ strtoupper($ad->media_type) }}</td>
+                            <td>{{ $ad->placement }}</td>
+                            <td>{{ $ad->impressions_count }} / {{ $ad->clicks_count }}</td>
+                            <td>{{ $ad->is_active ? 'Aktif' : 'Nonaktif' }}</td>
+                            <td>
+                                <form style="display:inline" method="POST" action="{{ route('admin.ads.toggle', $ad) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
+                                <form style="display:inline" method="POST" action="{{ route('admin.ads.delete', $ad) }}">@csrf @method('DELETE')<button class="btn" type="submit">Hapus</button></form>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" style="color:var(--muted);">Belum ada iklan.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
         @endif
 
         @if ($user->hasAdminRole(['analytics_admin']))
         <!-- Panel: Feedback -->
         <section id="panel-feedback" class="panel">
             <div class="card">
-                <h2>Laporan Masalah &amp; Feedback</h2>
-                <table>
-                    <thead><tr><th>Tiket</th><th>Kategori</th><th>Deskripsi</th><th>Versi</th><th>Status</th><th>Ubah</th></tr></thead>
-                    <tbody>
-                    @foreach ($feedbacks as $f)
-                        <tr>
-                            <td><strong>#{{ $f->id }}</strong></td>
-                            <td>{{ $f->category }}</td>
-                            <td>{{ $f->message }}</td>
-                            <td>{{ $f->app_version }} ({{ $f->platform }})</td>
-                            <td><span class="pill">{{ $f->status }}</span></td>
-                            <td>
-                                <form method="POST" action="{{ route('admin.feedback.status', $f) }}" style="display:flex;gap:6px;align-items:center;">
-                                    @csrf
-                                    <select name="status" style="margin:0;width:auto;">
-                                        @foreach (['open','in_review','resolved','closed'] as $st)
-                                            <option value="{{ $st }}" @selected($f->status === $st)>{{ $st }}</option>
-                                        @endforeach
-                                    </select>
-                                    <button class="btn-sec" type="submit">Simpan</button>
-                                </form>
-                            </td>
-                        </tr>
-                    @endforeach
-                    </tbody>
-                </table>
+                <h2>Laporan Masalah, Permintaan Fitur &amp; Komunikasi 2 Arah</h2>
+                @forelse ($feedbacks as $f)
+                    <div style="border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;background:var(--surface);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+                            <div>
+                                <strong>#{{ $f->id }}</strong>
+                                <span class="pill" style="margin-left:6px;">{{ $f->category }}</span>
+                                <span class="pill" style="margin-left:4px;">{{ $f->status }}</span>
+                                <span style="font-size:12px;color:var(--muted);margin-left:8px;">
+                                    Pengirim: {{ $f->user?->name ?? 'Guest' }}
+                                    @if($f->user?->email) ({{ $f->user->email }}) @endif
+                                    &bull; {{ $f->platform }} {{ $f->app_version }}
+                                    &bull; {{ $f->created_at?->format('d M Y H:i') }}
+                                </span>
+                            </div>
+                            <form method="POST" action="{{ route('admin.feedback.status', $f) }}" style="display:flex;gap:6px;align-items:center;">
+                                @csrf
+                                <select name="status" style="margin:0;width:auto;">
+                                    @foreach (['open','in_review','resolved','closed'] as $st)
+                                        <option value="{{ $st }}" @selected($f->status === $st)>{{ $st }}</option>
+                                    @endforeach
+                                </select>
+                                <button class="btn-sec" type="submit">Ubah Status</button>
+                            </form>
+                        </div>
+
+                        <div style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+                            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Pesan Awal:</div>
+                            <div>{{ $f->message }}</div>
+                        </div>
+
+                        @if ($f->messages->isNotEmpty())
+                            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                                @foreach ($f->messages as $msg)
+                                    <div style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:{{ $msg->sender_type === 'admin' ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.03)' }};">
+                                        <div style="font-size:11px;color:{{ $msg->sender_type === 'admin' ? '#38bdf8' : '#a1a1aa' }};margin-bottom:2px;">
+                                            <strong>{{ $msg->sender_type === 'admin' ? 'Admin' : ($msg->sender_name ?? 'Pengguna') }}</strong>
+                                            &bull; {{ $msg->created_at?->format('d M Y H:i') }}
+                                        </div>
+                                        <div style="font-size:13.5px;">{{ $msg->body }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <form method="POST" action="{{ route('admin.feedback.reply', $f) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            @csrf
+                            <input type="text" name="body" placeholder="Tulis balasan ke pengguna..." required minlength="2" maxlength="2000" style="flex:1;min-width:220px;margin:0;">
+                            <select name="status" style="margin:0;width:auto;">
+                                <option value="">Pertahankan status</option>
+                                <option value="in_review">in_review</option>
+                                <option value="resolved">resolved</option>
+                                <option value="closed">closed</option>
+                            </select>
+                            <button class="btn" type="submit">Kirim Balasan</button>
+                        </form>
+                    </div>
+                @empty
+                    <p style="color:var(--muted);">Belum ada laporan atau permintaan fitur.</p>
+                @endforelse
             </div>
         </section>
         @endif
@@ -638,17 +726,59 @@
         <section id="panel-audit" class="panel">
             @if ($user->role === 'super_admin')
             <div class="card">
-                <h2>Manajemen Pengguna</h2>
+                <h2>Manajemen Pengguna, Toko &amp; Produk ({{ $users->count() }})</h2>
                 <table>
-                    <thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Pengguna</th><th>Toko &amp; Domain</th><th>Produk Dijual</th><th>Status</th><th>Aksi Suspend / Hapus</th></tr></thead>
                     <tbody>
                     @foreach ($users as $u)
                         <tr>
-                            <td>{{ $u->name }}</td><td>{{ $u->email }}</td><td>{{ $u->role }}</td>
-                            <td>{{ $u->is_active ? 'Aktif' : 'Nonaktif' }}</td>
+                            <td>
+                                <strong>{{ $u->name }}</strong>
+                                <div style="font-size:11.5px;color:var(--muted);">{{ $u->email }} &bull; {{ $u->role }}</div>
+                            </td>
+                            <td>
+                                @if ($u->store)
+                                    <strong>{{ $u->store->name }}</strong> ({{ $u->store->store_type }})
+                                    <div style="font-size:11.5px;color:var(--muted);">/{{ $u->store->slug }}</div>
+                                @else
+                                    <span style="color:var(--muted);">Tidak punya toko</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($u->store && $u->store->products->isNotEmpty())
+                                    <span class="pill">{{ $u->store->products->count() }} produk</span>
+                                    <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+                                        {{ $u->store->products->take(4)->pluck('name')->join(', ') }}
+                                    </div>
+                                @else
+                                    <span style="color:var(--muted);">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($u->isSuspended())
+                                    <span class="pill" style="border-color:var(--accent);color:#ff8086;">
+                                        {{ !$u->is_active ? 'Suspend Permanen' : 'Suspend s/d ' . $u->suspended_until?->format('d/m H:i') }}
+                                    </span>
+                                @else
+                                    <span class="pill" style="border-color:var(--green);color:#4ade80;">Aktif</span>
+                                @endif
+                            </td>
                             <td>
                                 @if ($u->id !== $user->id)
-                                <form method="POST" action="{{ route('admin.users.toggle', $u) }}">@csrf<button class="btn-sec" type="submit">Toggle Aktif</button></form>
+                                    <form method="POST" action="{{ route('admin.users.suspend', $u) }}" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                        @csrf
+                                        <select name="mode" style="margin:0;width:auto;padding:4px 6px;font-size:11px;">
+                                            <option value="temporary">Suspend 7 Hari</option>
+                                            <option value="permanent">Suspend Permanen</option>
+                                            <option value="unsuspend">Aktifkan</option>
+                                        </select>
+                                        <input type="hidden" name="days" value="7">
+                                        <button class="btn-sec" type="submit" style="padding:4px 8px;font-size:11px;">Terapkan</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.users.delete', $u) }}" style="display:inline;">
+                                        @csrf @method('DELETE')
+                                        <button class="btn" type="submit" style="padding:4px 8px;font-size:11px;">Hapus User</button>
+                                    </form>
                                 @endif
                             </td>
                         </tr>

@@ -530,6 +530,7 @@
                 <a href="#preview">Tampilan</a>
                 <a href="#download">Installer</a>
                 <a href="#fitur">Kemampuan</a>
+                <a href="#ekosistem-toko">Toko &amp; POS</a>
                 <a href="#panduan">Panduan</a>
                 <a href="{{ $githubReleasesUrl }}" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
             </nav>
@@ -742,6 +743,69 @@
                     <div class="cap-num mono">08 / ANDROID TV &amp; AUTO-UPDATE</div>
                     <h3>Edisi 10-Foot &amp; Pembaruan Otomatis</h3>
                     <p>Versi khusus Android TV / Google TV hadir dengan antarmuka ramah remote D-pad tanpa menu POS &amp; Keuangan. Seluruh versi (Windows, Android, Android TV) mendukung auto-update dari GitHub Releases.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Ecosystem: Storefront, QR, Coffeeshop Booking, Analytics & 2-Way Support -->
+        <section id="ekosistem-toko" class="section">
+            <h2 class="section-title">Ekosistem Toko Online, POS &amp; Booking Meja</h2>
+            <p class="section-desc">Setiap pengguna terdaftar dapat mengaktifkan toko online siap pakai yang terhubung langsung dengan aplikasi kasir (POS), QR Code meja, discovery pengguna, dan dukungan admin 2 arah.</p>
+
+            <div class="cap-grid">
+                <div class="cap-cell">
+                    <div class="cap-num mono">BENEFIT 01 / STOREFRONT DOMAIN</div>
+                    <h3>Domain Toko Instan &amp; Order Masuk POS</h3>
+                    <p>Aktifkan domain toko Anda sendiri di <span class="mono" style="color:#fff;">mediacenter.ordr.my.id/namatoko</span>. Konsumen cukup memasukkan <strong>Nama &amp; No. WhatsApp</strong> untuk memesan menu — data pelanggan otomatis tersimpan ke database toko dan pesanan langsung muncul di antrean kasir POS.</p>
+                </div>
+                <div class="cap-cell">
+                    <div class="cap-num mono">BENEFIT 02 / QR CODE MEJA &amp; MENU</div>
+                    <h3>Cetak QR Code Toko &amp; Meja Cafe</h3>
+                    <p>Buat dan cetak PDF QR Code langsung dari halaman POS. Khusus usaha cafe atau coffeeshop, tersedia pilihan nomor meja otomatis (<span class="mono" style="color:#fff;">?meja=1</span>, dst.) agar pelanggan cukup scan untuk memesan dari meja.</p>
+                </div>
+                <div class="cap-cell">
+                    <div class="cap-num mono">BENEFIT 03 / DISCOVERY, GPS &amp; BOOKING</div>
+                    <h3>Promosi Toko Acak, GPS &amp; Booking Meja</h3>
+                    <p>Toko aktif tampil secara acak di halaman Home aplikasi Android &amp; Windows lengkap dengan alamat, jenis usaha, produk unggulan, dan titik lokasi GPS. Khusus coffeeshop, pengguna terdaftar dapat melakukan <strong>Booking Meja</strong> dan pemilik toko melihat analitik jumlah pengunjung serta produk yang dilihat.</p>
+                </div>
+                <div class="cap-cell">
+                    <div class="cap-num mono">BENEFIT 04 / BANTUAN &amp; CHAT ADMIN</div>
+                    <h3>Panduan Lengkap &amp; Komunikasi 2 Arah</h3>
+                    <p>Butuh bantuan teknis atau ingin request penambahan fitur baru? Gunakan tombol <strong>Bantuan</strong> di halaman POS atau Profil untuk mengirim tiket dan berdiskusi langsung secara 2 arah dengan tim admin melalui aplikasi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Usage Guide -->
+        <section id="panduan-penggunaan" class="section">
+            <h2 class="section-title">Panduan Penggunaan Fitur Baru</h2>
+            <p class="section-desc">Ikuti langkah berikut untuk memaksimalkan toko online, kasir POS, QR Code meja, discovery toko, dan pusat bantuan.</p>
+
+            <div class="guide-grid">
+                <div class="guide-card">
+                    <h3>1. Daftar &amp; Aktivasi Toko</h3>
+                    <ol>
+                        <li>Buka menu <strong>Profil &amp; Setting</strong> &rarr; ketuk <strong>Masuk / Daftar Akun</strong>.</li>
+                        <li>Isi nama, email, no. HP/WhatsApp, lalu centang <strong>Aktifkan Toko Online</strong>.</li>
+                        <li>Tentukan nama toko, slug domain (contoh: <span class="mono">kopisenja</span>), jenis toko (<span class="mono">coffeeshop</span> / <span class="mono">retail</span>), dan alamat toko.</li>
+                    </ol>
+                </div>
+
+                <div class="guide-card">
+                    <h3>2. Kelola Produk, QR &amp; Antrean POS</h3>
+                    <ol>
+                        <li>Buka tab <strong>POS (Kasir)</strong> &rarr; tambahkan produk/menu jualan Anda.</li>
+                        <li>Ketuk tombol <strong>Toko Online &amp; QR</strong> di pojok kanan atas untuk mengatur koordinat GPS, jumlah meja cafe, sinkronisasi katalog, serta cetak PDF QR Code menu/meja.</li>
+                        <li>Pesanan konsumen dari web akan masuk ke tab <strong>Antrean Order</strong> untuk diproses.</li>
+                    </ol>
+                </div>
+
+                <div class="guide-card">
+                    <h3>3. Discovery, Booking &amp; Bantuan</h3>
+                    <ol>
+                        <li>Di halaman <strong>Home</strong>, lihat card <strong>Toko &amp; Rekomendasi Pilihan</strong> untuk menelusuri produk, alamat, GPS, atau melakukan <strong>Booking Meja</strong> pada coffeeshop.</li>
+                        <li>Ketuk tombol <strong>Bantuan</strong> di halaman POS kapan saja untuk membaca panduan lengkap, mengajukan fitur baru, atau membalas pesan dari Admin.</li>
+                    </ol>
                 </div>
             </div>
         </section>
