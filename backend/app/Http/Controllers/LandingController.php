@@ -46,19 +46,90 @@ class LandingController extends Controller
                 $payload = $response->json();
                 if (is_array($payload) && !empty($payload['assets']) && is_array($payload['assets'])) {
                     $parsed = $this->formatReleasePayload($payload);
-                    Cache::put('landing_github_latest_release', $parsed, now()->addMinutes(15));
+                    Cache::put('landing_github_latest_release', $parsed, now()->addMinutes(5));
 
                     return $parsed;
                 }
             }
         } catch (\Throwable) {
-            // Fall back gracefully when offline or rate-limited.
+            // Fall through to GitHub web release fallback.
+        }
+
+        $webParsed = $this->fetchFromGitHubWeb();
+        if ($webParsed !== null) {
+            Cache::put('landing_github_latest_release', $webParsed, now()->addMinutes(5));
+
+            return $webParsed;
         }
 
         $fallback = $this->fallbackRelease();
-        Cache::put('landing_github_latest_release', $fallback, now()->addMinutes(2));
+        Cache::put('landing_github_latest_release', $fallback, now()->addMinutes(1));
 
         return $fallback;
+    }
+
+    /**
+     * Fallback scraper for GitHub Releases web page when api.github.com is rate-limited.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function fetchFromGitHubWeb(): ?array
+    {
+        try {
+            $latestResp = Http::timeout(4)
+                ->withHeaders(['User-Agent' => 'MediaCenter-Landing/1.0'])
+                ->get(self::GITHUB_RELEASES_URL . '/latest');
+
+            if (!$latestResp->successful()) {
+                return null;
+            }
+
+            $effectiveUri = (string) $latestResp->effectiveUri();
+            if (!preg_match('#/releases/tag/([^/?\#]+)#', $effectiveUri, $tagMatch)) {
+                return null;
+            }
+
+            $tag = urldecode($tagMatch[1]);
+            $assetsResp = Http::timeout(4)
+                ->withHeaders(['User-Agent' => 'MediaCenter-Landing/1.0'])
+                ->get(self::GITHUB_RELEASES_URL . '/expanded_assets/' . rawurlencode($tag));
+
+            if (!$assetsResp->successful()) {
+                return null;
+            }
+
+            $html = $assetsResp->body();
+            if (!preg_match_all('#href="(/zusfan-ops/Musik-Player/releases/download/[^"]+)"#i', $html, $links)) {
+                return null;
+            }
+
+            $assets = [];
+            foreach (array_unique($links[1]) as $relativePath) {
+                $name = basename($relativePath);
+                if (!str_ends_with(strtolower($name), '.exe') && !str_ends_with(strtolower($name), '.apk')) {
+                    continue;
+                }
+                $assets[] = [
+                    'name' => $name,
+                    'browser_download_url' => 'https://github.com' . $relativePath,
+                    'size' => 0,
+                ];
+            }
+
+            if ($assets === []) {
+                return null;
+            }
+
+            return $this->formatReleasePayload([
+                'tag_name' => $tag,
+                'name' => "Media Center {$tag}",
+                'html_url' => self::GITHUB_RELEASES_URL . '/tag/' . rawurlencode($tag),
+                'published_at' => '',
+                'assets' => $assets,
+            ]);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

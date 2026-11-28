@@ -54,6 +54,7 @@ class ExampleTest extends TestCase
 
         Http::fake([
             'api.github.com/*' => Http::response([], 503),
+            'github.com/*' => Http::response('', 503),
         ]);
 
         $response = $this->get('/');

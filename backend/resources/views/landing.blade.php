@@ -526,7 +526,7 @@
                         <a id="smart-hero-cta" href="{{ $primaryWin['url'] }}" class="btn-primary" rel="noopener noreferrer">
                             <span id="smart-hero-label">Unduh MediaCenter {{ $release['tag'] }}</span>
                         </a>
-                        <a href="#download" class="btn-secondary">
+                        <a href="{{ $release['html_url'] }}" target="_blank" rel="noopener noreferrer" class="btn-secondary">
                             <span>Pilih Varian Lainnya</span>
                         </a>
                     </div>
