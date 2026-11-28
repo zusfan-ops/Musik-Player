@@ -31,6 +31,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::middleware('admin.role:super_admin,analytics_admin')->group(function () {
             Route::post('/feedback/{feedback}/status', [AdminController::class, 'updateFeedbackStatus'])->name('feedback.status');
+            Route::post('/analytics/prune', [AdminController::class, 'pruneAnalytics'])->name('analytics.prune');
         });
 
         Route::middleware('admin.role:super_admin')->group(function () {

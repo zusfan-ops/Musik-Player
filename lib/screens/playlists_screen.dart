@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/music_models.dart';
 import '../providers/music_provider.dart';
+import '../services/backend_api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/track_tile.dart';
 import 'm3u_video_player_screen.dart';
@@ -474,6 +475,18 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                           controller: _globalSearchCtrl,
                           onChanged: (v) =>
                               setState(() => _globalChannelQuery = v),
+                          onSubmitted: (v) {
+                            final term = v.trim();
+                            if (term.length >= 2) {
+                              BackendApiService.instance.sendAnalyticsEvent(
+                                'catalog_searched',
+                                properties: {
+                                  'query_term': term.toLowerCase(),
+                                  'kind': _globalChannelKind,
+                                },
+                              );
+                            }
+                          },
                           decoration: InputDecoration(
                             isDense: true,
                             prefixIcon: const Icon(Icons.search_rounded, size: 18),
@@ -541,11 +554,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 11.5),
                             ),
-                            onTap: () => M3uPlaybackLauncher.playItemList(
-                              context,
-                              globalMatches,
-                              initialIndex: idx,
-                            ),
+                            onTap: () {
+                              BackendApiService.instance.sendAnalyticsEvent(
+                                'channel_opened',
+                                properties: {'channel_name': ch.title},
+                              );
+                              M3uPlaybackLauncher.playItemList(
+                                context,
+                                globalMatches,
+                                initialIndex: idx,
+                              );
+                            },
                           );
                         },
                       ),

@@ -329,6 +329,111 @@
                     </table>
                 </div>
             </div>
+
+            <div class="form-row">
+                <div class="card">
+                    <h2>Aktif Harian (7 Hari Terakhir / DAU)</h2>
+                    <table>
+                        <thead><tr><th>Tanggal</th><th>Perangkat Aktif</th><th>Total Event</th></tr></thead>
+                        <tbody>
+                        @foreach ($analyticsSummary['daily_active_7d'] ?? [] as $day)
+                            <tr>
+                                <td>{{ $day['date'] }}</td>
+                                <td>{{ $day['active_installations'] }}</td>
+                                <td>{{ $day['total_events'] }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h2>Pencarian Katalog Teratas</h2>
+                    <table>
+                        <thead><tr><th>Kata Kunci</th><th>Jumlah</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['top_searches'] ?? [] as $term => $cnt)
+                            <tr><td>{{ $term }}</td><td>{{ $cnt }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Belum ada pencarian tercatat.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="card">
+                    <h2>Playlist Katalog Teratas</h2>
+                    <table>
+                        <thead><tr><th>Playlist</th><th>Dibuka</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['top_playlists'] ?? [] as $pname => $cnt)
+                            <tr><td>{{ $pname }}</td><td>{{ $cnt }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Belum ada data playlist.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h2>Channel Paling Sering Dibuka</h2>
+                    <table>
+                        <thead><tr><th>Channel</th><th>Dibuka</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['top_channels'] ?? [] as $cname => $cnt)
+                            <tr><td>{{ $cname }}</td><td>{{ $cnt }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Belum ada data channel.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="card">
+                    <h2>Error Pemutar (Dikelompokkan)</h2>
+                    <table>
+                        <thead><tr><th>Kode Error</th><th>Jumlah</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['grouped_player_errors'] ?? [] as $code => $cnt)
+                            <tr><td><span class="pill">{{ $code }}</span></td><td>{{ $cnt }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Tidak ada error pemutar tercatat.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h2>Kegagalan Sinkronisasi</h2>
+                    <table>
+                        <thead><tr><th>Target</th><th>Jumlah</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['sync_failures'] ?? [] as $target => $cnt)
+                            <tr><td>{{ $target }}</td><td>{{ $cnt }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Tidak ada kegagalan sinkronisasi.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if ($user->hasAdminRole(['analytics_admin']))
+            <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+                <div>
+                    <h2 style="margin-bottom:4px;">Retensi Event Analitik ({{ $analyticsSummary['retention_days'] ?? 90 }} Hari)</h2>
+                    <div style="font-size:12.5px;color:var(--muted);">Pembersihan otomatis berjalan setiap hari pukul 02:30. Anda juga dapat menjalankan pembersihan manual.</div>
+                </div>
+                <form method="POST" action="{{ route('admin.analytics.prune') }}">
+                    @csrf
+                    <button class="btn-sec" type="submit">Hapus Event Lama Sekarang</button>
+                </form>
+            </div>
+            @endif
         </section>
 
         @if ($user->hasAdminRole(['content_admin']))

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\UserDevice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -96,11 +97,17 @@ class AdminController extends Controller
 
         $recentPropsEvents = AnalyticsEvent::whereNotNull('properties')
             ->orderByDesc('occurred_at')
-            ->limit(500)
-            ->get(['properties']);
+            ->limit(1000)
+            ->get(['event_name', 'properties']);
 
         $totalDurationSeconds = 0;
         $durationSamples = 0;
+        $searchCounts = [];
+        $playlistCounts = [];
+        $channelCounts = [];
+        $playerErrorCounts = [];
+        $syncFailureCounts = [];
+
         foreach ($recentPropsEvents as $ev) {
             $props = $ev->properties;
             if (!is_array($props)) {
@@ -114,6 +121,54 @@ class AdminController extends Controller
                 $totalDurationSeconds += (int) round(((float) $props['duration_ms']) / 1000);
                 $durationSamples++;
             }
+
+            if ($ev->event_name === 'catalog_searched' && !empty($props['query_term'])) {
+                $term = strtolower(trim((string) $props['query_term']));
+                if ($term !== '') {
+                    $searchCounts[$term] = ($searchCounts[$term] ?? 0) + 1;
+                }
+            } elseif ($ev->event_name === 'playlist_opened' && !empty($props['catalog_name'])) {
+                $name = trim((string) $props['catalog_name']);
+                $playlistCounts[$name] = ($playlistCounts[$name] ?? 0) + 1;
+            } elseif ($ev->event_name === 'channel_opened' && !empty($props['channel_name'])) {
+                $ch = trim((string) $props['channel_name']);
+                $channelCounts[$ch] = ($channelCounts[$ch] ?? 0) + 1;
+            } elseif ($ev->event_name === 'playback_error') {
+                $code = trim((string) ($props['error_code'] ?? 'UNKNOWN_ERROR'));
+                $playerErrorCounts[$code] = ($playerErrorCounts[$code] ?? 0) + 1;
+            } elseif ($ev->event_name === 'sync_failed') {
+                $target = trim((string) ($props['sync_target'] ?? 'unknown'));
+                $syncFailureCounts[$target] = ($syncFailureCounts[$target] ?? 0) + 1;
+            }
+        }
+
+        arsort($searchCounts);
+        arsort($playlistCounts);
+        arsort($channelCounts);
+        arsort($playerErrorCounts);
+        arsort($syncFailureCounts);
+
+        $dailyRows = AnalyticsEvent::where('occurred_at', '>=', now()->subDays(6)->startOfDay())
+            ->get(['installation_id', 'occurred_at']);
+        $dailyBuckets = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $d = now()->subDays($i)->format('Y-m-d');
+            $dailyBuckets[$d] = ['installs' => [], 'events' => 0];
+        }
+        foreach ($dailyRows as $dr) {
+            $d = $dr->occurred_at?->format('Y-m-d');
+            if ($d !== null && isset($dailyBuckets[$d])) {
+                $dailyBuckets[$d]['events']++;
+                $dailyBuckets[$d]['installs'][$dr->installation_id] = true;
+            }
+        }
+        $dailyActive7d = [];
+        foreach ($dailyBuckets as $date => $bucket) {
+            $dailyActive7d[] = [
+                'date' => $date,
+                'active_installations' => count($bucket['installs']),
+                'total_events' => $bucket['events'],
+            ];
         }
 
         $analyticsSummary = [
@@ -135,6 +190,13 @@ class AdminController extends Controller
             'error_events_7d' => AnalyticsEvent::where('occurred_at', '>=', now()->subDays(7))
                 ->whereIn('event_name', ['playback_error', 'network_error', 'crash_report_automatic'])
                 ->count(),
+            'daily_active_7d' => $dailyActive7d,
+            'top_searches' => array_slice($searchCounts, 0, 10, true),
+            'top_playlists' => array_slice($playlistCounts, 0, 10, true),
+            'top_channels' => array_slice($channelCounts, 0, 10, true),
+            'grouped_player_errors' => array_slice($playerErrorCounts, 0, 10, true),
+            'sync_failures' => array_slice($syncFailureCounts, 0, 10, true),
+            'retention_days' => (int) config('mediacenter.analytics_retention_days', 90),
             'top_events' => AnalyticsEvent::select('event_name', DB::raw('COUNT(*) as total'))
                 ->groupBy('event_name')
                 ->orderByDesc('total')
@@ -417,6 +479,14 @@ class AdminController extends Controller
         $feedback->update($data);
         $this->audit($request->user(), 'feedback_updated', 'feedback_report', (string) $feedback->id, ['status' => $data['status']]);
         return back()->with('status', 'Status laporan diperbarui.');
+    }
+
+    public function pruneAnalytics(Request $request): RedirectResponse
+    {
+        Artisan::call('analytics:prune');
+        $this->audit($request->user(), 'analytics_pruned', 'analytics_event', 'retention');
+
+        return back()->with('status', 'Event analitik lama berhasil dibersihkan sesuai retensi.');
     }
 
     public function toggleUserActive(Request $request, User $targetUser): RedirectResponse

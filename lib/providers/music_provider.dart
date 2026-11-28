@@ -1462,6 +1462,12 @@ class MusicProvider extends ChangeNotifier {
       return changedCount + removedNames.length;
     } catch (e) {
       _lastGithubM3uSyncError = 'Gagal sinkronisasi M3U GitHub';
+      unawaited(
+        BackendApiService.instance.sendAnalyticsEvent(
+          'sync_failed',
+          properties: {'sync_target': 'github_m3u'},
+        ),
+      );
       return 0;
     } finally {
       _isSyncingGithubM3u = false;
