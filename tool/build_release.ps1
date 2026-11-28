@@ -112,37 +112,38 @@ if (Test-Path "$ApkSourceDir\app-x86_64-release.apk") {
     Write-Host "  -> [SPLIT 3/3] x86_64 APK:    $ServerVersionDir\M3UMusik-v$VersionClean-x86_64.apk" -ForegroundColor Green
 }
 
-# 4b. Build APK Android TV Split per ABI (--dart-define=ANDROID_TV=true)
+# 4b. Build APK Android TV Split per ABI secara berurutan (--dart-define=ANDROID_TV=true)
+# Dibangun satu per satu + stop Gradle daemon terlebih dahulu agar gen_snapshot tidak kehabisan memori (exit 254).
 Write-Host "`n[4b/5] Melakukan build APK Android TV SPLIT per ABI (Apple TV-style UI)..." -ForegroundColor Yellow
+if (Test-Path "$AppDir\android\gradlew.bat") {
+    & "$AppDir\android\gradlew.bat" --stop | Out-Null
+}
 if (Test-Path $ApkSourceDir) {
     Remove-Item -Path "$ApkSourceDir\*.apk" -Force -ErrorAction SilentlyContinue
 }
-flutter build apk --release --split-per-abi --dart-define=ANDROID_TV=true
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Build APK Android TV gagal dengan exit code $LASTEXITCODE! Hentikan deploy." -ForegroundColor Red
-    exit 1
-}
+
+$TvTargets = @(
+    @{ Platform = "android-arm64"; Src = "app-arm64-v8a-release.apk"; Out = "MediaCenter-TV-v$VersionClean-arm64-v8a.apk"; Label = "[TV 1/3] ARM64-v8a APK" },
+    @{ Platform = "android-arm";   Src = "app-armeabi-v7a-release.apk"; Out = "MediaCenter-TV-v$VersionClean-armeabi-v7a.apk"; Label = "[TV 2/3] ARMv7-a APK  " },
+    @{ Platform = "android-x64";   Src = "app-x86_64-release.apk"; Out = "MediaCenter-TV-v$VersionClean-x86_64.apk"; Label = "[TV 3/3] x86_64 APK   " }
+)
 
 $PreferredTvApkName = $null
-if (Test-Path "$ApkSourceDir\app-arm64-v8a-release.apk") {
-    $TvArm64Name = "MediaCenter-TV-v$VersionClean-arm64-v8a.apk"
-    Copy-Item -Path "$ApkSourceDir\app-arm64-v8a-release.apk" -Destination "$ServerVersionDir\$TvArm64Name" -Force
-    Copy-Item -Path "$ApkSourceDir\app-arm64-v8a-release.apk" -Destination "$ArchiveReleaseDir\$TvArm64Name" -Force
-    $PreferredTvApkName = $TvArm64Name
-    Write-Host "  -> [TV 1/3] ARM64-v8a APK: $ServerVersionDir\$TvArm64Name" -ForegroundColor Green
-}
-if (Test-Path "$ApkSourceDir\app-armeabi-v7a-release.apk") {
-    $TvArmv7Name = "MediaCenter-TV-v$VersionClean-armeabi-v7a.apk"
-    Copy-Item -Path "$ApkSourceDir\app-armeabi-v7a-release.apk" -Destination "$ServerVersionDir\$TvArmv7Name" -Force
-    Copy-Item -Path "$ApkSourceDir\app-armeabi-v7a-release.apk" -Destination "$ArchiveReleaseDir\$TvArmv7Name" -Force
-    if (-not $PreferredTvApkName) { $PreferredTvApkName = $TvArmv7Name }
-    Write-Host "  -> [TV 2/3] ARMv7-a APK:   $ServerVersionDir\$TvArmv7Name" -ForegroundColor Green
-}
-if (Test-Path "$ApkSourceDir\app-x86_64-release.apk") {
-    $TvX64Name = "MediaCenter-TV-v$VersionClean-x86_64.apk"
-    Copy-Item -Path "$ApkSourceDir\app-x86_64-release.apk" -Destination "$ServerVersionDir\$TvX64Name" -Force
-    Copy-Item -Path "$ApkSourceDir\app-x86_64-release.apk" -Destination "$ArchiveReleaseDir\$TvX64Name" -Force
-    Write-Host "  -> [TV 3/3] x86_64 APK:    $ServerVersionDir\$TvX64Name" -ForegroundColor Green
+foreach ($t in $TvTargets) {
+    Write-Host "  -> Building $($t.Platform)..." -ForegroundColor Gray
+    flutter build apk --release --split-per-abi --target-platform $($t.Platform) --dart-define=ANDROID_TV=true
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Build APK Android TV ($($t.Platform)) gagal dengan exit code $LASTEXITCODE! Hentikan deploy." -ForegroundColor Red
+        exit 1
+    }
+    $srcPath = "$ApkSourceDir\$($t.Src)"
+    if (Test-Path $srcPath) {
+        $outName = $t.Out
+        Copy-Item -Path $srcPath -Destination "$ServerVersionDir\$outName" -Force
+        Copy-Item -Path $srcPath -Destination "$ArchiveReleaseDir\$outName" -Force
+        if (-not $PreferredTvApkName) { $PreferredTvApkName = $outName }
+        Write-Host "  -> $($t.Label): $ServerVersionDir\$outName" -ForegroundColor Green
+    }
 }
 
 # Opsional: Build APK Universal HANYA jika diminta secara eksplisit dengan flag -IncludeUniversal

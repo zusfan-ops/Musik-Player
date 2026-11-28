@@ -79,7 +79,8 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
   final List<StreamSubscription<dynamic>> _mkSubs = [];
   final ValueNotifier<VideoPlayerValue> _mkValueNotifier =
       ValueNotifier<VideoPlayerValue>(const VideoPlayerValue.uninitialized());
-  bool get _useMediaKit => Platform.isWindows || Platform.isLinux;
+  bool get _useMediaKit =>
+      Platform.isWindows || Platform.isLinux || Platform.isAndroid;
   Timer? _hideControlsTimer;
   final TextEditingController _channelSearchCtrl = TextEditingController();
 

@@ -1,0 +1,271 @@
+#EXTM3U
+# CCTV Kota Malang saja (dari katalog cctv.99apps.id, kotaNama = "Kota Malang"; Kabupaten Malang & Kota Batu tidak ikut)
+# Stream memakai server publik Diskominfo Kota Malang: cctv.malangkota.go.id/cctv-stream/streams/<id>.m3u8
+# Katalog 99apps: 150 kamera; player-nya memakai token Turnstile sehingga alamat aslinya tidak dapat diambil
+
+#EXTINF:-1 group-title="CCTV Kota Malang",JL. Ade Irma Suryani Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/096052317426605718543303.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",JL. Ijen Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/467561291886570342820693.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",JL. Merdeka Utara Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/375341952336011589690586.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl .Tumenggung Suryo Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/795110064442531890711535.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl .Tumenggung Suryo Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/444403449139429455057068.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Basuki Rachmad Kayutangan Zebra Cross
+https://cctv.malangkota.go.id/cctv-stream/streams/383467698805698590809269.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Kyai Tamin Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/373262875962388363723269.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Retawu Arah Museum
+https://cctv.malangkota.go.id/cctv-stream/streams/996051630808365936867998.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Tlogomas Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/963661947392775741127849.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Veteran Depan Matos
+https://cctv.malangkota.go.id/cctv-stream/streams/203191103351222911095423.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl Veteran Gerbang UB
+https://cctv.malangkota.go.id/cctv-stream/streams/001034626224094756998994.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. A Yani Arah Selatan (Masjid Sabilillah)
+https://cctv.malangkota.go.id/cctv-stream/streams/982131430615781858979987.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. A Yani Arah Utara (Masjid Sabilillah)
+https://cctv.malangkota.go.id/cctv-stream/streams/719653317344542196173839.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. A. Yani Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/300544351200121565371840.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. AR. Hakim Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/079331433202834680650395.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ade Irma Suryani Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/588238642766249531642812.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Agus Salim Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/222512201418345708685754.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Agus Salim Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/117940938424194503584011.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Arif Margono Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/713846259452297607019995.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Arif Margono Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/652269633484216664565215.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Aris Munandar Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/491236279805146068523382.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Aris Munandar Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/002327922068835068551525.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Arjuno Arah Utara (BRI Kawi)
+https://cctv.malangkota.go.id/cctv-stream/streams/599118267175295987908194.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Basuki Rahmat Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/876263708687156206364361.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Basuki Rahmat Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/291214161756678285690451.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Bendungan Sutami Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/386132036661026320418844.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Borobudur Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/307023650278212238808482.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Brigjend Slamet Riadi Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/654189372598870108548003.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Bromo Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/898902535875476482823426.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Bromo Arah Utara (GKI Bromo)
+https://cctv.malangkota.go.id/cctv-stream/streams/664697529898892981084889.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Candi Panggung Arah selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/895502928116887610228060.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Cengger Ayam Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/289833992881029327755836.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Cokroaminoto Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/462406715974251335062174.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Dieng Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/547359693237078797537666.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gajayana Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/715337494726392556880466.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gajayana Arah Selatan (Sardo)
+https://cctv.malangkota.go.id/cctv-stream/streams/385150101635081489243344.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gajayana Arah Utara (Sardo)
+https://cctv.malangkota.go.id/cctv-stream/streams/455597782591873967365987.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Galunggung Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/879779063216883395653396.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gatot Subroto Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/239025669818857831915521.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gatot Subroto Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/938035466891117643541014.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Halmahera Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/836708782306919156448722.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Hamid Rusdi Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/760985375028014640425523.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Husni Tamrin Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/824468526355652946351265.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ijen Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/742158442433359267079827.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ijen Arah Selatan (Simpang Balapan)
+https://cctv.malangkota.go.id/cctv-stream/streams/383651772119550945722301.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ijen Arah Utara (Poltekes)
+https://cctv.malangkota.go.id/cctv-stream/streams/098343692068108583411220.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jaksa Agung Suprapto Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/655224432137058620115166.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jaksa Agung Suprapto Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/660120947895309721081787.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jaksa Agung Suprapto Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/092075042505129095657722.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Janti Barat Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/171077206204474544672476.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jenderal Sudirman Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/855876619782149417527265.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jendral Sudirman Arah Selatan (smpn 5)
+https://cctv.malangkota.go.id/cctv-stream/streams/054856199643889577039217.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Juanda Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/121335965337329637078039.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Juanda Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/247723564512685003488446.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Jupri Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/425250660135490708615779.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. KH Ahmad Dahlan Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/422383028253759413095916.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. KH. Hasyim Ashari Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/171664895247859983097279.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. KH. Hasyim Ashari Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/406217477871280304673887.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kahuripan Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/994477999826297213214297.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kalpataru Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/553368650971977610920123.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kauman Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/913339812782937126202419.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/494044159463642643864378.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah Barat (BRI Kawi)
+https://cctv.malangkota.go.id/cctv-stream/streams/244729190133053856685781.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/642085663280892020139410.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah Timur (BRI Kawi)
+https://cctv.malangkota.go.id/cctv-stream/streams/269060901340905226381917.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah Timur (GKI Bromo)
+https://cctv.malangkota.go.id/cctv-stream/streams/433161038569412405938175.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kawi Arah barat (SMPN6)
+https://cctv.malangkota.go.id/cctv-stream/streams/067883214706611879049144.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kebalen Wetan Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/453382724774773485227390.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kebalen Wetan Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/839830267892971466247721.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kedawung Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/032716732487147302736608.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kertanegara Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/231554183770498281450318.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kesatrian Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/786150212613240322734192.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ki Ageng Gribig Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/919248977431029784415723.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Ki Ageng Gribig Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/817521846151282907919064.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kolonel Sugiono Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/983215248854190957425299.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. L.A Sucipto Arah Timur (Rel Kereta)
+https://cctv.malangkota.go.id/cctv-stream/streams/383058139820804059897454.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. LA Sucipto Arah Barat (Perbatasan)
+https://cctv.malangkota.go.id/cctv-stream/streams/537255318919087826651532.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. LA Sucipto Arah Timur (Perbatasan)
+https://cctv.malangkota.go.id/cctv-stream/streams/886421518518743577298499.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Langsep Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/573357726087672833075775.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Letjend Sutoyo Arah Selatan (Hotel Savana)
+https://cctv.malangkota.go.id/cctv-stream/streams/435572404308262635105603.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Letjend Sutoyo Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/274808309434970115761531.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. MT. Haryono Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/446907421280943044413749.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Majapahit Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/116009283303235824630445.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Martadinata Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/359461418488526462162650.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Mayjen Sungkono Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/872337836594410225468546.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Mayjen Sungkono Arah Selatan (Gor Ken Arok)
+https://cctv.malangkota.go.id/cctv-stream/streams/246296455949996661977887.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Mayjend Sungkono Arah Utara (Gor Ken Arok)
+https://cctv.malangkota.go.id/cctv-stream/streams/247069575513558870999554.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Melati Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/006104464277312024187785.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Merbabu Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/653722151300593309331609.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Merdeka Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/818599107354393628794315.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Merdeka Timur Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/293434869573645632741268.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Mergan Lori Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/473307088033186544380122.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Muharto Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/284039786620080380014346.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Pahlawan Trip
+https://cctv.malangkota.go.id/cctv-stream/streams/603889351830833340753818.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Panglima Sudirman Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/320035756896441723894425.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Panjaitan Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/673512185163543498056968.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Panji Suroso Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/196782209615539550198936.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Patimura Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/008689729209182017615333.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Patimura Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/643592251459005888214586.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Raden Intan Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/053338675520352467621994.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Raya Cemorokandang Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/143725395052441804689699.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Raya Gadang Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/772701504430563728087236.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. S. Supriadi Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/721240097001535400904802.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Semeru Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/717958972035700755246088.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Trunojoyo Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/027277786580967639165024.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Tugu Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/938791837334761355142482.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Untung Suropati Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/427283423567089689597287.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. WR. Supratman Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/540407055746756125950976.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Yulius Usman Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/530280435954205770660031.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Zainal Zakse Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/420501415743258073902708.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Zainal Zakse Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/505886570472987236280044.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Kampung Tridi
+https://cctv.malangkota.go.id/cctv-stream/streams/756753165339510713064459.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. A. Yani Arah Selatan (Fly Over)
+https://cctv.malangkota.go.id/cctv-stream/streams/957992467319427676437983.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gatot Subroto Arah Utara (Jembatan Brantas)
+https://cctv.malangkota.go.id/cctv-stream/streams/717880005188495257691864.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gribig Arah Utara (Jembatan)
+https://cctv.malangkota.go.id/cctv-stream/streams/397487832387359645963672.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Mayjend Sungkono Arah Utara (Block Office)
+https://cctv.malangkota.go.id/cctv-stream/streams/648109998063016154575665.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Pasar Besar Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/211248133615597097922668.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Pasar Besar Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/791662500424223576621102.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Danau Kerinci Arah Selatan
+https://cctv.malangkota.go.id/cctv-stream/streams/148960239776637882670743.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Danau Kerinci Arah Utara
+https://cctv.malangkota.go.id/cctv-stream/streams/892431741317523091394671.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Danau Toba Arah Barat
+https://cctv.malangkota.go.id/cctv-stream/streams/037075518670899465560926.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Danau Toba Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/799063606348608223030193.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Jl. Gadang Pasar Arah Timur
+https://cctv.malangkota.go.id/cctv-stream/streams/292570058740218968707392.m3u8
+#EXTINF:-1 group-title="CCTV Kota Malang",Taman Ijen 2
+https://cctv.malangkota.go.id/cctv-stream/streams/611606309979396608294034.m3u8
+
+# --- 8 kamera katalog tidak punya pasangan stream publik ---
+# #EXTINF:-1 group-title="CCTV Kota Malang",Jl. Bandung Arah Barat (Bundaran UKS)
+# https://cctv.99apps.id/cctv/malang-diskominfo-699355759296-118
+# #EXTINF:-1 group-title="CCTV Kota Malang",Jl. Borobudur Arah Timur
+# https://cctv.99apps.id/cctv/malang-diskominfo-807179387709-246
+# #EXTINF:-1 group-title="CCTV Kota Malang",Jl. Kesatrian Arah Selatan
+# https://cctv.99apps.id/cctv/malang-diskominfo-031608321985-37
+# #EXTINF:-1 group-title="CCTV Kota Malang",Jembatan TunggulMas
+# https://cctv.99apps.id/cctv/malang-diskominfo-522539750301-231
+# #EXTINF:-1 group-title="CCTV Kota Malang",PA. KODYA MALANG - KANTIN/MUSHOLA/HALAMAN PARKIR
+# https://cctv.99apps.id/cctv/badilag-liveapp-687545847856673128764788
+# #EXTINF:-1 group-title="CCTV Kota Malang",PA. KODYA MALANG - PTSP
+# https://cctv.99apps.id/cctv/badilag-liveapp-360301654426529724239925
+# #EXTINF:-1 group-title="CCTV Kota Malang",PA. KODYA MALANG - RUANG TUNGGU SIDANG
+# https://cctv.99apps.id/cctv/badilag-liveapp-139741556109158172635258
+# #EXTINF:-1 group-title="CCTV Kota Malang",Jl. Danau Bratan Arah Timur
+# https://cctv.99apps.id/cctv/malang-diskominfo-511560590871-170

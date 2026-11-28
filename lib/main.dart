@@ -30,10 +30,12 @@ import 'widgets/mini_player_bar.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppThemeController.load();
-  if (Platform.isWindows || Platform.isLinux) {
+  if (Platform.isWindows || Platform.isLinux || Platform.isAndroid) {
     try {
       MediaKit.ensureInitialized();
-      MusicProvider.markMediaKitInitialized();
+      if (Platform.isWindows || Platform.isLinux) {
+        MusicProvider.markMediaKitInitialized();
+      }
     } catch (_) {}
   }
   if (Platform.isAndroid || Platform.isIOS) {
