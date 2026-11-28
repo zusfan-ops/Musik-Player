@@ -319,7 +319,13 @@ class _TvYouTubeTabState extends State<TvYouTubeTab> {
   @override
   void initState() {
     super.initState();
-    unawaited(_search('Musik Pop Indonesia Terbaru'));
+    unawaited(_initPersonalizedTvFeed());
+  }
+
+  Future<void> _initPersonalizedTvFeed() async {
+    final q = await YouTubeRecommendationPrefs.getInitialQuery();
+    if (!mounted) return;
+    await _search(q, recordHistory: false);
   }
 
   @override
@@ -328,9 +334,12 @@ class _TvYouTubeTabState extends State<TvYouTubeTab> {
     super.dispose();
   }
 
-  Future<void> _search(String q) async {
+  Future<void> _search(String q, {bool recordHistory = true}) async {
     final trimmed = q.trim();
     if (trimmed.isEmpty) return;
+    if (recordHistory) {
+      unawaited(YouTubeRecommendationPrefs.recordSearch(trimmed));
+    }
     setState(() {
       _loading = true;
       _error = null;

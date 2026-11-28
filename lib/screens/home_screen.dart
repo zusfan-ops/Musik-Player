@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import '../providers/profile_jellyfin_provider.dart';
 import '../services/backend_api_service.dart';
 import '../services/update_checker_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_guide_and_support_sheet.dart';
+import '../widgets/backend_cloud_section.dart';
 import '../widgets/store_management_sheets.dart';
 import '../widgets/track_tile.dart';
 import '../widgets/user_avatar_widget.dart';
@@ -34,6 +37,90 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _selectedChip = 'Semua';
+  int _unreadAdminReplies = 0;
+  String? _cloudUserName;
+  Timer? _msgPollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_refreshHeaderState(notifyNew: true));
+      }
+    });
+    _msgPollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => unawaited(_refreshHeaderState(notifyNew: true)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _msgPollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshHeaderState({bool notifyNew = false}) async {
+    final prevUnread = _unreadAdminReplies;
+    final account = await BackendApiService.instance.getAccountState();
+    String? userName;
+    if (account.isLoggedIn) {
+      userName = account.name?.isNotEmpty == true
+          ? account.name
+          : (account.email ?? 'Akun');
+    }
+    final unread =
+        await BackendApiService.instance.fetchUnreadAdminRepliesCount();
+    if (!mounted) return;
+
+    if (notifyNew && unread > prevUnread && unread > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF0EA5E9),
+          content: Text('Ada $unread balasan baru dari Admin!'),
+          action: SnackBarAction(
+            label: 'Buka Chat',
+            textColor: Colors.white,
+            onPressed: _openMessageCenter,
+          ),
+        ),
+      );
+    }
+
+    setState(() {
+      _cloudUserName = userName;
+      _unreadAdminReplies = unread;
+    });
+  }
+
+  Future<void> _openMessageCenter() async {
+    await showAppGuideAndSupportSheet(context, initialTab: 2);
+    if (mounted) unawaited(_refreshHeaderState());
+  }
+
+  Future<void> _openProfileOrAuth() async {
+    if (_cloudUserName == null) {
+      await showCloudAuthDialog(
+        context,
+        isRegister: true,
+        onAuthSuccess: () async {
+          await _refreshHeaderState();
+          if (!mounted) return;
+          final msg = await BackendApiService.instance.syncBidirectional(
+            context.read<MusicProvider>(),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Akun aktif! $msg')),
+          );
+        },
+      );
+      if (mounted) unawaited(_refreshHeaderState());
+    } else {
+      widget.onNavigateTab(5);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,13 +206,53 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? null
                   : () => provider.pickAndAddDirectory(),
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12, left: 2),
-              child: UserAvatarWidget(
-                size: 30,
-                onTap: () => widget.onNavigateTab(5),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Pesan & Balasan Admin',
+              onPressed: _openMessageCenter,
+              icon: Badge(
+                isLabelVisible: _unreadAdminReplies > 0,
+                label: Text('$_unreadAdminReplies'),
+                child: Icon(
+                  _unreadAdminReplies > 0
+                      ? Icons.mark_chat_unread_rounded
+                      : Icons.chat_bubble_outline_rounded,
+                  color: _unreadAdminReplies > 0
+                      ? const Color(0xFF38BDF8)
+                      : null,
+                ),
               ),
             ),
+            if (_cloudUserName == null)
+              Padding(
+                padding: const EdgeInsets.only(right: 10, left: 2),
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                  ),
+                  onPressed: _openProfileOrAuth,
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
+                  label: const Text(
+                    'Masuk / Daftar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 12, left: 2),
+                child: Tooltip(
+                  message: 'Akun: $_cloudUserName',
+                  child: UserAvatarWidget(
+                    size: 30,
+                    onTap: _openProfileOrAuth,
+                  ),
+                ),
+              ),
           ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(44),

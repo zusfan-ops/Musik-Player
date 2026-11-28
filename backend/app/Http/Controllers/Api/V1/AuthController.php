@@ -25,6 +25,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:300'],
             'password' => ['required', 'string', PasswordRule::min(8)],
             'device_name' => ['nullable', 'string', 'max:120'],
             'platform' => ['nullable', 'string', 'in:android,android_tv,windows,linux,macos,ios'],
@@ -47,10 +48,16 @@ class AuthController extends Controller
         ]);
 
         $user = DB::transaction(function () use ($data) {
+            $cleanPhone = isset($data['phone'])
+                ? (preg_replace('/[^0-9+]/', '', trim((string) $data['phone'])) ?: null)
+                : null;
+            $cleanAddress = isset($data['address']) ? (trim((string) $data['address']) ?: null) : null;
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => strtolower($data['email']),
-                'phone' => isset($data['phone']) ? trim((string) $data['phone']) ?: null : null,
+                'phone' => $cleanPhone,
+                'address' => $cleanAddress,
                 'password' => $data['password'],
                 'role' => User::ROLE_USER,
                 'is_active' => true,
@@ -63,7 +70,7 @@ class AuthController extends Controller
                     'name' => trim((string) $data['store_name']),
                     'slug' => strtolower(trim((string) $data['store_slug'])),
                     'store_type' => $storeType,
-                    'address' => $data['store_address'] ?? null,
+                    'address' => $data['store_address'] ?? $cleanAddress,
                     'whatsapp_number' => $user->phone,
                     'tables_count' => $data['tables_count'] ?? ($storeType === 'coffeeshop' ? 10 : 0),
                     'is_active' => true,
@@ -94,17 +101,36 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'string', 'email'],
+            'login' => ['nullable', 'string', 'max:190', 'required_without:email'],
+            'email' => ['nullable', 'string', 'max:190', 'required_without:login'],
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:120'],
             'platform' => ['nullable', 'string', 'in:android,android_tv,windows,linux,macos,ios'],
             'app_version' => ['nullable', 'string', 'max:32'],
         ]);
 
-        $user = User::where('email', strtolower($data['email']))->first();
+        $identifier = trim((string) ($data['login'] ?? $data['email'] ?? ''));
+        $user = null;
+
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $user = User::where('email', strtolower($identifier))->first();
+        } else {
+            $digits = preg_replace('/[^0-9]/', '', $identifier) ?? '';
+            if ($digits !== '') {
+                $candidates = [$digits, '+' . $digits];
+                if (str_starts_with($digits, '0')) {
+                    $candidates[] = '62' . substr($digits, 1);
+                    $candidates[] = '+62' . substr($digits, 1);
+                } elseif (str_starts_with($digits, '62')) {
+                    $candidates[] = '0' . substr($digits, 2);
+                }
+                $user = User::whereIn('phone', array_unique($candidates))->first();
+            }
+        }
+
         if (!$user || !Hash::check($data['password'], $user->password)) {
             return response()->json([
-                'message' => 'Email atau kata sandi salah.',
+                'message' => 'Email / No. WhatsApp atau kata sandi salah.',
                 'error_code' => 'INVALID_CREDENTIALS',
             ], 401);
         }
@@ -349,6 +375,8 @@ class AuthController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'phone' => $user->phone,
+            'address' => $user->address,
             'role' => $user->role,
             'sync_revision' => $user->sync_revision,
             'analytics_opted_in' => $user->analytics_opted_in,

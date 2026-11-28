@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/music_models.dart';
@@ -1212,5 +1213,160 @@ class NewTubeService {
       }
     } catch (_) {}
     return null;
+  }
+}
+
+/// Tracks the user's most-searched queries and most-played YouTube topics
+/// so the YouTube tab opens with personalized recommendations instead of fixed content.
+class YouTubeRecommendationPrefs {
+  static const String _kSearchCountsKey = 'yt_search_counts_v1';
+  static const String _kPlayCountsKey = 'yt_play_counts_v1';
+  static const String _kLastSearchKey = 'yt_last_search_v1';
+
+  static const String defaultFallbackQuery = 'Musik Pop Indonesia Terbaru';
+  static const List<String> defaultQuickQueries = [
+    'Musik Pop Indonesia Terbaru',
+    'Metallica',
+    'Lo-Fi Chill Beats',
+    'Rock Classic Hits',
+    'Acoustic Cover',
+  ];
+
+  static Map<String, int> _decodeCounts(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return {};
+      final out = <String, int>{};
+      decoded.forEach((k, v) {
+        final key = k.toString().trim();
+        final val = (v as num?)?.toInt() ?? 0;
+        if (key.isNotEmpty && val > 0) out[key] = val;
+      });
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static String _pruneAndEncode(Map<String, int> map) {
+    final entries = map.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final trimmed = Map<String, int>.fromEntries(entries.take(30));
+    return jsonEncode(trimmed);
+  }
+
+  static Future<void> recordSearch(String query) async {
+    final q = query.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (q.length < 2 || q.startsWith('http://') || q.startsWith('https://')) {
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final counts = _decodeCounts(prefs.getString(_kSearchCountsKey));
+      final existingKey = counts.keys.firstWhere(
+        (k) => k.toLowerCase() == q.toLowerCase(),
+        orElse: () => q,
+      );
+      counts[existingKey] = (counts[existingKey] ?? 0) + 1;
+      await prefs.setString(_kSearchCountsKey, _pruneAndEncode(counts));
+      await prefs.setString(_kLastSearchKey, existingKey);
+    } catch (_) {}
+  }
+
+  static Future<void> recordPlay(NewTubeItem item) async {
+    String topic = item.author.trim();
+    if (topic.isEmpty ||
+        topic.toLowerCase() == 'youtube' ||
+        topic.toLowerCase() == 'unknown') {
+      final words = item.title
+          .replaceAll(RegExp(r'[\(\)\[\]\|\-]+'), ' ')
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .take(3)
+          .join(' ');
+      topic = words;
+    }
+    if (topic.length < 2) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final counts = _decodeCounts(prefs.getString(_kPlayCountsKey));
+      final existingKey = counts.keys.firstWhere(
+        (k) => k.toLowerCase() == topic.toLowerCase(),
+        orElse: () => topic,
+      );
+      counts[existingKey] = (counts[existingKey] ?? 0) + 1;
+      await prefs.setString(_kPlayCountsKey, _pruneAndEncode(counts));
+    } catch (_) {}
+  }
+
+  static Future<String> getInitialQuery() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final searchCounts = _decodeCounts(prefs.getString(_kSearchCountsKey));
+      final playCounts = _decodeCounts(prefs.getString(_kPlayCountsKey));
+
+      String? bestTopic;
+      int bestScore = 0;
+
+      for (final e in playCounts.entries) {
+        final score = e.value * 2;
+        if (score > bestScore) {
+          bestScore = score;
+          bestTopic = e.key;
+        }
+      }
+      for (final e in searchCounts.entries) {
+        if (e.value >= bestScore) {
+          bestScore = e.value;
+          bestTopic = e.key;
+        }
+      }
+
+      if (bestTopic != null && bestTopic.isNotEmpty) {
+        return bestTopic;
+      }
+      final last = prefs.getString(_kLastSearchKey);
+      if (last != null && last.trim().isNotEmpty) return last.trim();
+    } catch (_) {}
+    return defaultFallbackQuery;
+  }
+
+  static Future<List<String>> getQuickQueries() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final searchCounts = _decodeCounts(prefs.getString(_kSearchCountsKey));
+      final playCounts = _decodeCounts(prefs.getString(_kPlayCountsKey));
+
+      final merged = <String, int>{};
+      playCounts.forEach((k, v) => merged[k] = (merged[k] ?? 0) + v * 2);
+      searchCounts.forEach((k, v) {
+        final key = merged.keys.firstWhere(
+          (ek) => ek.toLowerCase() == k.toLowerCase(),
+          orElse: () => k,
+        );
+        merged[key] = (merged[key] ?? 0) + v;
+      });
+
+      final sorted = merged.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      final out = <String>[];
+      final seenLower = <String>{};
+      for (final e in sorted.take(5)) {
+        if (seenLower.add(e.key.toLowerCase())) {
+          out.add(e.key);
+        }
+      }
+      for (final d in defaultQuickQueries) {
+        if (seenLower.add(d.toLowerCase())) {
+          out.add(d);
+        }
+      }
+      return out;
+    } catch (_) {
+      return defaultQuickQueries;
+    }
   }
 }

@@ -15,6 +15,218 @@ import '../services/backend_api_service.dart';
 import '../services/config_backup_service.dart';
 import '../theme/app_theme.dart';
 
+/// Shared login/register dialog supporting Email or WhatsApp login and
+/// complete registration fields (Nama, Alamat, No. WhatsApp, Email, Password).
+Future<void> showCloudAuthDialog(
+  BuildContext context, {
+  bool isRegister = false,
+  Future<void> Function()? onAuthSuccess,
+}) async {
+  final api = BackendApiService.instance;
+  final nameCtrl = TextEditingController();
+  final addressCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  final storeNameCtrl = TextEditingController();
+  final storeSlugCtrl = TextEditingController();
+  final storeAddrCtrl = TextEditingController();
+  bool registerMode = isRegister;
+  bool activateStore = false;
+  String storeType = 'coffeeshop';
+
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDlg) => AlertDialog(
+        title: Text(registerMode ? 'Daftar Akun Baru' : 'Masuk Akun'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  registerMode
+                      ? 'Lengkapi Nama, Alamat, No. WhatsApp, dan Email. Email atau No. WhatsApp dapat digunakan untuk login.'
+                      : 'Anda dapat masuk menggunakan Email atau No. WhatsApp yang sudah terdaftar.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (registerMode) ...[
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Lengkap',
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: addressCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Alamat Lengkap',
+                    prefixIcon: Icon(Icons.home_outlined, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'No. WhatsApp (bisa untuk login)',
+                    hintText: '08123456789',
+                    prefixIcon: Icon(Icons.chat_outlined, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: emailCtrl,
+                keyboardType: registerMode
+                    ? TextInputType.emailAddress
+                    : TextInputType.text,
+                decoration: InputDecoration(
+                  labelText: registerMode
+                      ? 'Email (bisa untuk login)'
+                      : 'Email atau No. WhatsApp',
+                  hintText: registerMode
+                      ? 'nama@email.com'
+                      : 'nama@email.com atau 08123456789',
+                  prefixIcon: Icon(
+                    registerMode
+                        ? Icons.email_outlined
+                        : Icons.account_circle_outlined,
+                    size: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Kata Sandi (min. 8 karakter)',
+                  prefixIcon: Icon(Icons.lock_outline_rounded, size: 18),
+                ),
+              ),
+              if (registerMode) ...[
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: activateStore,
+                  onChanged: (v) => setDlg(() => activateStore = v),
+                  title: const Text(
+                    'Aktifkan Toko Online Sekaligus',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (activateStore) ...[
+                  TextField(
+                    controller: storeNameCtrl,
+                    decoration: const InputDecoration(labelText: 'Nama Toko'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: storeSlugCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Domain Toko (huruf kecil, angka, -)',
+                      hintText: 'mis: kopinusantara',
+                      prefixText: 'mediacenter.ordr.my.id/',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: storeType,
+                    items: const [
+                      DropdownMenuItem(value: 'coffeeshop', child: Text('Coffeeshop / Cafe')),
+                      DropdownMenuItem(value: 'resto', child: Text('Restoran / Kuliner')),
+                      DropdownMenuItem(value: 'retail', child: Text('Toko Retail')),
+                      DropdownMenuItem(value: 'jasa', child: Text('Jasa')),
+                      DropdownMenuItem(value: 'umum', child: Text('Umum')),
+                    ],
+                    onChanged: (v) => setDlg(() => storeType = v ?? 'umum'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: storeAddrCtrl,
+                    decoration: const InputDecoration(labelText: 'Alamat Toko'),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () => setDlg(() => registerMode = !registerMode),
+                child: Text(
+                  registerMode
+                      ? 'Sudah punya akun? Masuk dengan Email / WhatsApp'
+                      : 'Belum punya akun? Daftar Sekarang',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final err = registerMode
+                  ? await api.register(
+                      name: nameCtrl.text,
+                      email: emailCtrl.text,
+                      phone: phoneCtrl.text,
+                      address: addressCtrl.text,
+                      password: passCtrl.text,
+                      activateStore: activateStore,
+                      storeName: storeNameCtrl.text,
+                      storeSlug: storeSlugCtrl.text,
+                      storeType: storeType,
+                      storeAddress: storeAddrCtrl.text,
+                    )
+                  : await api.login(
+                      email: emailCtrl.text,
+                      password: passCtrl.text,
+                    );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (err == null) {
+                if (onAuthSuccess != null) {
+                  await onAuthSuccess();
+                }
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(err)),
+                );
+              }
+            },
+            child: Text(registerMode ? 'Daftar' : 'Masuk'),
+          ),
+        ],
+      ),
+    ),
+  );
+  nameCtrl.dispose();
+  addressCtrl.dispose();
+  phoneCtrl.dispose();
+  emailCtrl.dispose();
+  passCtrl.dispose();
+  storeNameCtrl.dispose();
+  storeSlugCtrl.dispose();
+  storeAddrCtrl.dispose();
+}
+
 /// Optional Cloud Account, Cross-Device Sync, Announcements, Analytics Opt-In,
 /// and Privacy Controls for ProfileSettingsScreen (strictly guest-first).
 class BackendCloudSection extends StatefulWidget {
@@ -167,160 +379,18 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
   }
 
   Future<void> _showAuthDialog({bool isRegister = false}) async {
-    final nameCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    final storeNameCtrl = TextEditingController();
-    final storeSlugCtrl = TextEditingController();
-    final storeAddrCtrl = TextEditingController();
-    bool registerMode = isRegister;
-    bool activateStore = false;
-    String storeType = 'coffeeshop';
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          title: Text(registerMode ? 'Daftar Akun (Opsional)' : 'Masuk Akun Cloud'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Login bersifat opsional untuk sinkronisasi, booking meja, & toko online. Aplikasi tetap berjalan penuh secara offline.',
-                  style: TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                if (registerMode) ...[
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'No. WhatsApp (untuk toko / booking)',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                TextField(
-                  controller: emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Kata Sandi (min. 8 karakter)'),
-                ),
-                if (registerMode) ...[
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: activateStore,
-                    onChanged: (v) => setDlg(() => activateStore = v),
-                    title: const Text(
-                      'Aktifkan Toko Online Sekaligus',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  if (activateStore) ...[
-                    TextField(
-                      controller: storeNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Nama Toko'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: storeSlugCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Domain Toko (huruf kecil, angka, -)',
-                        hintText: 'mis: kopinusantara',
-                        prefixText: 'mediacenter.ordr.my.id/',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: storeType,
-                      items: const [
-                        DropdownMenuItem(value: 'coffeeshop', child: Text('Coffeeshop / Cafe')),
-                        DropdownMenuItem(value: 'resto', child: Text('Restoran / Kuliner')),
-                        DropdownMenuItem(value: 'retail', child: Text('Toko Retail')),
-                        DropdownMenuItem(value: 'jasa', child: Text('Jasa')),
-                        DropdownMenuItem(value: 'umum', child: Text('Umum')),
-                      ],
-                      onChanged: (v) => setDlg(() => storeType = v ?? 'umum'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: storeAddrCtrl,
-                      decoration: const InputDecoration(labelText: 'Alamat Toko'),
-                    ),
-                  ],
-                ],
-                TextButton(
-                  onPressed: () => setDlg(() => registerMode = !registerMode),
-                  child: Text(
-                    registerMode
-                        ? 'Sudah punya akun? Masuk'
-                        : 'Belum punya akun? Daftar',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final err = registerMode
-                    ? await _api.register(
-                        name: nameCtrl.text,
-                        email: emailCtrl.text,
-                        phone: phoneCtrl.text,
-                        password: passCtrl.text,
-                        activateStore: activateStore,
-                        storeName: storeNameCtrl.text,
-                        storeSlug: storeSlugCtrl.text,
-                        storeType: storeType,
-                        storeAddress: storeAddrCtrl.text,
-                      )
-                    : await _api.login(
-                        email: emailCtrl.text,
-                        password: passCtrl.text,
-                      );
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                await _loadState();
-                if (err == null && mounted) {
-                  final syncMsg = await _api.syncBidirectional(
-                    context.read<MusicProvider>(),
-                  );
-                  _snack('Berhasil terhubung! $syncMsg');
-                } else {
-                  _snack(err ?? 'Berhasil terhubung ke akun cloud!');
-                }
-              },
-              child: Text(registerMode ? 'Daftar' : 'Masuk'),
-            ),
-          ],
-        ),
-      ),
+    await showCloudAuthDialog(
+      context,
+      isRegister: isRegister,
+      onAuthSuccess: () async {
+        await _loadState();
+        if (!mounted) return;
+        final syncMsg = await _api.syncBidirectional(
+          context.read<MusicProvider>(),
+        );
+        _snack('Berhasil terhubung! $syncMsg');
+      },
     );
-    nameCtrl.dispose();
-    emailCtrl.dispose();
-    phoneCtrl.dispose();
-    passCtrl.dispose();
-    storeNameCtrl.dispose();
-    storeSlugCtrl.dispose();
-    storeAddrCtrl.dispose();
   }
 
   Future<void> _showEditAccountDialog() async {

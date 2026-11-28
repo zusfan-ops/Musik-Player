@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -27,13 +29,9 @@ class _NewTubeScreenState extends State<NewTubeScreen>
   String? _loadingItemId;
   String? _error;
 
-  static const List<String> _quickQueries = [
-    'Musik Pop Indonesia Terbaru',
-    'Metallica',
-    'Lo-Fi Chill Beats',
-    'Rock Classic Hits',
-    'Acoustic Cover',
-  ];
+  List<String> _quickQueries = List<String>.from(
+    YouTubeRecommendationPrefs.defaultQuickQueries,
+  );
 
   @override
   bool get wantKeepAlive => true;
@@ -41,7 +39,15 @@ class _NewTubeScreenState extends State<NewTubeScreen>
   @override
   void initState() {
     super.initState();
-    _runSearch(_quickQueries.first);
+    unawaited(_initPersonalizedFeed());
+  }
+
+  Future<void> _initPersonalizedFeed() async {
+    final queries = await YouTubeRecommendationPrefs.getQuickQueries();
+    final initial = await YouTubeRecommendationPrefs.getInitialQuery();
+    if (!mounted) return;
+    setState(() => _quickQueries = queries);
+    await _runSearch(initial, recordHistory: false);
   }
 
   @override
@@ -50,9 +56,21 @@ class _NewTubeScreenState extends State<NewTubeScreen>
     super.dispose();
   }
 
-  Future<void> _runSearch(String query) async {
+  Future<void> _runSearch(
+    String query, {
+    bool recordHistory = true,
+  }) async {
     final q = query.trim();
     if (q.isEmpty) return;
+
+    if (recordHistory) {
+      unawaited(
+        YouTubeRecommendationPrefs.recordSearch(q).then((_) async {
+          final updated = await YouTubeRecommendationPrefs.getQuickQueries();
+          if (mounted) setState(() => _quickQueries = updated);
+        }),
+      );
+    }
 
     // Direct YouTube Playlist URL import
     final directPlaylistId = NewTubeService.extractPlaylistId(q);
@@ -130,6 +148,7 @@ class _NewTubeScreenState extends State<NewTubeScreen>
   }) async {
     if (_loadingItemId != null) return;
     setState(() => _loadingItemId = item.videoId);
+    unawaited(YouTubeRecommendationPrefs.recordPlay(item));
 
     try {
       if (!asVideo && !queueOnly) {

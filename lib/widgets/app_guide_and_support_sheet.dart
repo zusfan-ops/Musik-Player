@@ -69,6 +69,10 @@ class _AppGuideAndSupportSheetState extends State<_AppGuideAndSupportSheet>
     if (mounted) setState(() => _loadingTickets = true);
     final list = await _api.fetchFeedbackTickets();
     if (!mounted) return;
+    if (_tabController.index == 2 || widget.initialTab == 2) {
+      await _api.markAdminRepliesAsSeen(list);
+      if (!mounted) return;
+    }
     setState(() {
       _tickets = list;
       _loadingTickets = false;

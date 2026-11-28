@@ -136,6 +136,7 @@ class BackendApiService {
     required String email,
     required String password,
     String? phone,
+    String? address,
     bool activateStore = false,
     String? storeName,
     String? storeSlug,
@@ -148,6 +149,8 @@ class BackendApiService {
       'email': email.trim(),
       'password': password,
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (address != null && address.trim().isNotEmpty)
+        'address': address.trim(),
       'activate_store': activateStore,
       if (activateStore) ...{
         if (storeName != null) 'store_name': storeName.trim(),
@@ -167,7 +170,7 @@ class BackendApiService {
     required String password,
   }) async {
     return _authenticate('/auth/login', {
-      'email': email.trim(),
+      'login': email.trim(),
       'password': password,
       'device_name': 'MediaCenter $_platformName',
       'platform': _platformName,
@@ -1294,5 +1297,58 @@ class BackendApiService {
     } catch (e) {
       return {'ok': false, 'message': 'Tidak dapat terhubung ke server: $e'};
     }
+  }
+
+  static const String _kLastSeenAdminMsgIdKey =
+      'mc_last_seen_admin_msg_id_v1';
+
+  Future<int> fetchUnreadAdminRepliesCount() async {
+    try {
+      final tickets = await fetchFeedbackTickets();
+      if (tickets.isEmpty) return 0;
+      final prefs = await SharedPreferences.getInstance();
+      final lastSeenId = prefs.getInt(_kLastSeenAdminMsgIdKey) ?? 0;
+
+      int unread = 0;
+      for (final t in tickets) {
+        final msgs = (t['messages'] as List?)
+                ?.whereType<Map>()
+                .toList() ??
+            const <Map>[];
+        if (msgs.isEmpty) continue;
+        final lastMsg = msgs.last;
+        final msgId = (lastMsg['id'] as num?)?.toInt() ?? 0;
+        if (lastMsg['sender_type'] == 'admin' && msgId > lastSeenId) {
+          unread++;
+        }
+      }
+      return unread;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> markAdminRepliesAsSeen(
+    List<Map<String, dynamic>> tickets,
+  ) async {
+    try {
+      int maxId = 0;
+      for (final t in tickets) {
+        final msgs = (t['messages'] as List?)?.whereType<Map>() ?? const [];
+        for (final m in msgs) {
+          if (m['sender_type'] == 'admin') {
+            final id = (m['id'] as num?)?.toInt() ?? 0;
+            if (id > maxId) maxId = id;
+          }
+        }
+      }
+      if (maxId > 0) {
+        final prefs = await SharedPreferences.getInstance();
+        final prev = prefs.getInt(_kLastSeenAdminMsgIdKey) ?? 0;
+        if (maxId > prev) {
+          await prefs.setInt(_kLastSeenAdminMsgIdKey, maxId);
+        }
+      }
+    } catch (_) {}
   }
 }
