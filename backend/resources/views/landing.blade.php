@@ -399,6 +399,56 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
         }
+        /* Device Preview Gallery */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .preview-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-frame {
+            background: #000000;
+            border-bottom: 1px solid var(--border);
+            aspect-ratio: 16 / 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .preview-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .preview-body {
+            padding: 20px 22px;
+        }
+        .preview-tag {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+        .preview-body h3 {
+            font-size: 16.5px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .preview-body p {
+            font-size: 13.5px;
+            color: var(--text-muted);
+        }
         .guide-card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -458,7 +508,7 @@
         @media (max-width: 900px) {
             .hero-grid { grid-template-columns: 1fr; gap: 36px; }
             .asset-item { grid-template-columns: 1fr; gap: 12px; }
-            .guide-grid { grid-template-columns: 1fr; }
+            .guide-grid, .preview-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
             nav { display: none; }
@@ -477,6 +527,7 @@
             </a>
 
             <nav>
+                <a href="#preview">Tampilan</a>
                 <a href="#download">Installer</a>
                 <a href="#fitur">Kemampuan</a>
                 <a href="#panduan">Panduan</a>
@@ -559,6 +610,47 @@
                         <span class="spec-action mono">TV &bull; {{ $primaryTv['size'] }}</span>
                     </a>
                 </div>
+            </div>
+        </section>
+
+        <!-- Device Previews -->
+        <section id="preview" class="section">
+            <h2 class="section-title">Tampilan di Android TV, Handphone &amp; Desktop PC</h2>
+            <p class="section-desc">Antarmuka gelap yang konsisten dan dioptimalkan untuk setiap ukuran layar — dari remote televisi hingga desktop Windows.</p>
+
+            <div class="preview-grid">
+                <article class="preview-card">
+                    <div class="preview-frame">
+                        <img src="{{ asset('images/preview-tv.jpg') }}" alt="Tampilan MediaCenter di Android TV" loading="lazy">
+                    </div>
+                    <div class="preview-body">
+                        <div class="preview-tag mono">Android TV &bull; 10-Foot UI</div>
+                        <h3>Android TV &amp; Google TV</h3>
+                        <p>Navigasi D-pad ramah remote dengan top pill bar, fokus pada TV Streaming, CCTV Kota, Film, YouTube, dan Musik tanpa menu POS &amp; Keuangan.</p>
+                    </div>
+                </article>
+
+                <article class="preview-card">
+                    <div class="preview-frame">
+                        <img src="{{ asset('images/preview-mobile.jpg') }}" alt="Tampilan MediaCenter di Handphone Android" loading="lazy">
+                    </div>
+                    <div class="preview-body">
+                        <div class="preview-tag mono">Android Mobile &bull; Tablet</div>
+                        <h3>Handphone &amp; Tablet</h3>
+                        <p>Kombinasi pemutar musik offline, Live TV, YouTube Background Play &amp; PiP, serta akses cepat ke modul POS dan Keuangan.</p>
+                    </div>
+                </article>
+
+                <article class="preview-card">
+                    <div class="preview-frame">
+                        <img src="{{ asset('images/preview-desktop.jpg') }}" alt="Tampilan MediaCenter di Desktop PC Windows" loading="lazy">
+                    </div>
+                    <div class="preview-body">
+                        <div class="preview-tag mono">Windows Desktop &bull; x64</div>
+                        <h3>Desktop PC (Windows)</h3>
+                        <p>Tata letak sidebar penuh dengan pemutar video &amp; daftar channel berdampingan, ideal untuk streaming maupun operasional kasir &amp; keuangan.</p>
+                    </div>
+                </article>
             </div>
         </section>
 
