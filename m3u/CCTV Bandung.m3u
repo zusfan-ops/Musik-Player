@@ -1,0 +1,62 @@
+#EXTM3U
+# Bandung ATCS Dishub - atcs-dishub.bandung.go.id
+
+#EXTINF:-1 group-title="CCTV Bandung",VID GEDEBAGE (Dari Arah Barat) (Soekarno Hatta - Gedebage)
+https://atcs-dishub.bandung.go.id:1990/GedeBar/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID GEDEBAGE (Dari Arah Selatan) (Soekarno Hatta - Gedebage)
+https://atcs-dishub.bandung.go.id:1990/GedeSel/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID SAMSAT (Dari Arah Barat) (Soekarno Hatta - Ibrahim Adjie)
+https://atcs-dishub.bandung.go.id:1990/SamsatBar/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID SAMSAT (Dari Arah Selatan) (Soekarno Hatta - Ibrahim Adjie)
+https://atcs-dishub.bandung.go.id:1990/SamsatSel/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID SAMSAT (Dari Arah Utara) (Soekarno Hatta - Ibrahim Adjie)
+https://atcs-dishub.bandung.go.id:1990/SamsatUt/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP BUAHBATU (Soekarno Hatta - Buah Batu)
+https://atcs-dishub.bandung.go.id:1990/Buahbatu/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID BUAH BATU (Dari Arah Timur) (Soekarno Hatta - Buah Batu)
+https://atcs-dishub.bandung.go.id:1990/BubatTim/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID BUAH BATU (Dari Arah Barat) (Soekarno Hatta - Buah Batu)
+https://atcs-dishub.bandung.go.id:1990/BubatBar/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID BUAH BATU (Dari Arah Utara) (Soekarno Hatta - Buah Batu)
+https://atcs-dishub.bandung.go.id:1990/BubatUt/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP BATUNUNGGAL (Soekarno Hatta - Batununggal)
+https://atcs-dishub.bandung.go.id:1990/Batununggal/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID BATUNUNGGAL (Dari Arah Barat) (Soekarno Hatta - Batununggal)
+https://atcs-dishub.bandung.go.id:1990/BatuBar/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP TAMBLONG (Tamblong - Asia Afrika)
+https://atcs-dishub.bandung.go.id:1990/Tamblong/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP LIMA (Simpang Lima - Asia Afrika)
+https://atcs-dishub.bandung.go.id:1990/SimpangLima/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP PASIR KALIKI BARU ( IP CAM ) (Pasteur - HOS Tjokroaminoto)
+https://atcs-dishub.bandung.go.id:1990/PaskalPTZ2/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID PASKAL - RSHS (Dari Arah Utara) (Pasteur - HOS Tjokroaminoto)
+https://atcs-dishub.bandung.go.id:1990/PaskalUt/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",VID PASKAL - RSHS (Dari Arah Timur) (Pasteur - HOS Tjokroaminoto)
+https://atcs-dishub.bandung.go.id:1990/PaskalTim/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP CIPAGANTI (Cipaganti - Pasteur)
+https://atcs-dishub.bandung.go.id:1990/Cipaganti/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP CIHAMPELAS PTZ (Cihampelas - Pasteur)
+https://atcs-dishub.bandung.go.id:1990/CihampelasPtz/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP PAHLAWAN (PHH Mustofa - Pahlawan)
+https://atcs-dishub.bandung.go.id:1990/Pahlawan/index.m3u8
+#EXTINF:-1 group-title="CCTV Bandung",SP Sumatera - Lembong (Lembong - Sumatera)
+https://atcs-dishub.bandung.go.id:1990/SumLembong/index.m3u8
+# --- kamera berikut menjawab HTTP 404 saat dicek (kemungkinan sedang offline) ---
+# #EXTINF:-1 group-title="CCTV Bandung",SP SAMSAT (Soekarno Hatta - Ibrahim Adjie)
+# https://atcs-dishub.bandung.go.id:1990/Samsat/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",VID PASKAL - RSHS (Dari Arah Barat) (Pasteur - HOS Tjokroaminoto)
+# https://atcs-dishub.bandung.go.id:1990/PaskalBar/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CIHAMPELAS Barat (Cihampelas - Pasteur)
+# https://atcs-dishub.bandung.go.id:1990/CihampelasBar/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CIHAMPELAS UTARA (Cihampelas - Pasteur)
+# https://atcs-dishub.bandung.go.id:1990/CihampelasUt/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CIHAMPELAS TIMUR (Cihampelas - Pasteur)
+# https://atcs-dishub.bandung.go.id:1990/CihampelasTim/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CIKUTRA (PHH Mustofa - Cikutra)
+# https://atcs-dishub.bandung.go.id:1990/Cikutra/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CIMUNCANG (PHH Mustofa - Cimuncang)
+# https://atcs-dishub.bandung.go.id:1990/Cimuncang/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP PADASUKA (PHH Mustofa - Padasuka)
+# https://atcs-dishub.bandung.go.id:1990/Padasuka/index.m3u8
+# #EXTINF:-1 group-title="CCTV Bandung",SP CICAHEUM (PHH Mustofa - Ahmad Yani)
+# https://atcs-dishub.bandung.go.id:1990/Cicaheum/index.m3u8

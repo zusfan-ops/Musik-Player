@@ -1,0 +1,424 @@
+#EXTM3U
+# CCTV Kota Medan - MedanHub / ATCS Dishub (atcsdishub.medan.go.id)
+
+#EXTINF:-1 group-title="CCTV Medan",RADEN SALEH - BALAI KOTA — SIMPANG LAPANGAN MERDEKA
+https://atcsdishub.medan.go.id/stream/L1RADENSALEHBALAIKOTA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AHMAD YANI - PULAU PINANG — SIMPANG LONSUM
+https://atcsdishub.medan.go.id/stream/L2AHMADYANIPULAUPINANG/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KESAWAN - PALANG MERAH — SIMPANG KESAWAN
+https://atcsdishub.medan.go.id/stream/L3KESAWANPALANGMERAH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PANDU - CIREBON — SIMPANG TIRTANADI
+https://atcsdishub.medan.go.id/stream/L5PANDUCIREBON/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SM.RAJA - AMALIUN — SIMPANG MASJID RYA
+https://atcsdishub.medan.go.id/stream/L7SM.RAJAAMALIUN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GURU PATIMPUS - ADAM MALIK — SIMPANG MAYESTIK
+https://atcsdishub.medan.go.id/stream/L8GURUPATIMPUSADAMMALIK/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PENGADILAN - KPT.MAULANA LUBIS — SIMPANG WISMA BENTENG
+https://atcsdishub.medan.go.id/stream/L9PENGADILANKPT.MAULANALUBIS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUPRAPTO - MULTATULI — SIMPANG PIZZA HUT
+https://atcsdishub.medan.go.id/stream/L12SUPRAPTOMULTATULI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",IMAM BONJOL - SUPRAPTO — SIMPANG AIR MANCUR
+https://atcsdishub.medan.go.id/stream/L13IMAMBONJOLSUPRAPTO/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SM.RAJA - PANGLIMA DENAI — SIMPANG AMPLAS
+https://atcsdishub.medan.go.id/stream/L23AMPLAS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MT HARYONO - MH.THAMRIN — SIMPANG MT.THAMRIN SUMATERA
+https://atcsdishub.medan.go.id/stream/L26MTHARYONOTHAMRIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUDIRMAN - S.PARMAN — SIMPANG SUDIRMAN UJUNG
+https://atcsdishub.medan.go.id/stream/L29SUDIRMANUJUNG/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MONGONSIDI - PATIMURA — SIMPANG MANGONSIDI PATIMURA
+https://atcsdishub.medan.go.id/stream/L30MONGONSIDIPATTIMURA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - ISKANDAR MUDA — SIMPANG JM GINTING ISMUD
+https://atcsdishub.medan.go.id/stream/L31JAMINGINTINGISMUD/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTNG - DR.MANSYUR — SIMPANG DR MANSYUR JM GINTING
+https://atcsdishub.medan.go.id/stream/L32JAMINGINTINGDRMANSYUR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AH.NASUTION - BAJAK — SIMPANG BAJAK NASUTION
+https://atcsdishub.medan.go.id/stream/L35NASUTIONBAJAK/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - KAPTEN MUSLIM — SIMPANG SEI KAMBING
+https://atcsdishub.medan.go.id/stream/L39SEISIKAMBING/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",ISKANDAR MUDA - HASANUDDIN  — SIMPANG HASNUDDIN ISMUD
+https://atcsdishub.medan.go.id/stream/L41ISMUDHASANUDDIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KEJAKSAAN - S.PARMAN  — SIMPANG KEJAKSAAN SPARMAN
+https://atcsdishub.medan.go.id/stream/L43KEJAKSAANSPARMAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GAHARU - PERINTIS KEMERDEKAAN — SIMPANG GAHARU PERINTIS
+https://atcsdishub.medan.go.id/stream/L44GAHARUPERINTIS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PERINTIS KEMERDEKAAN - SUTOMO — SIMPANG NOUMENSEN
+https://atcsdishub.medan.go.id/stream/L45NOUMENSEN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PUTRI HIJAU - YOSUDARSO — SIMPANG GLUGUR
+https://atcsdishub.medan.go.id/stream/L47GLUGUR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KAPTEN MUSLIM - AMIR HAMZAH — SIMPANG AMIR HAMZAH GRIYA
+https://atcsdishub.medan.go.id/stream/L51GRIYA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MH.THAMRIN - HM.YAMIN  — SIMPANG THAMRIN YAMIN
+https://atcsdishub.medan.go.id/stream/L53THAMRINYAMIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KEJAKSAAN - TENGKU UMAR  — SIMPANG KEJKASSAN T UMAR
+https://atcsdishub.medan.go.id/stream/L54KEJAKSAANTUMAR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GAGAK HITAM - SUNGGAL — SIMPANG SUNGGAL GAGAK HITAM
+https://atcsdishub.medan.go.id/stream/L59SUGGAL/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - AH.NASUTION — SIMPANG POS
+https://atcsdishub.medan.go.id/stream/L62SIMPANGPOS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AH.NASUTION - KARYA WISATA — SIMPANG KARYAWISATA
+https://atcsdishub.medan.go.id/stream/L63KARYAWISATA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MH.THAMRIN - ASIA  — SIMPANG THAMRIN ASIA
+https://atcsdishub.medan.go.id/stream/L68THAMRINASIA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUTOMO - BAMBU II — SIMPANG SUTOMO BAMBU II
+https://atcsdishub.medan.go.id/stream/L71SUTOMOBAMBU2/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KRAKATAU - PASAR III  — SIMPANG KRAKATAU PASAR III
+https://atcsdishub.medan.go.id/stream/L72KRAKATAUPASAR3/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KRAKATAU - CEMARA  — SIMPANG KRAKTAU CEMARA
+https://atcsdishub.medan.go.id/stream/L76KRAKATAUCEMARA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SEKIP - PABRIK TENUN — SIMPANG SKIP
+https://atcsdishub.medan.go.id/stream/L77SKIPPABRIKTENUN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GAJAH MADA - DARUSSALAM — SIMPANG DARUSSALAM
+https://atcsdishub.medan.go.id/stream/L79GAJAHMADADARUSSALAM/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MANGONSIDI - DR.CIPTO — SIMPANG DR CIPTO
+https://atcsdishub.medan.go.id/stream/L80MANGONSIDIDRCIPTO/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - ASRAMA — SIMPANG MANHATTAN
+https://atcsdishub.medan.go.id/stream/L82GATSUASRAMA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - RS.ADAM MALIK — SIMPANG RS ADAM MALIK
+https://atcsdishub.medan.go.id/stream/L87RSADAMMALIK/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - SELAYANG — SIMPANG SELAYANG
+https://atcsdishub.medan.go.id/stream/L88SELAYANG/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - FLAMBOYAN RAYA  — SIMPANG PEMDA
+https://atcsdishub.medan.go.id/stream/L89PEMDA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - SIMALINGKAR  — SIMPANG SIMALINGKAR
+https://atcsdishub.medan.go.id/stream/L90SIMALINGKAR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AR.HAKIM - SEJATI — SIMPANG SEJATI
+https://atcsdishub.medan.go.id/stream/L91SEJATI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AR.HAKIM - WAHIDIN  — SIMPANG WAHIDN
+https://atcsdishub.medan.go.id/stream/L92WAHIDIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",DR.MANSYUR - PINTU 4 USU — RUAS PINTU 4 USU
+https://atcsdishub.medan.go.id/stream/L99PINTU4USU/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",DR.MANSYUR - PINTU 2 USU — RUAS PINTU 2 USU
+https://atcsdishub.medan.go.id/stream/L100PINTU2USU/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JAWA - VETERAN — RUAS JAWA VETERAN
+https://atcsdishub.medan.go.id/stream/L103JAWAVETERAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PUTRI HIJAU - HM.YAMIN ( DPN BRI ) — RUAS PUTRI HIJAU HM YAMIN
+https://atcsdishub.medan.go.id/stream/L107PUTRIHIJAUHMYAMIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",YOSUDARSO - DEPAN UNIVERSITAS DARMAWANGSA — RUAS YOS SUDARSO
+https://atcsdishub.medan.go.id/stream/L108YOSSUDARSODARMAWANGSA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RADEN SALEH ( DEPAN KANTOR WALIKOTA ) — RUAS RADEN SALEH
+https://atcsdishub.medan.go.id/stream/L114RADENSALEH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",ZAINUL ARIFIN ( SUN PLAZA ) — RUAS ZAINUL ARIFIN
+https://atcsdishub.medan.go.id/stream/L115ZAINULARIFIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",IMAM BONJOL - DEPAN SUPERMARKET BERASTAGI — RUAS IMAM BONJOL
+https://atcsdishub.medan.go.id/stream/L116IMAMBONJOL/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",DIPONEGORO( DEPAN MESJID AGUNG ) — RUAS DIPONEGORO
+https://atcsdishub.medan.go.id/stream/L117DIPONEGORO/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",S.PARMAN - GAJAH MADA — RUAS S.PARMAN ZAINUDDIN
+https://atcsdishub.medan.go.id/stream/L123SPARMANZAINUDDIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MERAK JINGGA - HM.YAMIN — RUAS MERAK JINGGA HM YAMIN
+https://atcsdishub.medan.go.id/stream/L126MERAKJINGGAHMYAMIN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JL.HM.SAID - PERINTIS KEMERDEKAAN — RUAS HM.SAID PRINTIS KEMERDEKAAN
+https://atcsdishub.medan.go.id/stream/L128HMSAIDPRINTISKEMERDEKAAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KARYA - AMIR HAMZAH — RUAS KARYA T.AMIR HAMZAH
+https://atcsdishub.medan.go.id/stream/L131KARYATAMIRHAMZAH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",ADAM MALIK - AMIR HAMZAH — RUAS ADAM MALIK T.AMIR HAMZAH
+https://atcsdishub.medan.go.id/stream/L132ADAMMALIKTAMIRHAMZAH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",BUNDARAN POLONIA — RUAS BUNDARAN POLONIA
+https://atcsdishub.medan.go.id/stream/L134BUNDARANPOLONIA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",BUNDARAN HOTEL PARDEDE — RUAS BUNDARAN HOTEL PARDEDE
+https://atcsdishub.medan.go.id/stream/L135BUNDARANHOTELPARDEDE/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JUANDA - SAMANHUDI — RUAS JUANDA SAMAN HUDI
+https://atcsdishub.medan.go.id/stream/L137JUANDASAMANHUDI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",KAPTEN MUSLIM - DEPAN PLAZA MILENIUM — RUAS KPT. MUSLIM
+https://atcsdishub.medan.go.id/stream/L138KPTMMUSLIM/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GAJAH MADA -DI.PENJAITAN — RUAS GAJAH MADA
+https://atcsdishub.medan.go.id/stream/L139GAJAHMADA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUDIRMAN - JEMBATAN SUDRIAMAN — RUAS SUDIRMAN
+https://atcsdishub.medan.go.id/stream/L142SUDIRMAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",AHMAD YANI - DEPAN TIP TOP — RUAS AHMAD YHANI
+https://atcsdishub.medan.go.id/stream/L146AHMADYHANI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MONGONSIDI - PERHUBUNGUN — RUAS MONGONSIDI PERHUBUNGAN DEPAN KFC
+https://atcsdishub.medan.go.id/stream/L147MONGONSIDIPPERHUBUNGAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUTOMO - ANI IDRUS — RUAS SUTOMO ANI IDRUS
+https://atcsdishub.medan.go.id/stream/L148SUTOMOANIIDRUS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PALANG MERAH - MASJID — RUAS PALANG MERAH MESJID
+https://atcsdishub.medan.go.id/stream/L149PALANGMERAHMESJID/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",PALANG MERAH - LISTRIK — RUAS PALANG MERAH LISTRIK
+https://atcsdishub.medan.go.id/stream/L150PALANGMERAHLISTRIK/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SEKIP - MERANTI — RUAS SKIP MERANTI
+https://atcsdishub.medan.go.id/stream/L151SKIPMERANTI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",DR.CIPTO - MASDULHAK — RUAS DR.CIPTO MASDULHAD
+https://atcsdishub.medan.go.id/stream/L153DRCIPTOMASDULHAD/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GURU PATIMPUS - SEI DELI — RUAS GURU PATIMPUS SEI DELI
+https://atcsdishub.medan.go.id/stream/L155GURUPATIMPUSSEIDELI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",YOSSUDARSO - ABD WAHAB ROKAN — RUAS YOS SUDARSO ABD WAHAB
+https://atcsdishub.medan.go.id/stream/L159YOSSUDARSOABDWAHAB/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - KOMPLEK TASBIH — SIMPANG SETIA BUDI KOMPLEK TASBIH
+https://atcsdishub.medan.go.id/stream/L178SETIABUDIKOMPLEKTASBIH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - DEPAN PLAZA FAIR — RUAS GATOT SUBROTO - DEPAN FLZA FAIR
+https://atcsdishub.medan.go.id/stream/L179GATOTSUBROTOFLAZAFAIR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUNGAI BABURA KPT.MAULANA LUBIS — SUNGAI BABURA KPT.MULANA LUBIS
+https://atcsdishub.medan.go.id/stream/L180SUNGAIBABURAKPTMAULANALUBIS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JEMBATAN KPT.MAULANA LUBIS — JEMBATAN KPT MAULANA LUBIS
+https://atcsdishub.medan.go.id/stream/L181JEMBATANKPTMAULANALUBIS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SUNGAI DELI SUPRAPTO
+https://atcsdishub.medan.go.id/stream/L182SUNGAIDELISUPRAPTO/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JEMBATAN SUPRAPTO
+https://atcsdishub.medan.go.id/stream/L183JEMBATANSUPRAPTO/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DPN KANTOR FASSI
+https://atcsdishub.medan.go.id/stream/L184RUASLETDASUJONODEPANFASSI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DPN PT. BRENGGA RUA INDONESIA
+https://atcsdishub.medan.go.id/stream/L185RUASLETDASUJONOPT.BRENGGARUAINDONESA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DEPAN STIKES SEHAT MEDAN
+https://atcsdishub.medan.go.id/stream/L186RUASLETDASUJONODEPANSTIKESSEHATMEDAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DEPAN MR DIY
+https://atcsdishub.medan.go.id/stream/L187RUASLETDASUJONODEPANMRDIY/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DEPAN SMK PRAYATNA
+https://atcsdishub.medan.go.id/stream/L188RUASLETDASUJONODEPANSMKPRAYATNA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS LETDA SUJONO — RUAS LETDA SUJONO DEPAN SPBU
+https://atcsdishub.medan.go.id/stream/L189RUASLETDASUJONODEPANSPBU/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",JL. HM YAMIN - JL. TIMUR — RUAS JL. YAMIN - JL TIMUR
+https://atcsdishub.medan.go.id/stream/L190RUASJLYAMINJLTIMUR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS JAMIN GINTING — RUAS JL. JAMIN GINTING DPN PAJUS
+https://atcsdishub.medan.go.id/stream/L191RUASJLJAMINGINTINGDEPANPAJUS/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS ISKANDAR MUDA — RUAS JL. ISKANDAR MUDA DPN VINA ESTETICA
+https://atcsdishub.medan.go.id/stream/L192RUASJLISKANDARMUDADEPANRSVINAESTETICA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS ISKANDAR MUDA — RUAS JL. ISKANDAR MUDA SP PRINGGAN
+https://atcsdishub.medan.go.id/stream/L193RUASJLISKANDARMUDASPPRINGGAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",MUKHTAR BASRI - KARANTINA — SIMP. MUKHTAR BASRI - KARANTINA
+https://atcsdishub.medan.go.id/stream/L194MUKHTARBASRIKARANTINA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",GATSU - ASRAMA 2 — SIMP. GATSU - ASRAMA 2
+https://atcsdishub.medan.go.id/stream/L195GATSUASRAMA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS BHAYANGKARA — RUAS JL.BHAYANGKARA - DEPAN POS BRIMOB 1
+https://atcsdishub.medan.go.id/stream/L207RUASJL.BHAYANGKARA-DEPANPOSBRIMOB1/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS BHAYANGKARA — RUAS JL.BHAYANGKARA - DEPAN POS BRIMOB 2
+https://atcsdishub.medan.go.id/stream/L208RUASJL.BHAYANGKARA-DEPANPOSBRIMOB2/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS HM SAID - POLRESTABES — RUAS HM SAID PINTU I POLRESTABES MEDAN
+https://atcsdishub.medan.go.id/stream/L209RUASJL.HM.SAIDPINTUIPOLRESTABESMEDAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS HM SAID - POLRESTABES — RUAS JL.HM.SAID PINTU II POLRESTABES MEDAN
+https://atcsdishub.medan.go.id/stream/L210RUASJL.HM.SAIDPINTUIIPOLRESTABESMEDAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS HM SAID - POLRESTABES — RUAS JL.HM.SAID PINTU III POLRESTABES MEDAN
+https://atcsdishub.medan.go.id/stream/L211RUASJL.HM.SAIDPINTUIIIPOLRESTABESMEDAN/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS AR HAKIM — RUAS JL. AR HAKIM - JL. TIMAH PUTIH
+https://atcsdishub.medan.go.id/stream/L212RUASJL.ARHAKIM-JL.TIMAHPUTIH/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS AR HAKIM — RUAS JL. AR HAKIM - PASAR SUKARAMAI
+https://atcsdishub.medan.go.id/stream/L225RUASJL.ARHAKIM-PASARSUKARAMAI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS MANDALA — RUAS JL. MANDALA  - PANGLIMA DENAI
+https://atcsdishub.medan.go.id/stream/L226RUASJL.MANDALA-PANGLIMADENAI/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS JL. KAPT. MUSLIM — RUAS JL. KAPT. MUSLIM - JL. BAKTI LUHUR
+https://atcsdishub.medan.go.id/stream/L214RUASJL.KAPT.MUSLIM-JL.BAKTILUHUR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS JL. KAPT. MUSLIM — RUAS JL. KAPT. MUSLIM - JL. SETIA LUHUR
+https://atcsdishub.medan.go.id/stream/L215RUASJL.KAPT.MUSLIM-JL.SETIALUHUR/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",RUAS JL. HM YAMIN — RUAS JL. HM YAMIN - SENTOSA BARU
+https://atcsdishub.medan.go.id/stream/L223RUASJL.HMYAMIN-SENTOSABARU/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SETIA BUDI KENANGA RAYA — SIMP. SETIA BUDI KENANGA RAYA
+https://atcsdishub.medan.go.id/stream/L237CCTVSPSETIABUDI-KENANGARAYA/index.m3u8
+#EXTINF:-1 group-title="CCTV Medan",SEI BATANG HARI - SEI ULAR — SIMP. SEI BATANG HARI - SEI ULAR
+https://atcsdishub.medan.go.id/stream/L240CCTVSPSEIBATANGHARI-TITIPAPAN/index.m3u8
+# --- 108 kamera menjawab error saat dicek (kemungkinan offline) ---
+# #EXTINF:-1 group-title="CCTV Medan",KATAMSO - ANI IDRUS — SIMPANG WASPADA
+# https://atcsdishub.medan.go.id/stream/L4KATAMSOANIIDRUS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KATAMSO - MASJID RAYA — SIMPANG ISTANA MAIMUN
+# https://atcsdishub.medan.go.id/stream/L6KATAMSOMASJIDRAYA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PERDANA - IMAM BONJOL — SIMPANG BENTENG 1
+# https://atcsdishub.medan.go.id/stream/L10PERDANAIMAMBONJOL/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",IMAM BONJOL - ZAINUL ARIFIN — SIMPANG HDTI
+# https://atcsdishub.medan.go.id/stream/L11IMAMBONJOLZAINULARIFIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",DIPONEGORO - ZAINUL ARIFIN — SIMPANG BII
+# https://atcsdishub.medan.go.id/stream/L14DIPONEGOROZAINULARIFIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",DIPONEGORO - KARTINI — SIMPANG KARTINI
+# https://atcsdishub.medan.go.id/stream/L15DIPONEGOROKARTINI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUDIRMAN - DIPONEGORO — SIMPANG RD.WALIKOTA
+# https://atcsdishub.medan.go.id/stream/L16SUDIRMANDIPONEGORO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUDIRMAN - CIK DITIRO — SIMPANG RD.GUBERNUR
+# https://atcsdishub.medan.go.id/stream/L17SUDIRMANCIKDITIRO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KATAMSO - JUANDA — SIMPANG JUANDA KATAMSO
+# https://atcsdishub.medan.go.id/stream/L18KATAMSOJUANDA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",JUANDA - POLONIA  — SIMPANG POLONIA
+# https://atcsdishub.medan.go.id/stream/L19JUANDAPOLONIA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - HALAT — SIMPANG HALAT - SM.RJA
+# https://atcsdishub.medan.go.id/stream/L20SMRAJAHALAT/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - PELANGI — SIMPANG PELANGI - SM.RAJA
+# https://atcsdishub.medan.go.id/stream/L21SMRAJAPELANGI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - AH.NASUTION — SIMPANG PMH
+# https://atcsdishub.medan.go.id/stream/L22SMRAJAPMH/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MT.HARYONO - IRIAN BARAT — SIMPANG UNILAND
+# https://atcsdishub.medan.go.id/stream/L24UNILAND/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MT.HARYONO - SUTOMO — SIMPANG MEDAN MALL
+# https://atcsdishub.medan.go.id/stream/L25MEDANMALL/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PUTRI HIJAU - GURU PATIMPUS — SIMPANG TVRI
+# https://atcsdishub.medan.go.id/stream/L27TVRI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - HM.JONI  — SIMPANG SM RJA HM JONI
+# https://atcsdishub.medan.go.id/stream/L33SMRAJAHMJHONI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - ALFALAH — SIMPANG ALFALAH SM RAJA
+# https://atcsdishub.medan.go.id/stream/L34SMRAJAALFALAH/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - ISKANDAR MUDA — SIMPANG MEDAN PLAZA
+# https://atcsdishub.medan.go.id/stream/L36MEDANPLAZA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - WAHID HASYIM — SIMPANG SEI WAMPU
+# https://atcsdishub.medan.go.id/stream/L37SEIWAMPU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - AYAHANDA — SIMPANG AYAHANDA - GATSU
+# https://atcsdishub.medan.go.id/stream/L38AYAHANDA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",ISKANDAR MUDA - GAJAH MADA  — SIMPANG ISMUD GAJAH MADA
+# https://atcsdishub.medan.go.id/stream/L40ISMUDGAJAHMADA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",ISKANDAR MUDA - ABDULLAH LUBIS — SIMPANG ISMUD ABD LUBIS
+# https://atcsdishub.medan.go.id/stream/L42ISMUDABDLUBIS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUTOMO - HM.YAMIN — SIMPANG SUTOMO YAMIN
+# https://atcsdishub.medan.go.id/stream/L46SUTOMOYAMIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",YOSUDARSO - PEMBANGUNAN  — SIMPANG BILAL YOSUDARSO
+# https://atcsdishub.medan.go.id/stream/L48BILALYOSSUDARSO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",YOSUDARSO - PERTEMPURAN — SIMPANG BRAYAN
+# https://atcsdishub.medan.go.id/stream/L49BRAYAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GAJAH MADA - WAHID HASYIM — SIMPANG GAJAH MADA WAHID HASYIM
+# https://atcsdishub.medan.go.id/stream/L50GAJAHMADAWAHIDHASYIM/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUNGGAL - KASUARI — SIMPANG SUNGGAL KASUARI
+# https://atcsdishub.medan.go.id/stream/L52SUNGGALKASUARI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",JUANDA - WALIKOTA  — SIMPANG JUANDA WALIKOTA
+# https://atcsdishub.medan.go.id/stream/L55JUANDAWALIKOTA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - RAHMADSYAH — SIMPANG RAHMDSYAH
+# https://atcsdishub.medan.go.id/stream/L56RAHMADSYAH/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",AH.NASUTION - STM TRITURA  — SIMPANG STM NASUTION
+# https://atcsdishub.medan.go.id/stream/L57STMAHNASUTION/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GAGAK HITAM - ASOKA — SIMPANG ASOKA
+# https://atcsdishub.medan.go.id/stream/L60ASOKA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - INDUSTRI — SIMPANG SETIA BUDI
+# https://atcsdishub.medan.go.id/stream/L61SETIABUDIINDUSTRI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KATAMSO - PELANGI — SIMPANG KATMASO PELANGI
+# https://atcsdishub.medan.go.id/stream/L64KATAMSOPELANGI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KATAMSO - SAKTI LUBIS — SIMPANG KATAMSO SAKTI LUBIS
+# https://atcsdishub.medan.go.id/stream/L65KATAMSOSAKTILUBIS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUTOMO - SUTRISNO — SIMPANG SUTOMO SUTRISNO
+# https://atcsdishub.medan.go.id/stream/L66SUTOMOSUTRISNO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MH.THAMRIN - SUTRISNO  — SIMPANG THAMRIN SUTRISNO
+# https://atcsdishub.medan.go.id/stream/L67THAMRINSUTRISNO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUTOMO - MARBABU — SIMPANG SUTOMO MERBABU
+# https://atcsdishub.medan.go.id/stream/L69SUTOMOMERBABU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GAHARU - BAMBU II — SIMPANG GAHARU BAMBU II
+# https://atcsdishub.medan.go.id/stream/L70GAHARUBAMBU2/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KRAKATAU - BILAL  — SIMPANG KARKATAU BILAL
+# https://atcsdishub.medan.go.id/stream/L73KRAKATAUBILAL/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KRAKATU - SIDORUKUN  — SIMPANG SIDORUKUN
+# https://atcsdishub.medan.go.id/stream/L74KRAKATUSIDORUKUN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",ABDULAH LUBIS - WAHID HASYIM  — SIMPANG WAHID HASYIM
+# https://atcsdishub.medan.go.id/stream/L75ABDLUBISWAHIDHASYIM/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",ABDULLAH LUBIS - SEI BLUTU  — SIMPANG SEI SERAYU
+# https://atcsdishub.medan.go.id/stream/L78ABDLUBISSEISERAYU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.YAMIN - PERINTIS — SIMPANG YAMIN PERINTIS
+# https://atcsdishub.medan.go.id/stream/L81HMYAMINPERINTIS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.YAMIN - WILIAM ISKANDAR — SIMPANG AKSARA - WILLIAN ISKANDAR
+# https://atcsdishub.medan.go.id/stream/L83ARHAKIMWILIAISKANDAR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - PINANG BARIS — SIMPANG PINANG BARIS
+# https://atcsdishub.medan.go.id/stream/L84PINANGBARIS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUMARSONO - ASRAMA — SIMPANG ASRAMA
+# https://atcsdishub.medan.go.id/stream/L85GAPERTAASRAMA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",LETDA SUJONO - MANDALA — SIMPANG MANDALA
+# https://atcsdishub.medan.go.id/stream/L86MANDALA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",AR.HAKIM - DENAI  — SIMPANG SUKARAMAI
+# https://atcsdishub.medan.go.id/stream/L93SUKAIRAMAI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PENGADILAN - KEJAKSAAN — SIMPANG BENTENG 2
+# https://atcsdishub.medan.go.id/stream/L94PENGADILANKEJAKASAAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - DR.MANSYUR — SIMPANG SETIA BUDI DR MANSYUR
+# https://atcsdishub.medan.go.id/stream/L95SETIABUDIDRMANSYUR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SEI BATANGHARI (DEPAN RS.BUNDA THAMRIN) — RUAS DEPAN RS BUNDA THAMRIN
+# https://atcsdishub.medan.go.id/stream/L96DEPANRSBUNDATHAMRIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SEI BATANGHARI - JALAN SEI ULAR — RUAS SEI ULAR
+# https://atcsdishub.medan.go.id/stream/L97SEIULARBARU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - TITI BOBROK — RUAS TITI BOBROK
+# https://atcsdishub.medan.go.id/stream/L98TITIBOBROK/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - SAUDARA — RUAS SM.RAJA SAUDARA
+# https://atcsdishub.medan.go.id/stream/L101SMRAJASAUDARA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",VETERAN - TIMOR — RUAS VETERAN TIMOR
+# https://atcsdishub.medan.go.id/stream/L104VETERANTIMOR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MH.THAMRIN - DEPAN YP.SUTOMO — RUAS HM.THAMRIN DEPAN YP SUTOMO
+# https://atcsdishub.medan.go.id/stream/L105HMTHAMRIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KEJAKSAAN - DEPAN KANTOR KPU MEDAN — RUAS KEJAKSAAN DEPAN KPU KOTA MEDAN
+# https://atcsdishub.medan.go.id/stream/L106KEJAKSAAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUTOMO - DEPAN TAMAN TUGU KB — RUAS SUTOMO
+# https://atcsdishub.medan.go.id/stream/L109SUTOMOTUGUKB/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PERINTIS KEMERDEKAAN - TIMOR — RUAS PERINTIS TIMOR
+# https://atcsdishub.medan.go.id/stream/L110PERINTISTIMOR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",JAWA (DEPAN CENTRE POINT) — RUAS JAWA
+# https://atcsdishub.medan.go.id/stream/L111JAWA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - NIBUNG — RUAS GATOT SUBROTO NIBUNG
+# https://atcsdishub.medan.go.id/stream/L113GATOTSUBRTONIBUNG/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MT.HARYONO - BINTANG — RUAS MT.HARYONO
+# https://atcsdishub.medan.go.id/stream/L119MTHARYONO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SIMPANG LIMUN - SM.RAJA  — RUAS SP.LIMUN
+# https://atcsdishub.medan.go.id/stream/L120SPLIMUN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",AMPLAS (DEPAN TERMINAL AMPLAS) — RUAS DEPAN TERMINAL AMPLAS
+# https://atcsdishub.medan.go.id/stream/L121DEPANTERMINALAMPLAS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",S.PARMAN - HASANUDDIN — RUAS S.PARMAN HASANUDDIN
+# https://atcsdishub.medan.go.id/stream/L122SPARMANHASANUDDIN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GURU PATIMPUS - KAPTEN MAULANA LUBIS — RUAS KPT MAULANA LUBIS S.PARMAN 
+# https://atcsdishub.medan.go.id/stream/L125KPTMAULANALUBISSPARMAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MERAK JINGGA - PERINTIS KEMERDEKAAN — RUAS MERAK JINGGA PERINTIS KEMERDEKAAN
+# https://atcsdishub.medan.go.id/stream/L127MERAKJINGGAPRINTISKEMERDEKAAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",MH.THMARIN - PERINTIS KEMERDEKAAN — RUAS THAMRIN PRINTIS KEMERDEKAAN
+# https://atcsdishub.medan.go.id/stream/L129THAMRINPRINTISKEMERDEKAAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",YOSUDARSO - CELINCING — RUAS YOS SUDARSO CILINCING
+# https://atcsdishub.medan.go.id/stream/L130CILINCING/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PERDANA - PAJAK HINDU — RUAS PAJAK HINDU
+# https://atcsdishub.medan.go.id/stream/L133PAJAKHINDU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SM.RAJA - DEPAN RAMAYANA — RUAS SM RAJA
+# https://atcsdishub.medan.go.id/stream/L136DEPANTUGUSMRAJA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",STADION TELADAN - POLSEK MEDAN KOTA — RUAS STADION TELADAN
+# https://atcsdishub.medan.go.id/stream/L141STADION/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",IMAM BONJOL - CUT  MUTIA — RUAS IMAM BONJOL CUT MUTIA
+# https://atcsdishub.medan.go.id/stream/L143IMAMBONJOLCUTMUTIA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - JEMBATAN SEI ULAR — RUAS GATOT SUBROTO
+# https://atcsdishub.medan.go.id/stream/L144GATOTSUBROTO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - DEPAN PRSU — RUAS GATOT SUBROTO PRSU
+# https://atcsdishub.medan.go.id/stream/L145GATOTSUBROTOPRSU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUDIRMAN - DEPAN TAMAN AHMAD YANI — RUAS SUPRAPTO IMAM BONJOL
+# https://atcsdishub.medan.go.id/stream/L154SUPRAPTOIMAMBONJOL/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.JONI - GEDUNG ARCA — RUAS HM JHONI GEDUNG ARCA
+# https://atcsdishub.medan.go.id/stream/L156HMJHONIGEDUNGARCA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",PUTRI HIJAU - MERAK JINGGA — RUAS PUTRI HIJAU MERAK JINGGA
+# https://atcsdishub.medan.go.id/stream/L158PUTRIHIJAUMERAKJINGGA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",STASIUN - BUKIT BARISAN (HALTE 1) — RUAS STASIUN BUKIT BARISAN HALTE I
+# https://atcsdishub.medan.go.id/stream/L160STASIUNHALTEI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",STASIUN - BUKIT BARISAN (HALTE 2) — RUAS STASIUN BUKIT BARISAN HALTE II
+# https://atcsdishub.medan.go.id/stream/L161STASIUNHALTEII/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",STASIUN - PALANG MERAH — RUAS STASIUN PALANG MERAH
+# https://atcsdishub.medan.go.id/stream/L162STASIUNPALANGMERAH/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RAHMADSYAH - SUTOMO — RUAS RAHMADSYAH SUTOMO
+# https://atcsdishub.medan.go.id/stream/L163RAHMADSYAHSUTOMO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",JAMIN GINTING - PASAR INDUK — RUAS JAMIN GINTING PASAR INDUK
+# https://atcsdishub.medan.go.id/stream/L164JAMINGINTINGPASARINDUK/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - BATAS KOTA — RUAS GATOT SUBROTO PINANG BARIS 
+# https://atcsdishub.medan.go.id/stream/L165GATOTSUBROTOPINANGBARIS/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",GATOT SUBROTO - PATRIOT — RUAS GATOT SUBROTO PATRIOT
+# https://atcsdishub.medan.go.id/stream/L166GATOTSUBROTOPATRIOT/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KAKATAU - BUKIT BARISAN 1 — RUAS KRAKATAU BUKIT BARISAN
+# https://atcsdishub.medan.go.id/stream/L167KRAKATAUBUKITBARISAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.YAMIN - T.IBRAHIM UMAR — RUAS HM YAMIN T.IBRAHIM UMAR
+# https://atcsdishub.medan.go.id/stream/L168HMYAMINTIBRAHIMUMAR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",KEPRIBADIAN - SIMP MAYOR — RUAS KEPRIBADIAN SP MAYOR
+# https://atcsdishub.medan.go.id/stream/L169KEPRIBADIANMAYOR/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",BAMBU - SUTOMO — SIMPANG BAMBU - SUTOMO
+# https://atcsdishub.medan.go.id/stream/L170BAMBU1/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",AR.HAKIM - HALAT — SIMPANG AR HAKIM HALAT
+# https://atcsdishub.medan.go.id/stream/L171ARHAKIMHALAT/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.JHONI - GEDUNG ARCA — SIMPANG GEDUNG ARCA
+# https://atcsdishub.medan.go.id/stream/L172GEDUNGARCA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",HM.JONI - BAHAGIA — SIMPANG HM.JONI BAHAGIA
+# https://atcsdishub.medan.go.id/stream/L174HMJONIBAHAGIA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - SEISERAYU — SIMPANG SETIABUDI SEIRAYU
+# https://atcsdishub.medan.go.id/stream/L175SETIABUDISEISERAYU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SETIA BUDI - SEI BLUTU — SIMPANG SETIA BUDI SEIBLUTU
+# https://atcsdishub.medan.go.id/stream/L176SETIABUDISEIBLUTU/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",YOSUDARSO - PERTEMPURAN 2 — SIMPANG YOSUDARSO PERTEMPURAN 2
+# https://atcsdishub.medan.go.id/stream/L177YOSUDARSOPERTEMPURAN/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",AH NASUTION - KARYA JAYA — SIMP. AH NASUTION - KARYA JAYA
+# https://atcsdishub.medan.go.id/stream/L196KARYAJAYAAHNASUTION/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",SUNGGAL -SEI BATANG HARI — SIMP. SUNGGAL - SEI BATANG HARI
+# https://atcsdishub.medan.go.id/stream/L197SUNGGALSEIBATANGHARI/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",LAP. MERDEKA DEPAN POSBLOC — RUAS LAP. MERDEKA DEPAN POSBLOC
+# https://atcsdishub.medan.go.id//stream/L206KAMERARUASLAP.MERDEKADEPANPOSBLOC/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS AR HAKIM — RUAS JL. AR. HAKIM - JL. BROMO
+# https://atcsdishub.medan.go.id/stream/L216RUASJL.AR.HAKIM-JL.BROMO/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS MANDALA — RUAS JL. MANDALA - PUKAT II
+# https://atcsdishub.medan.go.id/stream/L224RUASJL.MANDALA-PUKATII/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS MANDALA — RUAS JL. MANDALA - JL. PUKAT VII
+# https://atcsdishub.medan.go.id/stream/L213RUASJL.MANDALA-JL.PUKATVII/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. HALAT — RUAS JL. HALAT - JL. LAKSANA
+# https://atcsdishub.medan.go.id/stream/L217RUASJL.HALAT-JL.LAKSANA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. HALAT — RUAS JL. HALAT - JL. SENAM
+# https://atcsdishub.medan.go.id/stream/L218RUASJL.HALAT-JL.SENAM/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. HALAT — RUAS JL. HALAT - GEDUNG ARCA
+# https://atcsdishub.medan.go.id/stream/L219RUASJL.HALAT-GEDUNGARCA/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. KATAMSO — RUAS JL. KATAMSO (DEPAN SUZUYA)
+# https://atcsdishub.medan.go.id/stream/L220RUASJL.KATAMSO(DEPANSUZUYA)/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. KATAMSO — RUAS JL. KATAMSO - JL ALFALAH
+# https://atcsdishub.medan.go.id/stream/L221RUASJL.KATAMSO-JLALFALAH/index.m3u8
+# #EXTINF:-1 group-title="CCTV Medan",RUAS JL. HM YAMIN — RUAS JL. HM YAMIN - HM SAID
+# https://atcsdishub.medan.go.id/stream/L222RUASJL.HMYAMIN-HMSAID/index.m3u8

@@ -136,10 +136,31 @@ class UpdateCheckerService {
   }
 
   /// Selects the best matching APK asset from GitHub Releases for the device CPU architecture.
+  static const bool _kForceAndroidTv = bool.fromEnvironment('ANDROID_TV');
+  bool? _cachedIsTv;
+
+  Future<bool> _isAndroidTvDevice() async {
+    if (_kForceAndroidTv) return true;
+    if (_cachedIsTv != null) return _cachedIsTv!;
+    if (kIsWeb || !Platform.isAndroid) {
+      _cachedIsTv = false;
+      return false;
+    }
+    try {
+      const channel = MethodChannel('com.musikm3u.player/media_store');
+      _cachedIsTv = await channel.invokeMethod<bool>('isAndroidTv') ?? false;
+    } catch (_) {
+      _cachedIsTv = false;
+    }
+    return _cachedIsTv!;
+  }
+
+  /// Selects the best matching APK asset from a GitHub Release's `assets` list.
   static Map<String, dynamic>? selectBestApkAsset(
     List<dynamic> assets,
-    List<String> deviceAbis,
-  ) {
+    List<String> deviceAbis, {
+    bool isTv = false,
+  }) {
     final apkAssets = assets.whereType<Map<String, dynamic>>().where((a) {
       final name = (a['name'] as String? ?? '').toLowerCase();
       final url = (a['browser_download_url'] as String? ?? '').toLowerCase();
@@ -149,20 +170,35 @@ class UpdateCheckerService {
 
     if (apkAssets.isEmpty) return null;
 
+    bool isTvAssetName(String name) =>
+        name.contains('-tv-') ||
+        name.contains('_tv_') ||
+        name.contains('androidtv') ||
+        name.contains('android-tv');
+
+    final preferredPool = isTv
+        ? apkAssets
+            .where((a) => isTvAssetName((a['name'] as String? ?? '').toLowerCase()))
+            .toList()
+        : apkAssets
+            .where((a) => !isTvAssetName((a['name'] as String? ?? '').toLowerCase()))
+            .toList();
+    final pool = preferredPool.isNotEmpty ? preferredPool : apkAssets;
+
     for (final abi in deviceAbis) {
       final lowerAbi = abi.toLowerCase();
-      for (final asset in apkAssets) {
+      for (final asset in pool) {
         final name = (asset['name'] as String? ?? '').toLowerCase();
         if (name.contains(lowerAbi)) return asset;
       }
     }
 
-    for (final asset in apkAssets) {
+    for (final asset in pool) {
       final name = (asset['name'] as String? ?? '').toLowerCase();
       if (name.contains('universal')) return asset;
     }
 
-    return apkAssets.first;
+    return pool.first;
   }
 
   /// Selects the best matching Windows installer (.exe) asset from GitHub Releases.
@@ -201,8 +237,10 @@ class UpdateCheckerService {
 
     try {
       final isWindows = !kIsWeb && Platform.isWindows;
-      final userAgent =
-          isWindows ? 'MediaCenter-Windows' : 'M3UMusikPlayer-Android';
+      final isTv = !isWindows && await _isAndroidTvDevice();
+      final userAgent = isWindows
+          ? 'MediaCenter-Windows'
+          : (isTv ? 'MediaCenter-AndroidTV' : 'M3UMusikPlayer-Android');
       final abis = await _getDeviceAbis();
       final currentFullVer = _cachedBuildNumber.isNotEmpty
           ? '$_cachedVersion+$_cachedBuildNumber'
@@ -225,7 +263,7 @@ class UpdateCheckerService {
           final assets = data['assets'] as List<dynamic>? ?? const [];
           final selectedAsset = isWindows
               ? selectBestWindowsAsset(assets)
-              : selectBestApkAsset(assets, abis);
+              : selectBestApkAsset(assets, abis, isTv: isTv);
 
           if (tag.isNotEmpty &&
               selectedAsset != null &&
@@ -266,7 +304,11 @@ class UpdateCheckerService {
           final latestVer = (data['version'] ?? '').toString().trim();
           final dl = isWindows
               ? (data['windows_download_url'] ?? '').toString().trim()
-              : (data['download_url'] ?? '').toString().trim();
+              : (isTv
+                  ? (data['tv_download_url'] ?? data['download_url'] ?? '')
+                      .toString()
+                      .trim()
+                  : (data['download_url'] ?? '').toString().trim());
           final buildNo = data['build_number'];
           final latestFullVer =
               buildNo != null ? '$latestVer+$buildNo' : latestVer;

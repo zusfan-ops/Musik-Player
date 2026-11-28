@@ -105,7 +105,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   Future<void> _loadBundledCctv() async {
     if (_bundledCctvLoaded || !mounted) return;
     _bundledCctvLoaded = true;
-    await context.read<MusicProvider>().importBundledCctvAssets();
+    await context.read<MusicProvider>().syncGithubM3uDirectory();
   }
 
   Future<void> _pickAndImportFolder() async {
@@ -132,6 +132,29 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicProvider>();
+    final pendingNotice = provider.pendingGithubM3uNotice;
+    if (pendingNotice != null) {
+      provider.clearGithubM3uNotice();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.cloud_done_rounded,
+                  color: AppColors.spotifyGreen,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(pendingNotice)),
+              ],
+            ),
+          ),
+        );
+      });
+    }
     final allPlaylists = provider.playlists;
     final filtered = allPlaylists.where((pl) {
       if (_filterType == 'File') return !pl.isUrlSource;
@@ -193,6 +216,21 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Cek Update M3U GitHub',
+            icon: provider.isSyncingGithubM3u
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_sync_rounded),
+            onPressed: provider.isSyncingGithubM3u
+                ? null
+                : () => provider.syncGithubM3uDirectory(
+                      showNoChangeNotice: true,
+                    ),
+          ),
           IconButton(
             tooltip: 'Impor Folder M3U',
             icon: const Icon(Icons.folder_open_rounded),

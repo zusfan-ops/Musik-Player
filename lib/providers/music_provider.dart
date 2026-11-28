@@ -19,6 +19,7 @@ import '../models/music_models.dart';
 import '../services/artwork_service.dart';
 import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
+import '../services/github_m3u_sync_service.dart';
 import '../services/link_checker_service.dart';
 import '../services/m3u_service.dart';
 import '../services/newtube_service.dart';
@@ -463,6 +464,7 @@ class MusicProvider extends ChangeNotifier {
 
     if (autoScanOnInit) {
       unawaited(_seedDefaultTvPlaylistIfNeeded());
+      unawaited(syncGithubM3uDirectory());
       unawaited(
         refreshPermissionsAndScan(requestInteractive: false).then((_) async {
           if (Platform.isAndroid) {
@@ -479,7 +481,14 @@ class MusicProvider extends ChangeNotifier {
   Future<void> _seedDefaultTvPlaylistIfNeeded() async {
     try {
       final alreadySeeded = _prefs?.getBool(_kSeededDefaultTvKey) ?? false;
-      if (alreadySeeded || _playlists.isNotEmpty) return;
+      if (alreadySeeded ||
+          _playlists.any(
+            (p) =>
+                p.sourceLocation.toLowerCase() ==
+                defaultTvPlaylistUrl.toLowerCase(),
+          )) {
+        return;
+      }
       await _prefs?.setBool(_kSeededDefaultTvKey, true);
       await addM3uFromUrls(
         rawUrlsInput: defaultTvPlaylistUrl,
@@ -1041,83 +1050,139 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
-  static const List<String> _bundledCctvAssets = [
-    'assets/m3u/CCTV Bima.m3u',
-    'assets/m3u/CCTV Jakarta.m3u',
-    'assets/m3u/CCTV Jogja.m3u',
-    'assets/m3u/CCTV Magetan.m3u',
-    'assets/m3u/CCTV Mataram.m3u',
-    'assets/m3u/CCTV semarang.m3u',
-  ];
+  static const String _kGithubM3uShasKey = 'github_m3u_shas_v1';
+  bool _isSyncingGithubM3u = false;
+  String? _pendingGithubM3uNotice;
 
-  /// Loads built-in bundled M3U playlists from app assets as streaming URL
-  /// playlists (works on Android & Windows without any local `D:\` directory).
-  Future<int> importBundledCctvAssets() async {
-    final bundledNames = _bundledCctvAssets
-        .map((a) => p.basenameWithoutExtension(p.basename(a)).toLowerCase())
-        .toSet();
-    // Migrate away any stale local-file copies of bundled/D:\m3u CCTV playlists
-    _playlists.removeWhere((pl) {
-      if (pl.sourceType != M3uSourceType.file) return false;
-      final n = pl.name.toLowerCase();
-      final loc = pl.sourceLocation.toLowerCase();
-      return bundledNames.contains(n) || loc.contains(r'\m3u\');
-    });
+  bool get isSyncingGithubM3u => _isSyncingGithubM3u;
+  String? get pendingGithubM3uNotice => _pendingGithubM3uNotice;
 
-    int imported = 0;
-    for (final assetPath in _bundledCctvAssets) {
-      try {
-        final data = await rootBundle.load(assetPath);
-        final bytes = data.buffer.asUint8List(
-          data.offsetInBytes,
-          data.lengthInBytes,
-        );
-        final fileName = p.basename(assetPath);
-        final rawBase = p.basenameWithoutExtension(fileName);
-        final nameLower = rawBase.toLowerCase();
-        final formattedName = rawBase
-            .split(RegExp(r'\s+'))
-            .where((w) => w.isNotEmpty)
-            .map((w) => w.toUpperCase() == 'CCTV'
-                ? 'CCTV'
-                : w[0].toUpperCase() + w.substring(1).toLowerCase())
-            .join(' ');
-        final existingIdx = _playlists.indexWhere(
-          (pl) =>
-              pl.sourceLocation == 'asset://$assetPath' ||
-              pl.name.toLowerCase() == nameLower,
-        );
-        final parsed = await M3uService.importFromBytes(
-          bytes: bytes,
-          displayFileName: fileName,
-          resolvedSourcePath: 'asset://$assetPath',
-          existingId: existingIdx >= 0 ? _playlists[existingIdx].id : null,
-        );
-        final playlist = M3uPlaylist(
-          id: parsed.id,
-          name: formattedName,
-          sourceType: M3uSourceType.url,
-          sourceLocation: 'asset://$assetPath',
-          tracks: parsed.tracks,
-          updatedAt: parsed.updatedAt,
-          isEnabled: parsed.isEnabled,
-        );
-        if (existingIdx >= 0) {
-          _playlists[existingIdx] = playlist;
-        } else {
-          _playlists.insert(0, playlist);
+  void clearGithubM3uNotice() {
+    _pendingGithubM3uNotice = null;
+  }
+
+  /// Checks `zusfan-ops/Musik-Player/m3u` on GitHub for new or updated `.m3u` files
+  /// and automatically updates TV/CCTV playlists + raises an in-app notification.
+  Future<int> syncGithubM3uDirectory({bool showNoChangeNotice = false}) async {
+    if (_isSyncingGithubM3u) return 0;
+    _isSyncingGithubM3u = true;
+    notifyListeners();
+
+    int changedCount = 0;
+    try {
+      final rawSaved = _prefs?.getString(_kGithubM3uShasKey);
+      final Map<String, String> knownShas = {};
+      if (rawSaved != null && rawSaved.isNotEmpty) {
+        final decoded = jsonDecode(rawSaved);
+        if (decoded is Map) {
+          for (final entry in decoded.entries) {
+            if (entry.key is String && entry.value is String) {
+              knownShas[entry.key as String] = entry.value as String;
+            }
+          }
         }
-        imported++;
-      } catch (_) {
-        // Skip if asset is unavailable in test environment
       }
-    }
-    if (imported > 0) {
-      _invalidateLibraryCache();
-      await _persistPlaylists();
+
+      // Remove legacy hardcoded bundled/D:\m3u CCTV copies (keep TV Indonesia & user links)
+      _playlists.removeWhere((pl) {
+        final loc = pl.sourceLocation.toLowerCase();
+        return loc.startsWith('asset://assets/m3u/') ||
+            (pl.sourceType == M3uSourceType.file && loc.contains(r'\m3u\'));
+      });
+
+      final remoteEntries = await GithubM3uSyncService.fetchRemoteEntries();
+      final remoteUrls =
+          remoteEntries.map((e) => e.downloadUrl.toLowerCase()).toSet();
+      final remoteNames = remoteEntries.map((e) => e.name).toSet();
+      knownShas.removeWhere((k, _) => !remoteNames.contains(k));
+      _playlists.removeWhere((pl) {
+        final loc = pl.sourceLocation.toLowerCase();
+        return loc.startsWith(
+              'https://raw.githubusercontent.com/zusfan-ops/musik-player/',
+            ) &&
+            !remoteUrls.contains(loc);
+      });
+
+      final changedEntries = GithubM3uSyncService.diffChangedEntries(
+        remoteEntries: remoteEntries,
+        knownShas: knownShas,
+      );
+
+      if (changedEntries.isEmpty) {
+        if (showNoChangeNotice) {
+          _pendingGithubM3uNotice = 'Daftar TV & CCTV GitHub sudah paling baru.';
+        }
+        return 0;
+      }
+
+      final addedNames = <String>[];
+      final updatedNames = <String>[];
+
+      for (final entry in changedEntries) {
+        try {
+          final bytes =
+              await GithubM3uSyncService.downloadFileBytes(entry.downloadUrl);
+          final displayName =
+              GithubM3uSyncService.formatPlaylistDisplayName(entry.name);
+          final existingIdx = _playlists.indexWhere(
+            (pl) =>
+                pl.sourceLocation.toLowerCase() ==
+                    entry.downloadUrl.toLowerCase() ||
+                pl.name.toLowerCase() == displayName.toLowerCase(),
+          );
+          final parsed = await M3uService.importFromBytes(
+            bytes: bytes,
+            displayFileName: entry.name,
+            resolvedSourcePath: entry.downloadUrl,
+            existingId: existingIdx >= 0 ? _playlists[existingIdx].id : null,
+          );
+          final playlist = M3uPlaylist(
+            id: parsed.id,
+            name: displayName,
+            sourceType: M3uSourceType.url,
+            sourceLocation: entry.downloadUrl,
+            tracks: parsed.tracks,
+            updatedAt: parsed.updatedAt,
+            isEnabled: parsed.isEnabled,
+          );
+          if (existingIdx >= 0) {
+            _playlists[existingIdx] = playlist;
+            updatedNames.add(displayName);
+          } else {
+            _playlists.insert(0, playlist);
+            addedNames.add(displayName);
+          }
+          knownShas[entry.name] = entry.sha;
+          changedCount++;
+        } catch (_) {
+          // Skip failed file and keep others syncing
+        }
+      }
+
+      if (changedCount > 0) {
+        await _prefs?.setString(_kGithubM3uShasKey, jsonEncode(knownShas));
+        _invalidateLibraryCache();
+        await _persistPlaylists();
+
+        final parts = <String>[];
+        if (addedNames.isNotEmpty) {
+          parts.add('${addedNames.length} baru (${addedNames.join(', ')})');
+        }
+        if (updatedNames.isNotEmpty) {
+          parts.add(
+            '${updatedNames.length} diperbarui (${updatedNames.join(', ')})',
+          );
+        }
+        _pendingGithubM3uNotice =
+            'Update list TV/CCTV dari GitHub: ${parts.join(' • ')}';
+      }
+      return changedCount;
+    } catch (_) {
+      return 0;
+    } finally {
+      _isSyncingGithubM3u = false;
       notifyListeners();
     }
-    return imported;
   }
 
   /// Imports every `.m3u` / `.m3u8` file found inside [dirPath] as a TV playlist.

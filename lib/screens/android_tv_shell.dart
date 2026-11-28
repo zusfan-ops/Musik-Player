@@ -112,10 +112,11 @@ class _AndroidTvShellState extends State<AndroidTvShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      unawaited(context.read<MusicProvider>().importBundledCctvAssets());
-      if (widget.autoCheckUpdates) {
+      final music = context.read<MusicProvider>();
+      await music.syncGithubM3uDirectory();
+      if (widget.autoCheckUpdates && mounted) {
         unawaited(_checkUpdates());
       }
     });
@@ -134,6 +135,30 @@ class _AndroidTvShellState extends State<AndroidTvShell> {
 
   @override
   Widget build(BuildContext context) {
+    final music = context.watch<MusicProvider>();
+    final pendingNotice = music.pendingGithubM3uNotice;
+    if (pendingNotice != null) {
+      music.clearGithubM3uNotice();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.cloud_done_rounded,
+                  color: AppColors.spotifyGreen,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(pendingNotice)),
+              ],
+            ),
+          ),
+        );
+      });
+    }
     return PopScope(
       canPop: _selectedTab == 0,
       onPopInvokedWithResult: (didPop, _) {
