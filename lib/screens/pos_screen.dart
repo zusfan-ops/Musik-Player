@@ -49,6 +49,7 @@ class _PosScreenState extends State<PosScreen>
   String _mapsReviewUrl = '';
   bool _hasStaffPin = false;
   bool _staffLocked = false;
+  String _lastSyncedProductsSig = '';
 
   @override
   void initState() {
@@ -106,6 +107,34 @@ class _PosScreenState extends State<PosScreen>
       _mapsReviewUrl = store?['google_maps_review_url']?.toString() ?? '';
       _hasStaffPin = data['has_staff_pin'] == true;
     });
+
+    if (store != null) {
+      unawaited(_autoSyncPosProductsIfChanged());
+    }
+  }
+
+  Future<void> _autoSyncPosProductsIfChanged() async {
+    if (!mounted) return;
+    final pos = context.read<PosProvider>();
+    final sig = pos.products
+        .map((p) => '${p.id}:${p.name}:${p.price}:${p.stock}:${p.isActive}')
+        .join('|');
+    if (sig == _lastSyncedProductsSig || pos.products.isEmpty) return;
+    _lastSyncedProductsSig = sig;
+    final payload = pos.products
+        .map(
+          (prod) => {
+            'client_uid': prod.id,
+            'name': prod.name,
+            'category': prod.category,
+            'price': prod.price,
+            'stock': prod.stock,
+            'unit': prod.unit,
+            'is_active': prod.isActive,
+          },
+        )
+        .toList();
+    await BackendApiService.instance.syncStoreProductsOnly(payload);
   }
 
   Future<void> _openStoreSheetGuarded() async {
@@ -234,9 +263,9 @@ class _PosScreenState extends State<PosScreen>
             ),
             Text(
               'POS Universal • ${pos.profile.businessType.label}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textSecondary,
+                color: AppColors.subtext(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -354,7 +383,7 @@ class _PosScreenState extends State<PosScreen>
           tabAlignment: TabAlignment.start,
           indicatorColor: AppColors.spotifyGreen,
           labelColor: AppColors.spotifyGreen,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: AppColors.subtext(context),
           labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           tabs: const [
             Tab(icon: Icon(Icons.point_of_sale_rounded, size: 18), text: 'Kasir'),

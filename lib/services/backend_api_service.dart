@@ -599,6 +599,10 @@ class BackendApiService {
     }
   }
 
+  static const String _kCachedAnnouncementsKey = 'mc_cached_announcements_v1';
+  static const String _kLastSeenAnnouncementIdKey =
+      'mc_last_seen_announcement_id_v1';
+
   Future<List<BackendAnnouncement>> fetchAnnouncements() async {
     try {
       final res = await http
@@ -608,15 +612,58 @@ class BackendApiService {
           )
           .timeout(_timeout);
       if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final decoded =
+            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         final data = decoded['data'] as List<dynamic>? ?? const [];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kCachedAnnouncementsKey, jsonEncode(data));
         return data
             .whereType<Map<String, dynamic>>()
             .map(BackendAnnouncement.fromJson)
             .toList();
       }
     } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kCachedAnnouncementsKey);
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List<dynamic>;
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(BackendAnnouncement.fromJson)
+            .toList();
+      }
+    } catch (_) {}
     return const [];
+  }
+
+  Future<int> getUnreadAnnouncementsCount(
+    List<BackendAnnouncement> list,
+  ) async {
+    if (list.isEmpty) return 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSeen = prefs.getInt(_kLastSeenAnnouncementIdKey) ?? 0;
+      return list.where((a) => a.id > lastSeen).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> markAnnouncementsAsSeen(List<BackendAnnouncement> list) async {
+    if (list.isEmpty) return;
+    try {
+      final maxId = list
+          .map((a) => a.id)
+          .fold<int>(0, (prev, el) => el > prev ? el : prev);
+      if (maxId > 0) {
+        final prefs = await SharedPreferences.getInstance();
+        final prev = prefs.getInt(_kLastSeenAnnouncementIdKey) ?? 0;
+        if (maxId > prev) {
+          await prefs.setInt(_kLastSeenAnnouncementIdKey, maxId);
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> sendAnalyticsEvent(
@@ -865,6 +912,7 @@ class BackendApiService {
     String? googleMapsReviewUrl,
     String? openingHours,
     bool? isOpen,
+    bool? showOnHome,
     String? staffPin,
     bool clearStaffPin = false,
     List<Map<String, dynamic>>? products,
@@ -900,6 +948,7 @@ class BackendApiService {
                     ? null
                     : openingHours.trim(),
               if (isOpen != null) 'is_open': isOpen,
+              if (showOnHome != null) 'show_on_home': showOnHome,
               if (staffPin != null && staffPin.trim().isNotEmpty)
                 'staff_pin': staffPin.trim(),
               if (clearStaffPin) 'clear_staff_pin': true,
@@ -915,6 +964,26 @@ class BackendApiService {
     } catch (e) {
       return 'Gagal menghubungi server: $e';
     }
+  }
+
+  Future<void> syncStoreProductsOnly(
+    List<Map<String, dynamic>> products,
+  ) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return;
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/store/products/sync'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'products': products}),
+          )
+          .timeout(_timeout);
+    } catch (_) {}
   }
 
   Future<String?> uploadStoreQris(String filePath) async {

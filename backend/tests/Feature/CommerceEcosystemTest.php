@@ -193,5 +193,40 @@ class CommerceEcosystemTest extends TestCase
         $this->getJson('/api/v1/stores/discover?lat=-6.2010&lng=106.8170&store_type=coffeeshop&only_open=1')
             ->assertStatus(200)
             ->assertJsonPath('data.0.slug', 'kopi-nusantara');
+
+        // 10. Sync POS products only & toggle show_on_home = false
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->postJson('/api/v1/store/products/sync', [
+                'products' => [
+                    [
+                        'client_uid' => 'p-2',
+                        'name' => 'Matcha Latte',
+                        'category' => 'Non-Kopi',
+                        'price' => 25000,
+                        'stock' => 30,
+                        'unit' => 'cup',
+                        'is_active' => true,
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('count', 1);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson('/api/v1/store/me', [
+                'name' => 'Kopi Nusantara',
+                'slug' => 'kopi-nusantara',
+                'store_type' => 'coffeeshop',
+                'show_on_home' => false,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.show_on_home', false);
+
+        // Hidden from Home discovery when show_on_home = false, but storefront still accessible
+        $this->getJson('/api/v1/stores/discover')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+        $this->get('/kopi-nusantara')->assertStatus(200)->assertSee('Matcha Latte');
     }
 }

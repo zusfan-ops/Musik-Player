@@ -75,6 +75,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/store/me', [StoreApiController::class, 'myStore']);
         Route::put('/store/me', [StoreApiController::class, 'upsertMyStore']);
+        Route::post('/store/products/sync', [StoreApiController::class, 'syncProductsOnly']);
         Route::post('/store/me/qris', [StoreApiController::class, 'uploadQris']);
         Route::post('/store/me/verify-pin', [StoreApiController::class, 'verifyStaffPin']);
         Route::get('/store/orders', [StoreApiController::class, 'ordersIndex']);

@@ -38,6 +38,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _selectedChip = 'Semua';
   int _unreadAdminReplies = 0;
+  int _unreadAnnouncements = 0;
+  List<BackendAnnouncement> _announcements = const [];
+  bool _announcementBannerDismissed = false;
   String? _cloudUserName;
   Timer? _msgPollTimer;
 
@@ -63,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshHeaderState({bool notifyNew = false}) async {
     final prevUnread = _unreadAdminReplies;
+    final prevUnreadAnn = _unreadAnnouncements;
     final account = await BackendApiService.instance.getAccountState();
     String? userName;
     if (account.isLoggedIn) {
@@ -70,19 +74,98 @@ class _HomeScreenState extends State<HomeScreen> {
           ? account.name
           : (account.email ?? 'Akun');
     }
-    final unread =
-        await BackendApiService.instance.fetchUnreadAdminRepliesCount();
+    final results = await Future.wait([
+      BackendApiService.instance.fetchUnreadAdminRepliesCount(),
+      BackendApiService.instance.fetchAnnouncements(),
+    ]);
+    final unread = results[0] as int;
+    final announcements = results[1] as List<BackendAnnouncement>;
+    final unreadAnn = await BackendApiService.instance
+        .getUnreadAnnouncementsCount(announcements);
     if (!mounted) return;
 
     if (notifyNew && unread > prevUnread && unread > 0) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF0EA5E9),
-          content: Text('Ada $unread balasan baru dari Admin!'),
+          backgroundColor: const Color(0xFF0284C7),
+          duration: const Duration(seconds: 8),
+          content: InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              unawaited(_openMessageCenter());
+            },
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.mark_chat_unread_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Ada $unread balasan baru dari Admin! Ketuk di sini untuk buka chat.',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           action: SnackBarAction(
             label: 'Buka Chat',
             textColor: Colors.white,
-            onPressed: _openMessageCenter,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              unawaited(_openMessageCenter());
+            },
+          ),
+        ),
+      );
+    } else if (notifyNew && unreadAnn > prevUnreadAnn && unreadAnn > 0) {
+      final latest = announcements.first;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFD97706),
+          duration: const Duration(seconds: 8),
+          content: InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              unawaited(_openAnnouncementsDialog());
+            },
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.campaign_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Pengumuman: ${latest.title}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          action: SnackBarAction(
+            label: 'Baca',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              unawaited(_openAnnouncementsDialog());
+            },
           ),
         ),
       );
@@ -91,10 +174,75 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _cloudUserName = userName;
       _unreadAdminReplies = unread;
+      _announcements = announcements;
+      _unreadAnnouncements = unreadAnn;
+      if (unreadAnn > prevUnreadAnn) {
+        _announcementBannerDismissed = false;
+      }
     });
   }
 
+  Future<void> _openAnnouncementsDialog() async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    await BackendApiService.instance.markAnnouncementsAsSeen(_announcements);
+    if (!mounted) return;
+    setState(() => _unreadAnnouncements = 0);
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.campaign_rounded, color: Color(0xFFD97706)),
+            SizedBox(width: 8),
+            Text('Pengumuman & Info'),
+          ],
+        ),
+        content: SizedBox(
+          width: 420,
+          child: _announcements.isEmpty
+              ? const Text('Belum ada pengumuman aktif saat ini.')
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _announcements.length,
+                  separatorBuilder: (_, _) => const Divider(),
+                  itemBuilder: (_, idx) {
+                    final a = _announcements[idx];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        a.title,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(a.body),
+                      ),
+                      trailing: Chip(
+                        label: Text(
+                          a.type.toUpperCase(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openMessageCenter() async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (_unreadAdminReplies > 0) {
+      setState(() => _unreadAdminReplies = 0);
+    }
     await showAppGuideAndSupportSheet(context, initialTab: 2);
     if (mounted) unawaited(_refreshHeaderState());
   }
@@ -205,6 +353,21 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: provider.isScanning
                   ? null
                   : () => provider.pickAndAddDirectory(),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Pengumuman',
+              onPressed: _openAnnouncementsDialog,
+              icon: Badge(
+                isLabelVisible: _unreadAnnouncements > 0,
+                label: Text('$_unreadAnnouncements'),
+                child: Icon(
+                  Icons.campaign_rounded,
+                  color: _unreadAnnouncements > 0
+                      ? const Color(0xFFF59E0B)
+                      : null,
+                ),
+              ),
             ),
             IconButton(
               visualDensity: VisualDensity.compact,
@@ -372,6 +535,81 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
+        // Active Admin Announcement Banner (Android & Desktop)
+        if (_announcements.isNotEmpty && !_announcementBannerDismissed)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Material(
+                color: const Color(0xFFD97706).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _openAnnouncementsDialog,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.campaign_rounded,
+                          color: Color(0xFFF59E0B),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _announcements.first.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              if (_announcements.first.body.isNotEmpty)
+                                Text(
+                                  _announcements.first.body,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          onPressed: () {
+                            unawaited(
+                              BackendApiService.instance
+                                  .markAnnouncementsAsSeen(_announcements),
+                            );
+                            setState(() {
+                              _announcementBannerDismissed = true;
+                              _unreadAnnouncements = 0;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
         // 1 & 2. WIDE DESKTOP 2-COLUMN DASHBOARD OR MOBILE STACK
         if (MediaQuery.of(context).size.width >= 960)
           SliverToBoxAdapter(
@@ -416,8 +654,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           _YouTubeOfflineSection(
                             onOpenYouTube: () => widget.onNavigateTab(3),
                           ),
-                        const SizedBox(height: 16),
-                        const _StoreDiscoveryAndAdsSection(),
                       ],
                     ),
                   ),
@@ -433,13 +669,6 @@ class _HomeScreenState extends State<HomeScreen> {
               playlists: playlists,
               directories: directories,
               onNavigateTab: widget.onNavigateTab,
-            ),
-          ),
-
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: _StoreDiscoveryAndAdsSection(),
             ),
           ),
 
@@ -474,6 +703,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
         ],
+
+        // Full-width proportional Store Discovery & Native Ads (Desktop & Mobile)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: _StoreDiscoveryAndAdsSection(),
+          ),
+        ),
 
         // 2a. CONTINUE WATCHING (HALLSEM CINEMA)
         if (jfProvider.continueWatchingMovies.isNotEmpty &&
@@ -541,10 +778,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 175,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceElevated,
+                                color: AppColors.elevated(context),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: Colors.black.withValues(alpha: 0.08),
+                                  color: AppColors.highlight(context),
                                 ),
                               ),
                               child: Column(
@@ -568,8 +805,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                           item.groupTitle ?? item.directoryName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: AppColors.neonCyan,
+                                          style: TextStyle(
+                                            color: AppColors.isDark(context)
+                                                ? const Color(0xFF38BDF8)
+                                                : AppColors.neonCyan,
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -581,7 +820,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     item.title,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                      color: AppColors.text(context),
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13,
                                     ),
@@ -590,8 +830,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     item.artist,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
+                                    style: TextStyle(
+                                      color: AppColors.subtext(context),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -1812,9 +2052,9 @@ class _NetflixTop10Card extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: AppColors.elevated(context),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                  border: Border.all(color: AppColors.highlight(context)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1825,7 +2065,8 @@ class _NetflixTop10Card extends StatelessWidget {
                       track.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        color: AppColors.text(context),
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
                       ),
@@ -1835,8 +2076,8 @@ class _NetflixTop10Card extends StatelessWidget {
                       track.artist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: AppColors.subtext(context),
                         fontSize: 10.5,
                       ),
                     ),
@@ -1876,21 +2117,28 @@ class _EmptyCalloutCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.highlight(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.neonCyan, size: 28),
+              Icon(
+                icon,
+                color: AppColors.isDark(context)
+                    ? const Color(0xFF38BDF8)
+                    : AppColors.neonCyan,
+                size: 28,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    color: AppColors.text(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
@@ -1901,8 +2149,8 @@ class _EmptyCalloutCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: AppColors.subtext(context),
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -2287,9 +2535,9 @@ class _YouTubeOfflineSection extends StatelessWidget {
             margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.card(context),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+              border: Border.all(color: AppColors.highlight(context)),
             ),
             child: Row(
               children: [
@@ -2306,22 +2554,23 @@ class _YouTubeOfflineSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Belum ada unduhan YouTube',
                         style: TextStyle(
+                          color: AppColors.text(context),
                           fontWeight: FontWeight.w800,
                           fontSize: 13.5,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Unduh lagu single atau playlist YouTube agar muncul & bisa diputar offline di sini.',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: AppColors.subtext(context),
                           fontSize: 11.5,
                         ),
                       ),
@@ -2706,9 +2955,10 @@ class _StoreDiscoveryAndAdsSectionState
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || (_stores.isEmpty && _ads.isEmpty)) {
-      return const SizedBox.shrink();
-    }
+    final textColor = AppColors.text(context);
+    final subtextColor = AppColors.subtext(context);
+    final cardColor = AppColors.card(context);
+    final borderColor = AppColors.highlight(context);
 
     final cards = _buildMixedCards();
     return Column(
@@ -2722,11 +2972,11 @@ class _StoreDiscoveryAndAdsSectionState
               size: 18,
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Toko & Rekomendasi Pilihan',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -2735,7 +2985,7 @@ class _StoreDiscoveryAndAdsSectionState
             IconButton(
               tooltip: 'Muat ulang toko',
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              color: Colors.white60,
+              color: subtextColor,
               onPressed: _loadData,
             ),
           ],
@@ -2786,15 +3036,95 @@ class _StoreDiscoveryAndAdsSectionState
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 218,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: cards.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, idx) => cards[idx],
+        if (_loading)
+          const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (cards.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E).withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.storefront_rounded,
+                    color: Color(0xFF22C55E),
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Jadikan toko Anda yang pertama terlihat di sini!',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Aktifkan Toko Online untuk menampilkan menu, lokasi GPS, QR meja cafe, dan terima pesanan langsung ke POS.',
+                        style: TextStyle(
+                          color: subtextColor,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: () async {
+                          final acc =
+                              await BackendApiService.instance.getAccountState();
+                          if (!context.mounted) return;
+                          if (acc.isLoggedIn) {
+                            await showStoreSettingsAndQrSheet(context);
+                            if (mounted) unawaited(_loadData());
+                          } else {
+                            await showCloudAuthDialog(
+                              context,
+                              isRegister: true,
+                              onAuthSuccess: () async {
+                                if (mounted) unawaited(_loadData());
+                              },
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.add_business_rounded, size: 17),
+                        label: const Text('Aktifkan Toko Sekarang'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 252,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: cards.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+              itemBuilder: (_, idx) => cards[idx],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -2815,14 +3145,17 @@ class _StoreDiscoveryCard extends StatelessWidget {
     final products = (store['products'] as List?)
             ?.whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
-            .take(3)
+            .take(4)
             .toList() ??
         const <Map<String, dynamic>>[];
 
+    final textColor = AppColors.text(context);
+    final subtextColor = AppColors.subtext(context);
+
     return SizedBox(
-      width: 280,
+      width: 336,
       child: Material(
-        color: AppColors.surfaceElevated,
+        color: AppColors.elevated(context),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -2832,7 +3165,7 @@ class _StoreDiscoveryCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: AppColors.highlight(context),
               ),
             ),
             child: Column(
@@ -2898,8 +3231,8 @@ class _StoreDiscoveryCard extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: textColor,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -2910,55 +3243,80 @@ class _StoreDiscoveryCard extends StatelessWidget {
                     address,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: subtextColor,
                       fontSize: 11,
                     ),
                   ),
                 ],
                 const SizedBox(height: 10),
                 if (products.isEmpty)
-                  const Text(
-                    'Lihat profil & detail toko',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  )
-                else
-                  ...products.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.circle,
-                            size: 5,
-                            color: Colors.white38,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              p['name']?.toString() ?? '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Rp ${p['price'] ?? 0}',
-                            style: const TextStyle(
-                              color: Color(0xFF4ADE80),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Lihat profil, lokasi GPS & menu toko',
+                        style: TextStyle(color: subtextColor, fontSize: 12.5),
                       ),
                     ),
+                  )
+                else
+                  Expanded(
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 6,
+                        childAspectRatio: 2.35,
+                      ),
+                      itemCount: products.length,
+                      itemBuilder: (_, i) {
+                        final p = products[i];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.card(context),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.highlight(context),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                p['name']?.toString() ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Rp ${p['price'] ?? 0}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF22C55E),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                const Spacer(),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     Text(

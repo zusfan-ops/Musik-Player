@@ -18,6 +18,7 @@ import '../providers/music_provider.dart';
 import '../providers/pos_provider.dart';
 import '../services/backend_api_service.dart';
 import '../theme/app_theme.dart';
+import 'location_picker_dialog.dart';
 
 Future<void> showGoogleMapsReviewQrDialog(
   BuildContext context, {
@@ -121,6 +122,7 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
   String _qrTable = '';
   String _qrMode = 'menu'; // menu | maps_review
   bool _isOpen = true;
+  bool _showOnHome = true;
   bool _hasStaffPin = false;
   String? _qrisImageUrl;
   String _voucherType = 'percent';
@@ -135,6 +137,9 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
   List<Map<String, dynamic>> _jukeboxRequests = const [];
   List<Map<String, dynamic>> _boostAds = const [];
   List<Map<String, dynamic>> _cloudFinance = const [];
+  Timer? _addrDebounce;
+  List<PlaceSuggestion> _addrSuggestions = const [];
+  bool _searchingAddr = false;
 
   @override
   void initState() {
@@ -144,6 +149,7 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
 
   @override
   void dispose() {
+    _addrDebounce?.cancel();
     _nameCtrl.dispose();
     _slugCtrl.dispose();
     _descCtrl.dispose();
@@ -193,6 +199,7 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
       _mapsReviewCtrl.text = st['google_maps_review_url']?.toString() ?? '';
       _hoursCtrl.text = st['opening_hours']?.toString() ?? '';
       _isOpen = st['is_open'] != false;
+      _showOnHome = st['show_on_home'] != false;
       _qrisImageUrl = st['qris_image_url']?.toString();
       _hasStaffPin = data['has_staff_pin'] == true;
       _storeType = st['store_type']?.toString() ?? 'coffeeshop';
@@ -259,10 +266,17 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
       googleMapsReviewUrl: _mapsReviewCtrl.text,
       openingHours: _hoursCtrl.text,
       isOpen: _isOpen,
+      showOnHome: _showOnHome,
       staffPin: _pinCtrl.text.trim().isEmpty ? null : _pinCtrl.text.trim(),
       products: productsPayload,
     );
     if (!mounted) return;
+    if (err == null) {
+      await pos.updateBusinessProfile(
+        pos.profile.copyWith(storeName: _nameCtrl.text.trim()),
+      );
+      if (!mounted) return;
+    }
     setState(() => _saving = false);
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -437,9 +451,18 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
                                   value: _isOpen,
                                   onChanged: (v) => setState(() => _isOpen = v),
                                 ),
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Tampilkan Toko di Halaman Home'),
+                                  subtitle: const Text('Tampilkan card toko & produk Anda di halaman Home aplikasi'),
+                                  value: _showOnHome,
+                                  onChanged: (v) => setState(() => _showOnHome = v),
+                                ),
                                 TextField(
                                   controller: _nameCtrl,
-                                  decoration: const InputDecoration(labelText: 'Nama Toko'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nama Toko (tampil di Home & Storefront)',
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 TextField(
@@ -465,7 +488,152 @@ class _StoreManagementSheetState extends State<_StoreManagementSheet> {
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _addrCtrl,
-                                  decoration: const InputDecoration(labelText: 'Alamat Toko'),
+                                  onChanged: (val) {
+                                    _addrDebounce?.cancel();
+                                    _addrDebounce = Timer(
+                                      const Duration(milliseconds: 450),
+                                      () async {
+                                        if (!mounted) return;
+                                        if (val.trim().length < 3) {
+                                          setState(
+                                            () => _addrSuggestions = const [],
+                                          );
+                                          return;
+                                        }
+                                        setState(() => _searchingAddr = true);
+                                        final list =
+                                            await OsmNominatimHelper.searchPlaces(
+                                          val,
+                                        );
+                                        if (!mounted) return;
+                                        setState(() {
+                                          _addrSuggestions = list;
+                                          _searchingAddr = false;
+                                        });
+                                      },
+                                    );
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Alamat Toko (ketik untuk saran lokasi)',
+                                    suffixIcon: _searchingAddr
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          )
+                                        : IconButton(
+                                            tooltip: 'Pilih dari Peta (Maps)',
+                                            icon: const Icon(
+                                              Icons.map_rounded,
+                                              color: Color(0xFF0284C7),
+                                            ),
+                                            onPressed: () async {
+                                              final picked =
+                                                  await showMapLocationPickerDialog(
+                                                context,
+                                                initialLat: double.tryParse(
+                                                  _latCtrl.text.trim(),
+                                                ),
+                                                initialLng: double.tryParse(
+                                                  _lngCtrl.text.trim(),
+                                                ),
+                                                initialAddress: _addrCtrl.text,
+                                              );
+                                              if (picked != null && mounted) {
+                                                setState(() {
+                                                  _addrCtrl.text =
+                                                      picked.displayName;
+                                                  _latCtrl.text = picked.lat
+                                                      .toStringAsFixed(6);
+                                                  _lngCtrl.text = picked.lng
+                                                      .toStringAsFixed(6);
+                                                  _addrSuggestions = const [];
+                                                });
+                                              }
+                                            },
+                                          ),
+                                  ),
+                                ),
+                                if (_addrSuggestions.isNotEmpty)
+                                  Container(
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 160),
+                                    margin: const EdgeInsets.only(top: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.card(context),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.highlight(context),
+                                      ),
+                                    ),
+                                    child: ListView.separated(
+                                      shrinkWrap: true,
+                                      itemCount: _addrSuggestions.length,
+                                      separatorBuilder: (_, _) =>
+                                          const Divider(height: 1),
+                                      itemBuilder: (_, idx) {
+                                        final s = _addrSuggestions[idx];
+                                        return ListTile(
+                                          dense: true,
+                                          leading: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                          ),
+                                          title: Text(
+                                            s.displayName,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                          onTap: () {
+                                            setState(() {
+                                              _addrCtrl.text = s.displayName;
+                                              _latCtrl.text =
+                                                  s.lat.toStringAsFixed(6);
+                                              _lngCtrl.text =
+                                                  s.lng.toStringAsFixed(6);
+                                              _addrSuggestions = const [];
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final picked =
+                                          await showMapLocationPickerDialog(
+                                        context,
+                                        initialLat: double.tryParse(
+                                          _latCtrl.text.trim(),
+                                        ),
+                                        initialLng: double.tryParse(
+                                          _lngCtrl.text.trim(),
+                                        ),
+                                        initialAddress: _addrCtrl.text,
+                                      );
+                                      if (picked != null && mounted) {
+                                        setState(() {
+                                          _addrCtrl.text = picked.displayName;
+                                          _latCtrl.text =
+                                              picked.lat.toStringAsFixed(6);
+                                          _lngCtrl.text =
+                                              picked.lng.toStringAsFixed(6);
+                                          _addrSuggestions = const [];
+                                        });
+                                      }
+                                    },
+                                    icon: const Icon(Icons.map_rounded, size: 17),
+                                    label: const Text('Pilih Lokasi di Peta (Maps)'),
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 TextField(

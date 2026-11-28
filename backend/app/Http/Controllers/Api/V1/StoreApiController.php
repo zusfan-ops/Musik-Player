@@ -25,6 +25,7 @@ class StoreApiController extends Controller
     public function discover(Request $request): JsonResponse
     {
         $query = Store::publiclyVisible()
+            ->where('show_on_home', true)
             ->with(['products' => fn ($q) => $q->where('is_active', true)->limit(4)]);
 
         $storeType = trim((string) $request->query('store_type', ''));
@@ -247,6 +248,7 @@ class StoreApiController extends Controller
             'now_playing_title' => ['nullable', 'string', 'max:200'],
             'now_playing_artist' => ['nullable', 'string', 'max:160'],
             'is_active' => ['sometimes', 'boolean'],
+            'show_on_home' => ['sometimes', 'boolean'],
             'products' => ['sometimes', 'array', 'max:200'],
             'products.*.client_uid' => ['required', 'string', 'max:80'],
             'products.*.name' => ['required', 'string', 'max:140'],
@@ -272,6 +274,7 @@ class StoreApiController extends Controller
                 'opening_hours' => $data['opening_hours'] ?? $existing?->opening_hours,
                 'is_open' => $data['is_open'] ?? ($existing?->is_open ?? true),
                 'is_active' => $data['is_active'] ?? true,
+                'show_on_home' => $data['show_on_home'] ?? ($existing?->show_on_home ?? true),
             ];
             if (!empty($data['clear_staff_pin'])) {
                 $attrs['staff_pin_hash'] = null;
@@ -642,6 +645,54 @@ class StoreApiController extends Controller
         ], 201);
     }
 
+    public function syncProductsOnly(Request $request): JsonResponse
+    {
+        $store = $request->user()->store;
+        if (!$store) {
+            return response()->json(['message' => 'Toko belum diaktifkan.'], 404);
+        }
+
+        $data = $request->validate([
+            'products' => ['required', 'array', 'max:200'],
+            'products.*.client_uid' => ['required', 'string', 'max:80'],
+            'products.*.name' => ['required', 'string', 'max:140'],
+            'products.*.category' => ['nullable', 'string', 'max:60'],
+            'products.*.price' => ['required', 'numeric', 'min:0'],
+            'products.*.stock' => ['nullable', 'integer', 'min:0'],
+            'products.*.unit' => ['nullable', 'string', 'max:20'],
+            'products.*.is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($store, $data) {
+            $keptUids = [];
+            foreach ($data['products'] as $p) {
+                $keptUids[] = $p['client_uid'];
+                StoreProduct::updateOrCreate(
+                    [
+                        'store_id' => $store->id,
+                        'client_uid' => $p['client_uid'],
+                    ],
+                    [
+                        'name' => trim($p['name']),
+                        'category' => trim((string) ($p['category'] ?? 'Umum')) ?: 'Umum',
+                        'price' => (float) $p['price'],
+                        'stock' => (int) ($p['stock'] ?? 0),
+                        'unit' => trim((string) ($p['unit'] ?? 'pcs')) ?: 'pcs',
+                        'is_active' => $p['is_active'] ?? true,
+                    ]
+                );
+            }
+            StoreProduct::where('store_id', $store->id)
+                ->whereNotIn('client_uid', $keptUids)
+                ->delete();
+        });
+
+        return response()->json([
+            'ok' => true,
+            'count' => count($data['products']),
+        ]);
+    }
+
     private function haversineKm(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $earthRadius = 6371.0;
@@ -676,6 +727,7 @@ class StoreApiController extends Controller
             'rating_avg' => $store->rating_avg,
             'rating_count' => $store->rating_count,
             'is_active' => $store->is_active,
+            'show_on_home' => $store->show_on_home,
             'views_count' => $store->views_count,
         ];
 

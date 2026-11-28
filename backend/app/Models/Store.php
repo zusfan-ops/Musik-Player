@@ -48,6 +48,7 @@ class Store extends Model
         'rating_avg',
         'rating_count',
         'is_active',
+        'show_on_home',
         'views_count',
     ];
 
@@ -65,6 +66,7 @@ class Store extends Model
             'rating_avg' => 'float',
             'rating_count' => 'integer',
             'is_active' => 'boolean',
+            'show_on_home' => 'boolean',
             'views_count' => 'integer',
         ];
     }
