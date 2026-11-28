@@ -5,15 +5,19 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import 'backend_api_service.dart';
+
 class GithubM3uFileEntry {
   final String name;
   final String sha;
   final String downloadUrl;
+  final String? category;
 
   const GithubM3uFileEntry({
     required this.name,
     required this.sha,
     required this.downloadUrl,
+    this.category,
   });
 }
 
@@ -31,7 +35,9 @@ class GithubM3uSyncService {
 
   static List<GithubM3uFileEntry> parseContentsResponse(String jsonBody) {
     final decoded = jsonDecode(jsonBody);
-    if (decoded is! List) return const [];
+    if (decoded is! List) {
+      throw const FormatException('Respons GitHub Contents API tidak valid.');
+    }
     final entries = <GithubM3uFileEntry>[];
     for (final item in decoded) {
       if (item is! Map<String, dynamic>) continue;
@@ -112,6 +118,57 @@ class GithubM3uSyncService {
         );
       }
       return res.bodyBytes;
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  static List<GithubM3uFileEntry> parseBackendSourcesResponse(String jsonBody) {
+    final decoded = jsonDecode(jsonBody);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Respons M3U backend tidak valid.');
+    }
+    final rawSources = decoded['sources'];
+    if (rawSources is! List) return const [];
+    final entries = <GithubM3uFileEntry>[];
+    for (final item in rawSources) {
+      if (item is! Map<String, dynamic>) continue;
+      final name = (item['name'] as String? ?? '').trim();
+      final sha = (item['sha256'] as String? ?? '').trim();
+      final downloadUrl = (item['download_url'] as String? ?? '').trim();
+      final category = (item['category'] as String? ?? '').trim();
+      if (name.isEmpty || sha.isEmpty || downloadUrl.isEmpty) continue;
+      entries.add(
+        GithubM3uFileEntry(
+          name: name,
+          sha: sha,
+          downloadUrl: downloadUrl,
+          category: category.isNotEmpty ? category : null,
+        ),
+      );
+    }
+    return entries;
+  }
+
+  /// Fetches active M3U sources from the MediaCenter backend.
+  /// Returns `null` when backend is unreachable so GitHub sync continues unaffected.
+  static Future<List<GithubM3uFileEntry>?> fetchBackendEntries({
+    String? baseUrl,
+    http.Client? client,
+  }) async {
+    final activeClient = client ?? http.Client();
+    final endpoint = '${baseUrl ?? BackendApiService.baseUrl}/m3u-sources';
+    try {
+      final res = await activeClient
+          .get(Uri.parse(endpoint), headers: const {
+            'Accept': 'application/json',
+            'User-Agent': 'MediaCenter-M3U-Player',
+          })
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      return parseBackendSourcesResponse(utf8.decode(res.bodyBytes));
+    } catch (_) {
+      return null;
     } finally {
       if (client == null) activeClient.close();
     }

@@ -159,6 +159,29 @@ class _NewTubeScreenState extends State<NewTubeScreen>
         return;
       }
 
+      if (!asVideo && queueOnly) {
+        final music = context.read<MusicProvider>();
+        final track = await music.resolveNewTubeAudioTrack(item);
+        if (!mounted) return;
+        if (track == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Stream audio video ini tidak dapat diakses saat ini. Coba video lain.',
+              ),
+            ),
+          );
+          return;
+        }
+        await music.addToQueue(track);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ditambahkan ke antrean: ${item.title}')),
+          );
+        }
+        return;
+      }
+
       final resolved = asVideo
           ? await NewTubeService.resolveVideoStream(item.videoId)
           : await NewTubeService.resolveAudioStream(item.videoId);

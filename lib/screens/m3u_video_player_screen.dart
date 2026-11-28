@@ -905,6 +905,14 @@ class _M3uVideoPlayerScreenState extends State<M3uVideoPlayerScreen> {
                   ),
                 ),
               if (_isInPipMode && Platform.isWindows)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onPanStart: (_) => _musicRef?.startPipWindowDrag(),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              if (_isInPipMode && Platform.isWindows)
                 Positioned(
                   top: 8,
                   right: 8,

@@ -21,6 +21,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/announcements/{announcement}/toggle', [AdminController::class, 'toggleAnnouncement'])->name('announcements.toggle');
             Route::delete('/announcements/{announcement}', [AdminController::class, 'deleteAnnouncement'])->name('announcements.delete');
             Route::post('/releases', [AdminController::class, 'storeRelease'])->name('releases.store');
+            Route::post('/m3u-sources', [AdminController::class, 'storeM3uSource'])->name('m3u-sources.store');
+            Route::post('/m3u-sources/{m3uSource}/toggle', [AdminController::class, 'toggleM3uSource'])->name('m3u-sources.toggle');
+            Route::delete('/m3u-sources/{m3uSource}', [AdminController::class, 'deleteM3uSource'])->name('m3u-sources.delete');
         });
 
         Route::middleware('admin.role:super_admin,analytics_admin')->group(function () {

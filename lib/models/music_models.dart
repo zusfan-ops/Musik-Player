@@ -296,8 +296,17 @@ class MusicDirectoryGroup {
 }
 
 class M3uPlaylist {
+  static const List<String> defaultCategories = [
+    'Umum',
+    'Favorit',
+    'TV & CCTV',
+    'Radio',
+    'Musik',
+  ];
+
   final String id;
   final String name;
+  final String category;
   final M3uSourceType sourceType;
   final String sourceLocation;
   final String? cachedM3uPath;
@@ -309,6 +318,7 @@ class M3uPlaylist {
   M3uPlaylist({
     required this.id,
     required this.name,
+    this.category = 'Umum',
     required this.sourceType,
     required this.sourceLocation,
     this.cachedM3uPath,
@@ -326,6 +336,7 @@ class M3uPlaylist {
   M3uPlaylist copyWith({
     String? id,
     String? name,
+    String? category,
     M3uSourceType? sourceType,
     String? sourceLocation,
     String? cachedM3uPath,
@@ -337,6 +348,7 @@ class M3uPlaylist {
     return M3uPlaylist(
       id: id ?? this.id,
       name: name ?? this.name,
+      category: category ?? this.category,
       sourceType: sourceType ?? this.sourceType,
       sourceLocation: sourceLocation ?? this.sourceLocation,
       cachedM3uPath: cachedM3uPath ?? this.cachedM3uPath,
@@ -349,6 +361,7 @@ class M3uPlaylist {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
+        'category': category,
         'sourceType': sourceType.name,
         'sourceLocation': sourceLocation,
         'cachedM3uPath': cachedM3uPath,
@@ -360,9 +373,11 @@ class M3uPlaylist {
   factory M3uPlaylist.fromJson(Map<String, dynamic> json) {
     final typeStr = json['sourceType'] as String? ?? 'file';
     final rawTracks = json['tracks'] as List<dynamic>? ?? const [];
+    final rawCategory = (json['category'] as String? ?? '').trim();
     return M3uPlaylist(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'M3U Playlist',
+      category: rawCategory.isNotEmpty ? rawCategory : 'Umum',
       sourceType:
           typeStr == 'url' ? M3uSourceType.url : M3uSourceType.file,
       sourceLocation: json['sourceLocation'] as String? ?? '',

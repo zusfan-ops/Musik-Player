@@ -1047,7 +1047,32 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                             fontSize: 12.5,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          activeThumbColor: AppColors.spotifyGreen,
+                          title: const Text(
+                            'Mode Hemat Kuota (Auto-Cache YouTube)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Simpan audio YouTube otomatis (maks. 500 MB) agar putar ulang tidak memakai paket data.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                          value: music.ytAutoCacheEnabled,
+                          onChanged: (val) async {
+                            await music.setYtAutoCacheEnabled(val);
+                            if (ctx.mounted) setSheetState(() {});
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 8),
                         if (data.folders.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 28),

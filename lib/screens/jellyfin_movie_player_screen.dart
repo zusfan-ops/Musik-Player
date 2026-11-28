@@ -974,6 +974,44 @@ class _JellyfinMoviePlayerScreenState extends State<JellyfinMoviePlayerScreen> {
                   ),
                 ),
               ),
+            if (_isInPipMode && Platform.isWindows)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanStart: (_) =>
+                      context.read<MusicProvider>().startPipWindowDrag(),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            if (_isInPipMode && Platform.isWindows)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Kembalikan Layar Penuh',
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 18,
+                        color: Colors.white,
+                        icon: const Icon(Icons.picture_in_picture_alt_rounded),
+                        onPressed: () =>
+                            context.read<MusicProvider>().exitPictureInPicture(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),

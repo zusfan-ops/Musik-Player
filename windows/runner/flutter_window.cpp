@@ -195,6 +195,15 @@ void FlutterWindow::SetupMediaStoreChannel() {
           result->Success(flutter::EncodableValue(ExitDesktopPip()));
           return;
         }
+        if (method == "startWindowDrag") {
+          HWND hwnd = GetHandle();
+          if (hwnd) {
+            ::ReleaseCapture();
+            ::SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+          }
+          result->Success(flutter::EncodableValue(true));
+          return;
+        }
         result->NotImplemented();
       });
 }

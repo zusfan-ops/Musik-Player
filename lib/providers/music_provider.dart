@@ -19,6 +19,8 @@ import '../models/music_models.dart';
 import '../services/artwork_service.dart';
 import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
+import 'package:http/http.dart' as http;
+import '../services/config_backup_service.dart';
 import '../services/github_m3u_sync_service.dart';
 import '../services/link_checker_service.dart';
 import '../services/m3u_service.dart';
@@ -47,6 +49,10 @@ class MusicProvider extends ChangeNotifier {
   static const String _kLoudnessDbKey = 'eq_loudness_db_v1';
   static const String _kAutoSyncYtPlaylistsKey = 'auto_sync_yt_playlists_v1';
   static const String _kSeededDefaultTvKey = 'seeded_default_tv_v1';
+  static const String _kYtAutoCacheEnabledKey = 'yt_auto_cache_enabled_v1';
+  static const int _maxYtStreamCacheBytes = 500 * 1024 * 1024;
+  static const int _targetYtStreamCacheBytes = 400 * 1024 * 1024;
+  static const int _maxSingleYtCacheFileBytes = 60 * 1024 * 1024;
   static const String _kAlarmEnabledKey = 'music_alarm_enabled_v1';
   static const String _kAlarmHourKey = 'music_alarm_hour_v1';
   static const String _kAlarmMinuteKey = 'music_alarm_minute_v1';
@@ -94,7 +100,9 @@ class MusicProvider extends ChangeNotifier {
   Map<String, int> _playCounts = {};
   final Set<String> _downloadingTrackIds = {};
   final Set<String> _downloadingYouTubeIds = {};
+  final Set<String> _cachingYouTubeIds = {};
   final Set<String> _downloadedYouTubeIds = {};
+  bool _ytAutoCacheEnabled = true;
   bool _isDownloadingYouTubePlaylist = false;
   bool _cancelYouTubeDownloadRequested = false;
   String? _ytDownloadLabel;
@@ -428,6 +436,14 @@ class MusicProvider extends ChangeNotifier {
         for (final g in _directoryGroups) g.directoryPath,
         for (final m in _discoveredM3uFiles) p.dirname(m),
       }.toList();
+
+  @visibleForTesting
+  Future<void> initializeForTest() async {
+    _prefs = await SharedPreferences.getInstance();
+    _loadPersistedData();
+    _invalidateLibraryCache();
+    _initialized = true;
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -787,6 +803,7 @@ class MusicProvider extends ChangeNotifier {
     _deadTrackIds =
         Set<String>.from(prefs.getStringList(_kDeadLinksKey) ?? const []);
     _hideDeadLinks = prefs.getBool(_kHideDeadLinksKey) ?? true;
+    _ytAutoCacheEnabled = prefs.getBool(_kYtAutoCacheEnabledKey) ?? true;
     _equalizerEnabled = prefs.getBool(_kEqEnabledKey) ?? false;
     _activeEqPreset = prefs.getString(_kEqPresetKey) ?? 'Flat';
     _bassBoostStrength = prefs.getDouble(_kBassBoostKey) ?? 0.0;
@@ -1051,19 +1068,35 @@ class MusicProvider extends ChangeNotifier {
   }
 
   static const String _kGithubM3uShasKey = 'github_m3u_shas_v1';
+  static const String _kBackendM3uShasKey = 'backend_m3u_shas_v1';
   bool _isSyncingGithubM3u = false;
   String? _pendingGithubM3uNotice;
+  DateTime? _lastGithubM3uSyncAt;
+  String? _lastGithubM3uSyncError;
 
   bool get isSyncingGithubM3u => _isSyncingGithubM3u;
   String? get pendingGithubM3uNotice => _pendingGithubM3uNotice;
+  DateTime? get lastGithubM3uSyncAt => _lastGithubM3uSyncAt;
+  String? get lastGithubM3uSyncError => _lastGithubM3uSyncError;
 
   void clearGithubM3uNotice() {
     _pendingGithubM3uNotice = null;
   }
 
-  /// Checks `zusfan-ops/Musik-Player/m3u` on GitHub for new or updated `.m3u` files
+  static String _safeDecodeLower(String value) {
+    try {
+      return Uri.decodeFull(value).trim().toLowerCase();
+    } catch (_) {
+      return value.trim().toLowerCase();
+    }
+  }
+
+  /// Checks `zusfan-ops/Musik-Player/m3u` on GitHub for new, updated, or deleted `.m3u` files
   /// and automatically updates TV/CCTV playlists + raises an in-app notification.
-  Future<int> syncGithubM3uDirectory({bool showNoChangeNotice = false}) async {
+  Future<int> syncGithubM3uDirectory({
+    bool showNoChangeNotice = false,
+    http.Client? httpClient,
+  }) async {
     if (_isSyncingGithubM3u) return 0;
     _isSyncingGithubM3u = true;
     notifyListeners();
@@ -1084,23 +1117,51 @@ class MusicProvider extends ChangeNotifier {
       }
 
       // Remove legacy hardcoded bundled/D:\m3u CCTV copies (keep TV Indonesia & user links)
+      final beforeLegacyCount = _playlists.length;
       _playlists.removeWhere((pl) {
         final loc = pl.sourceLocation.toLowerCase();
         return loc.startsWith('asset://assets/m3u/') ||
-            (pl.sourceType == M3uSourceType.file && loc.contains(r'\m3u\'));
+            (pl.sourceType == M3uSourceType.file &&
+                (loc.contains(r'\m3u\') || loc.contains('/m3u/')));
       });
+      final bool legacyRemoved = _playlists.length != beforeLegacyCount;
 
-      final remoteEntries = await GithubM3uSyncService.fetchRemoteEntries();
-      final remoteUrls =
-          remoteEntries.map((e) => e.downloadUrl.toLowerCase()).toSet();
-      final remoteNames = remoteEntries.map((e) => e.name).toSet();
-      knownShas.removeWhere((k, _) => !remoteNames.contains(k));
+      final remoteEntries =
+          await GithubM3uSyncService.fetchRemoteEntries(client: httpClient);
+      final remoteDecodedUrls =
+          remoteEntries.map((e) => _safeDecodeLower(e.downloadUrl)).toSet();
+      final remoteNamesLower =
+          remoteEntries.map((e) => e.name.trim().toLowerCase()).toSet();
+
+      final removedFileNames = knownShas.keys
+          .where((k) => !remoteNamesLower.contains(k.trim().toLowerCase()))
+          .toList();
+      final removedDisplayNamesLower = removedFileNames
+          .map(
+            (name) => GithubM3uSyncService.formatPlaylistDisplayName(name)
+                .toLowerCase(),
+          )
+          .toSet();
+      knownShas.removeWhere(
+        (k, _) => !remoteNamesLower.contains(k.trim().toLowerCase()),
+      );
+
+      final removedNames = <String>[];
       _playlists.removeWhere((pl) {
-        final loc = pl.sourceLocation.toLowerCase();
-        return loc.startsWith(
+        final decodedLoc = _safeDecodeLower(pl.sourceLocation);
+        final isGithubRepoM3u = decodedLoc.startsWith(
               'https://raw.githubusercontent.com/zusfan-ops/musik-player/',
-            ) &&
-            !remoteUrls.contains(loc);
+            ) ||
+            decodedLoc.startsWith(
+              'https://github.com/zusfan-ops/musik-player/',
+            );
+        final shouldRemove = isGithubRepoM3u &&
+            (!remoteDecodedUrls.contains(decodedLoc) ||
+                removedDisplayNamesLower.contains(pl.name.trim().toLowerCase()));
+        if (shouldRemove) {
+          removedNames.add(pl.name);
+        }
+        return shouldRemove;
       });
 
       final changedEntries = GithubM3uSyncService.diffChangedEntries(
@@ -1108,26 +1169,21 @@ class MusicProvider extends ChangeNotifier {
         knownShas: knownShas,
       );
 
-      if (changedEntries.isEmpty) {
-        if (showNoChangeNotice) {
-          _pendingGithubM3uNotice = 'Daftar TV & CCTV GitHub sudah paling baru.';
-        }
-        return 0;
-      }
-
       final addedNames = <String>[];
       final updatedNames = <String>[];
 
       for (final entry in changedEntries) {
         try {
-          final bytes =
-              await GithubM3uSyncService.downloadFileBytes(entry.downloadUrl);
+          final bytes = await GithubM3uSyncService.downloadFileBytes(
+            entry.downloadUrl,
+            client: httpClient,
+          );
           final displayName =
               GithubM3uSyncService.formatPlaylistDisplayName(entry.name);
           final existingIdx = _playlists.indexWhere(
             (pl) =>
-                pl.sourceLocation.toLowerCase() ==
-                    entry.downloadUrl.toLowerCase() ||
+                _safeDecodeLower(pl.sourceLocation) ==
+                    _safeDecodeLower(entry.downloadUrl) ||
                 pl.name.toLowerCase() == displayName.toLowerCase(),
           );
           final parsed = await M3uService.importFromBytes(
@@ -1159,8 +1215,102 @@ class MusicProvider extends ChangeNotifier {
         }
       }
 
-      if (changedCount > 0) {
+      // Also sync active M3U sources managed from the MediaCenter Backend
+      final backendEntries =
+          await GithubM3uSyncService.fetchBackendEntries(client: httpClient);
+      if (backendEntries != null) {
+        final rawBackendSaved = _prefs?.getString(_kBackendM3uShasKey);
+        final Map<String, String> knownBackendShas = {};
+        if (rawBackendSaved != null && rawBackendSaved.isNotEmpty) {
+          final decoded = jsonDecode(rawBackendSaved);
+          if (decoded is Map) {
+            for (final entry in decoded.entries) {
+              if (entry.key is String && entry.value is String) {
+                knownBackendShas[entry.key as String] = entry.value as String;
+              }
+            }
+          }
+        }
+
+        final backendUrlsLower =
+            backendEntries.map((e) => _safeDecodeLower(e.downloadUrl)).toSet();
+        final backendNamesLower =
+            backendEntries.map((e) => e.name.trim().toLowerCase()).toSet();
+        final removedBackendKeys = knownBackendShas.keys
+            .where((k) => !backendNamesLower.contains(k.trim().toLowerCase()))
+            .toList();
+        knownBackendShas.removeWhere(
+          (k, _) => !backendNamesLower.contains(k.trim().toLowerCase()),
+        );
+        final removedBackendLower =
+            removedBackendKeys.map((k) => k.trim().toLowerCase()).toSet();
+
+        _playlists.removeWhere((pl) {
+          final decodedLoc = _safeDecodeLower(pl.sourceLocation);
+          final isBackendM3u = decodedLoc.contains('/api/v1/m3u-sources/') ||
+              removedBackendLower.contains(pl.name.trim().toLowerCase());
+          final shouldRemove = isBackendM3u &&
+              (!backendUrlsLower.contains(decodedLoc) ||
+                  removedBackendLower.contains(pl.name.trim().toLowerCase()));
+          if (shouldRemove) {
+            removedNames.add(pl.name);
+          }
+          return shouldRemove;
+        });
+
+        for (final entry in backendEntries) {
+          if (knownBackendShas[entry.name] == entry.sha) continue;
+          try {
+            final bytes = await GithubM3uSyncService.downloadFileBytes(
+              entry.downloadUrl,
+              client: httpClient,
+            );
+            final existingIdx = _playlists.indexWhere(
+              (pl) =>
+                  _safeDecodeLower(pl.sourceLocation) ==
+                      _safeDecodeLower(entry.downloadUrl) ||
+                  pl.name.toLowerCase() == entry.name.toLowerCase(),
+            );
+            final parsed = await M3uService.importFromBytes(
+              bytes: bytes,
+              displayFileName: entry.name,
+              resolvedSourcePath: entry.downloadUrl,
+              existingId: existingIdx >= 0 ? _playlists[existingIdx].id : null,
+            );
+            final playlist = M3uPlaylist(
+              id: parsed.id,
+              name: entry.name,
+              category: entry.category ?? 'TV & CCTV',
+              sourceType: M3uSourceType.url,
+              sourceLocation: entry.downloadUrl,
+              tracks: parsed.tracks,
+              updatedAt: parsed.updatedAt,
+              isEnabled: parsed.isEnabled,
+            );
+            if (existingIdx >= 0) {
+              _playlists[existingIdx] = playlist;
+              updatedNames.add(entry.name);
+            } else {
+              _playlists.insert(0, playlist);
+              addedNames.add(entry.name);
+            }
+            knownBackendShas[entry.name] = entry.sha;
+            changedCount++;
+          } catch (_) {}
+        }
+
+        await _prefs?.setString(
+          _kBackendM3uShasKey,
+          jsonEncode(knownBackendShas),
+        );
+      }
+
+      final bool hasPlaylistMutations =
+          changedCount > 0 || removedNames.isNotEmpty || legacyRemoved;
+      if (hasPlaylistMutations || removedFileNames.isNotEmpty) {
         await _prefs?.setString(_kGithubM3uShasKey, jsonEncode(knownShas));
+      }
+      if (hasPlaylistMutations) {
         _invalidateLibraryCache();
         await _persistPlaylists();
 
@@ -1173,16 +1323,192 @@ class MusicProvider extends ChangeNotifier {
             '${updatedNames.length} diperbarui (${updatedNames.join(', ')})',
           );
         }
-        _pendingGithubM3uNotice =
-            'Update list TV/CCTV dari GitHub: ${parts.join(' • ')}';
+        if (removedNames.isNotEmpty) {
+          parts.add(
+            '${removedNames.length} dihapus (${removedNames.join(', ')})',
+          );
+        }
+        if (parts.isNotEmpty) {
+          _pendingGithubM3uNotice =
+              'Update list TV/CCTV dari GitHub: ${parts.join(' • ')}';
+        }
+      } else if (showNoChangeNotice) {
+        _pendingGithubM3uNotice = 'Daftar TV & CCTV GitHub sudah paling baru.';
       }
-      return changedCount;
-    } catch (_) {
+      _lastGithubM3uSyncAt = DateTime.now();
+      _lastGithubM3uSyncError = null;
+      return changedCount + removedNames.length;
+    } catch (e) {
+      _lastGithubM3uSyncError = 'Gagal sinkronisasi M3U GitHub';
       return 0;
     } finally {
       _isSyncingGithubM3u = false;
       notifyListeners();
     }
+  }
+
+  M3uPlaylist? findDuplicatePlaylistByUrl(String rawUrl) {
+    final target = _safeDecodeLower(rawUrl);
+    if (target.isEmpty) return null;
+    for (final pl in _playlists) {
+      if (pl.isUrlSource && _safeDecodeLower(pl.sourceLocation) == target) {
+        return pl;
+      }
+    }
+    return null;
+  }
+
+  Future<void> setPlaylistCategory(String playlistId, String category) async {
+    final idx = _playlists.indexWhere((p) => p.id == playlistId);
+    if (idx < 0) return;
+    final clean = category.trim().isEmpty ? 'Umum' : category.trim();
+    _playlists[idx] = _playlists[idx].copyWith(category: clean);
+    await _persistPlaylists();
+    notifyListeners();
+  }
+
+  Future<void> reorderPlaylists(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _playlists.length) return;
+    var target = newIndex;
+    if (target > oldIndex) target -= 1;
+    if (target < 0 || target >= _playlists.length || target == oldIndex) return;
+    final item = _playlists.removeAt(oldIndex);
+    _playlists.insert(target, item);
+    await _persistPlaylists();
+    notifyListeners();
+  }
+
+  String exportBackupJson() {
+    return ConfigBackupService.buildBackupJson(
+      playlists: _playlists,
+      favoriteIds: _favoriteIds,
+      youtubePlaylists: _autoSyncYouTubePlaylists,
+      settings: {
+        'ytAutoCacheEnabled': _ytAutoCacheEnabled,
+        'hideDeadLinks': _hideDeadLinks,
+        'equalizerEnabled': _equalizerEnabled,
+        'activeEqPreset': _activeEqPreset,
+        'bassBoostStrength': _bassBoostStrength,
+        'loudnessGainDb': _loudnessGainDb,
+        'eqBandGains': _eqBandGains,
+        'crossfadeSeconds': _crossfadeSeconds,
+      },
+    );
+  }
+
+  Future<({int addedPlaylists, int restoredFavorites})> restoreBackup(
+    BackupPreview preview, {
+    required bool replaceExisting,
+  }) async {
+    int addedPlaylists = 0;
+    if (replaceExisting) {
+      _playlists = List<M3uPlaylist>.from(preview.playlists);
+      addedPlaylists = _playlists.length;
+    } else {
+      final existingUrls = _playlists
+          .where((p) => p.isUrlSource)
+          .map((p) => _safeDecodeLower(p.sourceLocation))
+          .toSet();
+      final existingIds = _playlists.map((p) => p.id).toSet();
+      for (final pl in preview.playlists) {
+        final dupUrl = pl.isUrlSource &&
+            existingUrls.contains(_safeDecodeLower(pl.sourceLocation));
+        if (dupUrl || existingIds.contains(pl.id)) continue;
+        _playlists.add(pl);
+        if (pl.isUrlSource) {
+          existingUrls.add(_safeDecodeLower(pl.sourceLocation));
+        }
+        existingIds.add(pl.id);
+        addedPlaylists++;
+      }
+    }
+
+    int restoredFavorites = 0;
+    if (replaceExisting) {
+      _favoriteIds = preview.favoriteIds.toSet();
+      restoredFavorites = _favoriteIds.length;
+    } else {
+      for (final id in preview.favoriteIds) {
+        if (_favoriteIds.add(id)) restoredFavorites++;
+      }
+    }
+
+    if (replaceExisting) {
+      _autoSyncYouTubePlaylists =
+          List<NewTubePlaylistItem>.from(preview.youtubePlaylists);
+    } else {
+      final existingYt =
+          _autoSyncYouTubePlaylists.map((e) => e.playlistId).toSet();
+      for (final yt in preview.youtubePlaylists) {
+        if (existingYt.add(yt.playlistId)) {
+          _autoSyncYouTubePlaylists.add(yt);
+        }
+      }
+    }
+
+    final s = preview.settings;
+    if (s['ytAutoCacheEnabled'] is bool) {
+      _ytAutoCacheEnabled = s['ytAutoCacheEnabled'] as bool;
+      await _prefs?.setBool(_kYtAutoCacheEnabledKey, _ytAutoCacheEnabled);
+    }
+    if (s['hideDeadLinks'] is bool) {
+      _hideDeadLinks = s['hideDeadLinks'] as bool;
+      await _prefs?.setBool(_kHideDeadLinksKey, _hideDeadLinks);
+    }
+    if (s['equalizerEnabled'] is bool) {
+      _equalizerEnabled = s['equalizerEnabled'] as bool;
+      await _prefs?.setBool(_kEqEnabledKey, _equalizerEnabled);
+    }
+    if (s['activeEqPreset'] is String) {
+      _activeEqPreset = s['activeEqPreset'] as String;
+      await _prefs?.setString(_kEqPresetKey, _activeEqPreset);
+    }
+    if (s['bassBoostStrength'] is num) {
+      _bassBoostStrength = (s['bassBoostStrength'] as num).toDouble().clamp(0.0, 1.0);
+      await _prefs?.setDouble(_kBassBoostKey, _bassBoostStrength);
+    }
+    if (s['loudnessGainDb'] is num) {
+      _loudnessGainDb = (s['loudnessGainDb'] as num).toDouble().clamp(0.0, 15.0);
+      await _prefs?.setDouble(_kLoudnessDbKey, _loudnessGainDb);
+    }
+    if (s['eqBandGains'] is List && (s['eqBandGains'] as List).length == 5) {
+      _eqBandGains = (s['eqBandGains'] as List)
+          .map((e) => e is num ? e.toDouble().clamp(-15.0, 15.0) : 0.0)
+          .toList();
+      await _prefs?.setStringList(
+        _kEqGainsKey,
+        _eqBandGains.map((e) => e.toString()).toList(),
+      );
+    }
+    if (s['crossfadeSeconds'] is num) {
+      _crossfadeSeconds = (s['crossfadeSeconds'] as num).toInt().clamp(0, 12);
+      await _prefs?.setInt(_kCrossfadeSecKey, _crossfadeSeconds);
+    }
+    unawaited(_syncAudioEffectsToPipeline());
+
+    await _prefs?.setStringList(_kFavoritesKey, _favoriteIds.toList());
+    await _prefs?.setStringList(
+      _kAutoSyncYtPlaylistsKey,
+      _autoSyncYouTubePlaylists
+          .map(
+            (yt) => jsonEncode({
+              'playlistId': yt.playlistId,
+              'title': yt.title,
+              'author': yt.author,
+              'videoCountText': yt.videoCountText,
+              'thumbnailUrl': yt.thumbnailUrl,
+            }),
+          )
+          .toList(),
+    );
+    _invalidateLibraryCache();
+    await _persistPlaylists();
+    notifyListeners();
+
+    return (
+      addedPlaylists: addedPlaylists,
+      restoredFavorites: restoredFavorites,
+    );
   }
 
   /// Imports every `.m3u` / `.m3u8` file found inside [dirPath] as a TV playlist.
@@ -1517,7 +1843,11 @@ class MusicProvider extends ChangeNotifier {
 
   static final RegExp _ytFilenameIdRegex = RegExp(r'\[([a-zA-Z0-9_-]{11})\]');
 
+  @visibleForTesting
+  Directory? offlineRootOverride;
+
   Future<Directory> _getYouTubeOfflineRootDir() async {
+    if (offlineRootOverride != null) return offlineRootOverride!;
     final docDir = await getApplicationDocumentsDirectory();
     final root = Directory(p.join(docDir.path, 'MediaCenterOffline'));
     if (!await root.exists()) {
@@ -2133,6 +2463,14 @@ class MusicProvider extends ChangeNotifier {
     await playTrackList([track], initialIndex: 0);
   }
 
+  bool get ytAutoCacheEnabled => _ytAutoCacheEnabled;
+
+  Future<void> setYtAutoCacheEnabled(bool enabled) async {
+    _ytAutoCacheEnabled = enabled;
+    await _prefs?.setBool(_kYtAutoCacheEnabledKey, enabled);
+    notifyListeners();
+  }
+
   /// Plays a NewTube search/list as a continuous queue with lazy background
   /// resolution of upcoming tracks so Next & Auto-Next work on lockscreen too.
   Future<bool> playNewTubePlaylist(
@@ -2144,7 +2482,7 @@ class MusicProvider extends ChangeNotifier {
     final token = ++_newTubeSessionToken;
 
     final firstItem = items[startIdx];
-    final firstTrack = await _resolveNewTubeAudioTrack(firstItem);
+    final firstTrack = await resolveNewTubeAudioTrack(firstItem);
     if (firstTrack == null || token != _newTubeSessionToken) {
       return false;
     }
@@ -2160,9 +2498,98 @@ class MusicProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<TrackItem?> _resolveNewTubeAudioTrack(NewTubeItem item) async {
+  static String? _sanitizeVideoId(String videoId) {
+    final trimmed = videoId.trim();
+    if (!RegExp(r'^[a-zA-Z0-9_-]{1,64}$').hasMatch(trimmed)) {
+      return null;
+    }
+    return trimmed;
+  }
+
+  Future<Directory> _getYouTubeStreamCacheDir() async {
+    final offlineRoot = await _getYouTubeOfflineRootDir();
+    _youTubeOfflineRootPath = offlineRoot.path;
+    return Directory(p.join(offlineRoot.path, '.stream_cache'));
+  }
+
+  /// Checks local `.stream_cache` and downloaded YouTube offline folders for [videoId].
+  /// Returns a local [File] if present (> 1 KB) and updates its modified timestamp for LRU.
+  Future<File?> findCachedYouTubeAudioFile(String videoId) async {
+    final safeId = _sanitizeVideoId(videoId);
+    if (safeId == null) return null;
+
+    final cacheDir = await _getYouTubeStreamCacheDir();
+    if (await cacheDir.exists()) {
+      for (final ext in const ['m4a', 'opus', 'mp3', 'aac']) {
+        final candidate = File(p.join(cacheDir.path, '$safeId.$ext'));
+        if (await candidate.exists() && await candidate.length() > 1024) {
+          try {
+            await candidate.setLastModified(DateTime.now());
+          } catch (_) {}
+          return candidate;
+        }
+      }
+    }
+
+    final offlineRoot = await _getYouTubeOfflineRootDir();
+    if (await offlineRoot.exists()) {
+      final token = '[$safeId]';
+      try {
+        await for (final entity
+            in offlineRoot.list(recursive: true, followLinks: false)) {
+          if (entity is! File) continue;
+          final name = p.basename(entity.path);
+          if (name.endsWith('.part') || name.endsWith('.json')) continue;
+          if (name.contains(token) && await entity.length() > 1024) {
+            return entity;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  /// Resolves a YouTube audio track using Cache-First playback to save mobile data,
+  /// and optionally caches the audio-only stream in the background when online.
+  Future<TrackItem?> resolveNewTubeAudioTrack(
+    NewTubeItem item, {
+    bool triggerAutoCache = true,
+  }) async {
+    final cachedFile = await findCachedYouTubeAudioFile(item.videoId);
+    if (cachedFile != null) {
+      final meta = _ytOfflineMeta[item.videoId];
+      final localArt = meta?['localArtworkPath']?.toString();
+      return TrackItem(
+        id: 'yt_cached_${item.videoId}',
+        title: item.title,
+        artist: item.author,
+        album: 'YouTube Cache Offline',
+        sourceType: TrackSourceType.localFile,
+        pathOrUrl: cachedFile.path,
+        offlineCachePath: cachedFile.path,
+        localFileAvailable: true,
+        directoryPath: p.dirname(cachedFile.path),
+        directoryName: 'YouTube Cache Offline',
+        durationSeconds: item.duration?.inSeconds,
+        artworkUrl: (localArt != null && localArt.isNotEmpty)
+            ? localArt
+            : item.thumbnailUrl,
+        isVideo: false,
+      );
+    }
+
     final audio = await NewTubeService.resolveAudioStream(item.videoId);
     if (audio != null && audio.url.isNotEmpty) {
+      if (triggerAutoCache && _ytAutoCacheEnabled) {
+        unawaited(
+          _cacheYouTubeAudioInBackground(
+            item: item,
+            streamUrl: audio.url,
+            headers: audio.headers,
+          ),
+        );
+      }
       return item.toTrackItem(
         streamUrl: audio.url,
         httpHeaders: audio.headers,
@@ -2180,6 +2607,112 @@ class MusicProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<void> _cacheYouTubeAudioInBackground({
+    required NewTubeItem item,
+    required String streamUrl,
+    required Map<String, String> headers,
+    http.Client? client,
+  }) async {
+    final safeId = _sanitizeVideoId(item.videoId);
+    if (safeId == null || _cachingYouTubeIds.contains(safeId)) return;
+    _cachingYouTubeIds.add(safeId);
+
+    File? partFile;
+    final activeClient = client ?? http.Client();
+    try {
+      final cacheDir = await _getYouTubeStreamCacheDir();
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      if (await findCachedYouTubeAudioFile(safeId) != null) return;
+
+      final uri = Uri.tryParse(streamUrl);
+      if (uri == null || uri.scheme.toLowerCase() != 'https') return;
+
+      final req = http.Request('GET', uri)..headers.addAll(headers);
+      final streamed = await activeClient
+          .send(req)
+          .timeout(const Duration(seconds: 20));
+      if (streamed.statusCode < 200 || streamed.statusCode >= 300) return;
+
+      final contentType =
+          (streamed.headers['content-type'] ?? '').toLowerCase();
+      final ext = contentType.contains('webm') ? 'opus' : 'm4a';
+      final finalFile = File(p.join(cacheDir.path, '$safeId.$ext'));
+      partFile = File(p.join(cacheDir.path, '$safeId.$ext.part'));
+
+      final sink = partFile.openWrite();
+      int written = 0;
+      bool aborted = false;
+      try {
+        await for (final chunk in streamed.stream) {
+          written += chunk.length;
+          if (written > _maxYtCacheFileBytesGuard) {
+            aborted = true;
+            break;
+          }
+          sink.add(chunk);
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+
+      if (aborted || written <= 1024) {
+        if (await partFile.exists()) await partFile.delete();
+        return;
+      }
+
+      await partFile.rename(finalFile.path);
+      final offlineRoot = await _getYouTubeOfflineRootDir();
+      await _recordYouTubeMetaWithArtwork(item, offlineRoot);
+      await _saveYouTubeOfflineMeta(offlineRoot);
+      await enforceYouTubeStreamCacheLimit(cacheDir);
+    } catch (_) {
+      if (partFile != null && await partFile.exists()) {
+        try {
+          await partFile.delete();
+        } catch (_) {}
+      }
+    } finally {
+      _cachingYouTubeIds.remove(safeId);
+      if (client == null) activeClient.close();
+    }
+  }
+
+  static const int _maxYtCacheFileBytesGuard = _maxSingleYtCacheFileBytes;
+
+  @visibleForTesting
+  Future<void> enforceYouTubeStreamCacheLimit(
+    Directory cacheDir, {
+    int maxBytes = _maxYtStreamCacheBytes,
+    int targetBytes = _targetYtStreamCacheBytes,
+  }) async {
+    if (!await cacheDir.exists()) return;
+    final entries = <({File file, int size, DateTime modified})>[];
+    int total = 0;
+
+    await for (final entity in cacheDir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      if (p.basename(entity.path).endsWith('.part')) continue;
+      try {
+        final stat = await entity.stat();
+        total += stat.size;
+        entries.add((file: entity, size: stat.size, modified: stat.modified));
+      } catch (_) {}
+    }
+
+    if (total <= maxBytes) return;
+    entries.sort((a, b) => a.modified.compareTo(b.modified));
+    for (final entry in entries) {
+      if (total <= targetBytes) break;
+      try {
+        await entry.file.delete();
+        total -= entry.size;
+      } catch (_) {}
+    }
+  }
+
   Future<void> _preloadNewTubeTracks(int token, {int count = 1}) async {
     if (token != _newTubeSessionToken ||
         _preloadingNewTubeSessionToken == token ||
@@ -2194,7 +2727,10 @@ class MusicProvider extends ChangeNotifier {
           token == _newTubeSessionToken) {
         final nextItem = _pendingNewTubeItems.first;
         _pendingNewTubeItems = _pendingNewTubeItems.sublist(1);
-        final resolved = await _resolveNewTubeAudioTrack(nextItem);
+        final resolved = await resolveNewTubeAudioTrack(
+          nextItem,
+          triggerAutoCache: false,
+        );
         if (token != _newTubeSessionToken) return;
         if (resolved != null) {
           await addToQueue(resolved);
@@ -2959,6 +3495,13 @@ class MusicProvider extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> startPipWindowDrag() async {
+    if (!Platform.isWindows) return;
+    try {
+      await _widgetChannel.invokeMethod<bool>('startWindowDrag');
+    } catch (_) {}
   }
 
   Future<bool> openCastPicker() async {

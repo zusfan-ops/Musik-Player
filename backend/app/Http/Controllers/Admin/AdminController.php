@@ -8,11 +8,13 @@ use App\Models\AnalyticsEvent;
 use App\Models\Announcement;
 use App\Models\AppRelease;
 use App\Models\FeedbackReport;
+use App\Models\M3uSource;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -69,6 +71,7 @@ class AdminController extends Controller
         $user = $request->user();
         $announcements = Announcement::orderBy('sort_order')->orderByDesc('updated_at')->get();
         $releases = AppRelease::orderByDesc('build_number')->orderBy('platform')->get();
+        $m3uSources = M3uSource::orderByDesc('updated_at')->get();
         $feedbacks = FeedbackReport::orderByDesc('created_at')->limit(50)->get();
         $auditLogs = AdminAuditLog::with('adminUser')->orderByDesc('created_at')->limit(30)->get();
         $users = $user->role === User::ROLE_SUPER_ADMIN
@@ -94,6 +97,7 @@ class AdminController extends Controller
             'user',
             'announcements',
             'releases',
+            'm3uSources',
             'feedbacks',
             'auditLogs',
             'users',
@@ -165,6 +169,79 @@ class AdminController extends Controller
             'platform' => $rel->platform,
         ]);
         return back()->with('status', 'Metadata rilis ditambahkan.');
+    }
+
+    public function storeM3uSource(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'category' => ['required', 'string', 'max:60'],
+            'source_type' => ['required', 'in:url,file'],
+            'source_url' => ['nullable', 'url', 'max:1024', 'required_if:source_type,url'],
+            'm3u_file' => ['nullable', 'file', 'max:5120', 'required_if:source_type,file'],
+        ]);
+
+        $filePath = null;
+        $sourceUrl = null;
+        $sha = '';
+
+        if ($data['source_type'] === 'url') {
+            $sourceUrl = trim((string) $data['source_url']);
+            $scheme = strtolower((string) parse_url($sourceUrl, PHP_URL_SCHEME));
+            if (!in_array($scheme, ['http', 'https'], true)) {
+                return back()->withErrors(['source_url' => 'URL M3U harus menggunakan http atau https.']);
+            }
+            $sha = hash('sha256', $sourceUrl . '|' . $data['name'] . '|' . $data['category']);
+        } else {
+            $uploaded = $request->file('m3u_file');
+            $ext = strtolower($uploaded->getClientOriginalExtension());
+            if (!in_array($ext, ['m3u', 'm3u8', 'txt'], true)) {
+                return back()->withErrors(['m3u_file' => 'File harus berformat .m3u, .m3u8, atau .txt.']);
+            }
+            $filePath = Storage::disk('local')->putFile('m3u_sources', $uploaded);
+            $bytes = Storage::disk('local')->get($filePath) ?? '';
+            $sha = hash('sha256', $bytes);
+        }
+
+        $src = M3uSource::create([
+            'name' => trim($data['name']),
+            'category' => trim($data['category']),
+            'source_type' => $data['source_type'],
+            'source_url' => $sourceUrl,
+            'file_path' => $filePath,
+            'content_sha256' => $sha,
+            'is_active' => true,
+            'created_by' => $request->user()->id,
+        ]);
+
+        $this->audit($request->user(), 'm3u_source_created', 'm3u_source', (string) $src->id, [
+            'name' => $src->name,
+            'source_type' => $src->source_type,
+        ]);
+
+        return back()->with('status', "Sumber M3U \"{$src->name}\" berhasil disimpan.");
+    }
+
+    public function toggleM3uSource(Request $request, M3uSource $m3uSource): RedirectResponse
+    {
+        $m3uSource->update(['is_active' => !$m3uSource->is_active]);
+        $this->audit($request->user(), 'm3u_source_toggled', 'm3u_source', (string) $m3uSource->id, [
+            'is_active' => $m3uSource->is_active,
+        ]);
+
+        return back()->with('status', 'Status sumber M3U diperbarui.');
+    }
+
+    public function deleteM3uSource(Request $request, M3uSource $m3uSource): RedirectResponse
+    {
+        $id = $m3uSource->id;
+        if ($m3uSource->file_path && Storage::disk('local')->exists($m3uSource->file_path)) {
+            Storage::disk('local')->delete($m3uSource->file_path);
+        }
+        $m3uSource->delete();
+        $this->audit($request->user(), 'm3u_source_deleted', 'm3u_source', (string) $id);
+
+        return back()->with('status', 'Sumber M3U dihapus.');
     }
 
     public function updateFeedbackStatus(Request $request, FeedbackReport $feedback): RedirectResponse

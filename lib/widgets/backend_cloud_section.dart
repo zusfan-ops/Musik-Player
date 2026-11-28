@@ -1,10 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../providers/music_provider.dart';
 import '../services/backend_api_service.dart';
+import '../services/config_backup_service.dart';
 import '../theme/app_theme.dart';
 
 /// Optional Cloud Account, Cross-Device Sync, Announcements, Analytics Opt-In,
@@ -45,6 +53,117 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _exportLocalBackup() async {
+    final music = context.read<MusicProvider>();
+    final jsonStr = music.exportBackupJson();
+    try {
+      final stamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
+      final fileName = 'mediacenter-backup-$stamp.json';
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        final savedUri = await FilePicker.saveFile(
+          dialogTitle: 'Simpan Backup Konfigurasi MediaCenter',
+          fileName: fileName,
+          bytes: Uint8List.fromList(utf8.encode(jsonStr)),
+        );
+        if (savedUri == null) return;
+        _snack('Backup tersimpan ke $fileName.');
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final file = File(p.join(tempDir.path, fileName));
+        await file.writeAsString(jsonStr);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/json')],
+            subject: 'Backup Konfigurasi MediaCenter',
+          ),
+        );
+      }
+    } catch (e) {
+      _snack('Gagal mengekspor backup: $e');
+    }
+  }
+
+  Future<void> _importLocalBackupWithPreview() async {
+    final music = context.read<MusicProvider>();
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+      );
+      if (picked.isEmpty) return;
+      final pickedFile = picked.first;
+      if (pickedFile.path == null || pickedFile.path!.isEmpty) {
+        _snack('File backup tidak dapat dibaca.');
+        return;
+      }
+      final rawJson = await File(pickedFile.path!).readAsString();
+
+      final preview = ConfigBackupService.parseAndPreview(rawJson);
+      if (!mounted) return;
+
+      final exportedText = preview.exportedAt != null
+          ? preview.exportedAt!.toLocal().toString().split('.').first
+          : 'Tidak diketahui';
+
+      final mode = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pratinjau Pemulihan Backup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dibuat: $exportedText',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              Text('• Playlist URL: ${preview.urlPlaylistCount}'),
+              Text('• Metadata Playlist Lokal: ${preview.localPlaylistCount}'),
+              Text('• Lagu Favorit: ${preview.favoriteCount}'),
+              Text('• Playlist YouTube: ${preview.youtubePlaylistCount}'),
+              Text('• Pengaturan Kompatibel: ${preview.settingsCount}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Pilih "Gabungkan" untuk menambah tanpa menimpa data yang sudah ada, atau "Ganti Semua" untuk memulihkan penuh.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'merge'),
+              child: const Text('Gabungkan'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'replace'),
+              child: const Text('Ganti Semua'),
+            ),
+          ],
+        ),
+      );
+
+      if (mode == null) return;
+      final res = await music.restoreBackup(
+        preview,
+        replaceExisting: mode == 'replace',
+      );
+      _snack(
+        'Backup dipulihkan: ${res.addedPlaylists} playlist, ${res.restoredFavorites} favorit.',
+      );
+    } catch (e) {
+      _snack('File backup tidak valid: $e');
+    }
   }
 
   Future<void> _showAuthDialog({bool isRegister = false}) async {
@@ -333,6 +452,16 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                   onPressed: _showFeedbackDialog,
                   icon: const Icon(Icons.feedback_outlined, size: 18),
                   label: const Text('Laporan / Feedback'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _exportLocalBackup,
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Ekspor Backup (.json)'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _importLocalBackupWithPreview,
+                  icon: const Icon(Icons.restore_rounded, size: 18),
+                  label: const Text('Impor & Pratinjau Backup'),
                 ),
               ],
             ),

@@ -7,8 +7,11 @@ use App\Http\Resources\AnnouncementResource;
 use App\Http\Resources\AppReleaseResource;
 use App\Models\Announcement;
 use App\Models\AppRelease;
+use App\Models\M3uSource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 
 class PublicController extends Controller
@@ -101,5 +104,51 @@ class PublicController extends Controller
         return response()->json([
             'data' => new AppReleaseResource($release),
         ]);
+    }
+
+    public function m3uSources(): JsonResponse
+    {
+        $sources = M3uSource::query()
+            ->where('is_active', true)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(function (M3uSource $src) {
+                $downloadUrl = $src->source_type === 'file'
+                    ? route('api.v1.m3u-sources.download', ['m3uSource' => $src->id])
+                    : (string) $src->source_url;
+
+                return [
+                    'id' => $src->id,
+                    'name' => $src->name,
+                    'category' => $src->category,
+                    'source_type' => $src->source_type,
+                    'download_url' => $downloadUrl,
+                    'sha256' => $src->content_sha256,
+                    'updated_at' => $src->updated_at?->toIso8601String(),
+                ];
+            })
+            ->values();
+
+        return response()->json(['sources' => $sources]);
+    }
+
+    public function downloadM3uSource(M3uSource $m3uSource): StreamedResponse|JsonResponse
+    {
+        if (
+            !$m3uSource->is_active ||
+            $m3uSource->source_type !== 'file' ||
+            !$m3uSource->file_path ||
+            !Storage::disk('local')->exists($m3uSource->file_path)
+        ) {
+            return response()->json(['message' => 'File M3U tidak ditemukan.'], 404);
+        }
+
+        $safeName = preg_replace('/[^a-zA-Z0-9._-]+/', '_', $m3uSource->name) ?: 'playlist';
+
+        return Storage::disk('local')->download(
+            $m3uSource->file_path,
+            $safeName . '.m3u',
+            ['Content-Type' => 'audio/x-mpegurl; charset=utf-8']
+        );
     }
 }

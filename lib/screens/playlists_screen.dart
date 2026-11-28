@@ -94,7 +94,92 @@ class PlaylistsScreen extends StatefulWidget {
 
 class _PlaylistsScreenState extends State<PlaylistsScreen> {
   String _filterType = 'Kota'; // Kota | Semua | File | Link
+  String _selectedCategory = 'Semua';
   static bool _bundledCctvLoaded = false;
+
+  Future<void> _showReorderSheet(
+    BuildContext context,
+    MusicProvider provider,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(ctx).size.height * 0.65,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.reorder_rounded),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Urutkan Playlist (Tarik & Lepas)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: Consumer<MusicProvider>(
+                  builder: (_, liveProv, _) => ReorderableListView.builder(
+                    itemCount: liveProv.playlists.length,
+                    onReorder: (oldIndex, newIndex) {
+                      liveProv.reorderPlaylists(oldIndex, newIndex);
+                    },
+                    itemBuilder: (_, i) {
+                      final pl = liveProv.playlists[i];
+                      return ListTile(
+                        key: ValueKey('reorder_${pl.id}'),
+                        leading: const Icon(Icons.drag_handle_rounded),
+                        title: Text(
+                          pl.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${pl.category} • ${pl.tracks.length} item',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: DropdownButton<String>(
+                          value: M3uPlaylist.defaultCategories
+                                  .contains(pl.category)
+                              ? pl.category
+                              : 'Umum',
+                          underline: const SizedBox.shrink(),
+                          items: M3uPlaylist.defaultCategories
+                              .map(
+                                (c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c, style: const TextStyle(fontSize: 12)),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              liveProv.setPlaylistCategory(pl.id, val);
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -157,8 +242,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     }
     final allPlaylists = provider.playlists;
     final filtered = allPlaylists.where((pl) {
-      if (_filterType == 'File') return !pl.isUrlSource;
-      if (_filterType == 'Link') return pl.isUrlSource;
+      if (_filterType == 'File' && pl.isUrlSource) return false;
+      if (_filterType == 'Link' && !pl.isUrlSource) return false;
+      if (_selectedCategory != 'Semua' && pl.category != _selectedCategory) {
+        return false;
+      }
       return true;
     }).toList();
 
@@ -230,6 +318,13 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 : () => provider.syncGithubM3uDirectory(
                       showNoChangeNotice: true,
                     ),
+          ),
+          IconButton(
+            tooltip: 'Urutkan Playlist (Drag & Drop)',
+            icon: const Icon(Icons.reorder_rounded),
+            onPressed: allPlaylists.length < 2
+                ? null
+                : () => _showReorderSheet(context, provider),
           ),
           IconButton(
             tooltip: 'Impor Folder M3U',
@@ -322,6 +417,59 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final cat in [
+                          'Semua',
+                          ...M3uPlaylist.defaultCategories,
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: FilterChip(
+                              label: Text(
+                                cat == 'Semua' ? 'Kategori: Semua' : cat,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              selected: _selectedCategory == cat,
+                              onSelected: (_) =>
+                                  setState(() => _selectedCategory = cat),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (provider.lastGithubM3uSyncAt != null ||
+                      provider.lastGithubM3uSyncError != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          provider.lastGithubM3uSyncError != null
+                              ? Icons.error_outline_rounded
+                              : Icons.check_circle_outline_rounded,
+                          size: 15,
+                          color: provider.lastGithubM3uSyncError != null
+                              ? AppColors.netflixRed
+                              : AppColors.spotifyGreen,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            provider.lastGithubM3uSyncError != null
+                                ? provider.lastGithubM3uSyncError!
+                                : 'Sinkron GitHub M3U terakhir: ${provider.lastGithubM3uSyncAt!.hour.toString().padLeft(2, '0')}:${provider.lastGithubM3uSyncAt!.minute.toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.subtext(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1403,6 +1551,26 @@ class _AddM3uBottomSheetState extends State<AddM3uBottomSheet> {
                       : () async {
                           setState(() => _submitting = true);
                           try {
+                            final lines = _urlController.text
+                                .split(RegExp(r'[\r\n]+'))
+                                .map((e) => e.trim())
+                                .where((e) => e.isNotEmpty)
+                                .toList();
+                            final duplicates = <String>[];
+                            for (final line in lines) {
+                              final dup =
+                                  provider.findDuplicatePlaylistByUrl(line);
+                              if (dup != null) duplicates.add(dup.name);
+                            }
+                            if (duplicates.isNotEmpty && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Link sudah tersimpan sebelumnya: ${duplicates.join(', ')}',
+                                  ),
+                                ),
+                              );
+                            }
                             final added = await provider.addM3uFromUrls(
                               rawUrlsInput: _urlController.text,
                               customName: _nameController.text,

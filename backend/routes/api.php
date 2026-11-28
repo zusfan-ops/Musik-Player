@@ -13,6 +13,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/app-config', [PublicController::class, 'appConfig']);
     Route::get('/announcements', [PublicController::class, 'announcements']);
     Route::get('/releases/latest', [PublicController::class, 'latestRelease']);
+    Route::get('/m3u-sources', [PublicController::class, 'm3uSources']);
+    Route::get('/m3u-sources/{m3uSource}/download', [PublicController::class, 'downloadM3uSource'])
+        ->name('api.v1.m3u-sources.download');
 
     Route::post('/analytics/events', [AnalyticsController::class, 'storeEvents'])
         ->middleware('throttle:analytics');
