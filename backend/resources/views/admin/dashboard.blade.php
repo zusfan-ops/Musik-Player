@@ -198,6 +198,9 @@
                 <button class="nav-btn active" data-panel="overview">
                     <span>Ringkasan</span>
                 </button>
+                <button class="nav-btn" data-panel="analytics">
+                    <span>Analisa Pengguna</span>
+                </button>
                 @if ($user->hasAdminRole(['content_admin']))
                 <button class="nav-btn" data-panel="m3u">
                     <span>Sumber M3U</span>
@@ -270,6 +273,61 @@
                     @endforelse
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <!-- Panel: Analisa Pengguna & Durasi -->
+        <section id="panel-analytics" class="panel">
+            @php
+                $totalSec = (int) ($analyticsSummary['total_duration_seconds'] ?? 0);
+                $avgSec = (int) ($analyticsSummary['avg_duration_seconds'] ?? 0);
+                $fmtDur = function (int $sec): string {
+                    if ($sec < 60) return $sec . ' dtk';
+                    $m = intdiv($sec, 60);
+                    $s = $sec % 60;
+                    if ($m < 60) return $m . ' mnt ' . $s . ' dtk';
+                    $h = intdiv($m, 60);
+                    return $h . ' jam ' . ($m % 60) . ' mnt';
+                };
+            @endphp
+            <div class="grid">
+                <div class="card"><div class="stat-label">Pengguna Terdaftar</div><div class="stat-val">{{ $analyticsSummary['total_users'] }}</div></div>
+                <div class="card"><div class="stat-label">Perangkat Tersinkron</div><div class="stat-val">{{ $analyticsSummary['total_devices'] }}</div></div>
+                <div class="card"><div class="stat-label">Aktif (24 Jam)</div><div class="stat-val">{{ $analyticsSummary['active_installations_24h'] }}</div></div>
+                <div class="card"><div class="stat-label">Aktif (7 Hari)</div><div class="stat-val">{{ $analyticsSummary['active_installations_7d'] }}</div></div>
+                <div class="card"><div class="stat-label">Total Durasi Sesi/Putar</div><div class="stat-val">{{ $fmtDur($totalSec) }}</div></div>
+                <div class="card"><div class="stat-label">Rata-rata Durasi</div><div class="stat-val">{{ $fmtDur($avgSec) }}</div></div>
+                <div class="card"><div class="stat-label">Error (7 Hari)</div><div class="stat-val" style="color:var(--accent);">{{ $analyticsSummary['error_events_7d'] }}</div></div>
+            </div>
+
+            <div class="form-row">
+                <div class="card">
+                    <h2>Event Teratas</h2>
+                    <table>
+                        <thead><tr><th>Event</th><th>Jumlah</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['top_events'] as $ev)
+                            <tr><td>{{ $ev->event_name }}</td><td>{{ $ev->total }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Belum ada data event.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h2>Distribusi Versi Aplikasi</h2>
+                    <table>
+                        <thead><tr><th>Versi</th><th>Event</th></tr></thead>
+                        <tbody>
+                        @forelse ($analyticsSummary['by_version'] as $ver)
+                            <tr><td>{{ $ver->app_version }}</td><td>{{ $ver->total }}</td></tr>
+                        @empty
+                            <tr><td colspan="2" style="color:var(--muted);">Belum ada data versi.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -408,9 +466,9 @@
                     <tbody>
                     @foreach ($feedbacks as $f)
                         <tr>
-                            <td><strong>{{ $f->ticket_number }}</strong></td>
+                            <td><strong>#{{ $f->id }}</strong></td>
                             <td>{{ $f->category }}</td>
-                            <td>{{ $f->description }}</td>
+                            <td>{{ $f->message }}</td>
                             <td>{{ $f->app_version }} ({{ $f->platform }})</td>
                             <td><span class="pill">{{ $f->status }}</span></td>
                             <td>

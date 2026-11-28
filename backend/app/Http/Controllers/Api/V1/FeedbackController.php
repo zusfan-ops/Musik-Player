@@ -14,7 +14,7 @@ class FeedbackController extends Controller
     {
         $data = $request->validate([
             'installation_id' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9\-_]+$/'],
-            'category' => ['required', 'string', 'in:bug,feature,playback,other'],
+            'category' => ['required', 'string', 'in:bug,feature,complaint,playback,other'],
             'message' => ['required', 'string', 'min:5', 'max:2000'],
             'platform' => ['required', 'string', 'in:android,android_tv,windows,linux,macos,ios'],
             'app_version' => ['nullable', 'string', 'max:32'],

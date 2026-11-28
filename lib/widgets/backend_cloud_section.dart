@@ -233,7 +233,14 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 await _loadState();
-                _snack(err ?? 'Berhasil terhubung ke akun cloud!');
+                if (err == null && mounted) {
+                  final syncMsg = await _api.syncBidirectional(
+                    context.read<MusicProvider>(),
+                  );
+                  _snack('Berhasil terhubung! $syncMsg');
+                } else {
+                  _snack(err ?? 'Berhasil terhubung ke akun cloud!');
+                }
               },
               child: Text(registerMode ? 'Daftar' : 'Masuk'),
             ),
@@ -243,35 +250,136 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
     );
   }
 
-  Future<void> _showFeedbackDialog() async {
+  Future<void> _showEditAccountDialog() async {
+    final nameCtrl = TextEditingController(text: _name ?? '');
+    final currentPassCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
+    final confirmPassCtrl = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Akun & Ganti Kata Sandi'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nama Tampilan'),
+              ),
+              const SizedBox(height: 10),
+              const Divider(),
+              const SizedBox(height: 6),
+              const Text(
+                'Isi kolom di bawah hanya jika ingin mengganti kata sandi:',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: currentPassCtrl,
+                obscureText: true,
+                decoration:
+                    const InputDecoration(labelText: 'Kata Sandi Saat Ini'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: newPassCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Kata Sandi Baru (min. 8 karakter)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: confirmPassCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Konfirmasi Kata Sandi Baru',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (newPassCtrl.text.isNotEmpty &&
+                  newPassCtrl.text != confirmPassCtrl.text) {
+                _snack('Konfirmasi kata sandi baru tidak cocok.');
+                return;
+              }
+              final err = await _api.updateAccount(
+                name: nameCtrl.text,
+                currentPassword: currentPassCtrl.text,
+                newPassword: newPassCtrl.text,
+              );
+              if (err == null) {
+                if (ctx.mounted) Navigator.pop(ctx);
+                await _loadState();
+                _snack('Profil akun berhasil diperbarui.');
+              } else {
+                _snack(err);
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    nameCtrl.dispose();
+    currentPassCtrl.dispose();
+    newPassCtrl.dispose();
+    confirmPassCtrl.dispose();
+  }
+
+  Future<void> _showFeedbackDialog({
+    String initialCategory = 'complaint',
+    String dialogTitle = 'Ajukan Keluhan / Masalah',
+    String hintText = 'Jelaskan keluhan, bug, atau kendala yang Anda alami...',
+  }) async {
     final msgCtrl = TextEditingController();
-    String category = 'bug';
+    String category = initialCategory;
     bool diagnosticsConsent = false;
 
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Kirim Laporan / Feedback'),
+          title: Text(dialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: category,
                 items: const [
+                  DropdownMenuItem(
+                    value: 'feature',
+                    child: Text('Pengajuan Fitur Baru'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'complaint',
+                    child: Text('Keluhan Layanan'),
+                  ),
                   DropdownMenuItem(value: 'bug', child: Text('Bug / Error')),
-                  DropdownMenuItem(value: 'playback', child: Text('Pemutaran Media')),
-                  DropdownMenuItem(value: 'feature', child: Text('Saran Fitur')),
+                  DropdownMenuItem(
+                    value: 'playback',
+                    child: Text('Masalah Pemutaran'),
+                  ),
                   DropdownMenuItem(value: 'other', child: Text('Lainnya')),
                 ],
-                onChanged: (v) => setDlg(() => category = v ?? 'bug'),
+                onChanged: (v) => setDlg(() => category = v ?? initialCategory),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: msgCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Tulis kendala atau saran Anda...',
+                decoration: InputDecoration(
+                  hintText: hintText,
                 ),
               ),
               CheckboxListTile(
@@ -296,10 +404,11 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                   _snack('Pesan minimal 5 karakter.');
                   return;
                 }
+                final text = msgCtrl.text;
                 Navigator.pop(ctx);
                 final res = await _api.submitFeedback(
                   category: category,
-                  message: msgCtrl.text,
+                  message: text,
                   diagnosticsConsent: diagnosticsConsent,
                 );
                 _snack(res);
@@ -310,6 +419,7 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
         ),
       ),
     );
+    msgCtrl.dispose();
   }
 
   @override
@@ -380,12 +490,17 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                         ? null
                         : () async {
                             setState(() => _busy = true);
-                            final msg = await _api.syncNow(music);
+                            final msg = await _api.syncBidirectional(music);
                             if (mounted) setState(() => _busy = false);
                             _snack(msg);
                           },
                     icon: const Icon(Icons.sync_rounded, size: 18),
                     label: const Text('Sinkronkan Sekarang'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _showEditAccountDialog,
+                    icon: const Icon(Icons.manage_accounts_rounded, size: 18),
+                    label: const Text('Edit Akun & Sandi'),
                   ),
                   OutlinedButton(
                     onPressed: _busy
@@ -449,9 +564,22 @@ class _BackendCloudSectionState extends State<BackendCloudSection> {
                   label: const Text('Pengumuman'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: _showFeedbackDialog,
-                  icon: const Icon(Icons.feedback_outlined, size: 18),
-                  label: const Text('Laporan / Feedback'),
+                  onPressed: () => _showFeedbackDialog(
+                    initialCategory: 'feature',
+                    dialogTitle: 'Ajukan Fitur Baru',
+                    hintText: 'Jelaskan fitur baru yang Anda inginkan...',
+                  ),
+                  icon: const Icon(Icons.lightbulb_outline_rounded, size: 18),
+                  label: const Text('Ajukan Fitur'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _showFeedbackDialog(
+                    initialCategory: 'complaint',
+                    dialogTitle: 'Ajukan Keluhan / Masalah',
+                    hintText: 'Jelaskan keluhan atau kendala yang Anda alami...',
+                  ),
+                  icon: const Icon(Icons.report_problem_outlined, size: 18),
+                  label: const Text('Ajukan Keluhan'),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _exportLocalBackup,

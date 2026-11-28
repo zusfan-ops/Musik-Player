@@ -208,6 +208,64 @@ class BackendApiService {
     await prefs.remove(_kUserNameKey);
   }
 
+  Future<String?> updateAccount({
+    String? name,
+    String? currentPassword,
+    String? newPassword,
+    http.Client? client,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return 'Silakan login terlebih dahulu.';
+
+    final body = <String, dynamic>{};
+    if (name != null && name.trim().isNotEmpty) {
+      body['name'] = name.trim();
+    }
+    if (newPassword != null && newPassword.isNotEmpty) {
+      if (currentPassword == null || currentPassword.isEmpty) {
+        return 'Kata sandi saat ini wajib diisi.';
+      }
+      if (newPassword.length < 8) {
+        return 'Kata sandi baru minimal 8 karakter.';
+      }
+      body['current_password'] = currentPassword;
+      body['new_password'] = newPassword;
+    }
+    if (body.isEmpty) return 'Tidak ada perubahan untuk disimpan.';
+
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .patch(
+            Uri.parse('$baseUrl/me'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = decoded['data'] as Map<String, dynamic>?;
+        final updatedName = data?['name'] as String?;
+        if (updatedName != null && updatedName.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_kUserNameKey, updatedName);
+        }
+        return null;
+      }
+      return decoded['message'] as String? ??
+          'Gagal memperbarui akun (HTTP ${res.statusCode}).';
+    } catch (e) {
+      return 'Gagal menghubungi server: $e';
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
   Future<String?> deleteAccount() async {
     final token = await getToken();
     if (token == null || token.isEmpty) return 'Belum login.';
@@ -297,6 +355,52 @@ class BackendApiService {
         'repeat_mode': repeatMode,
       },
     };
+  }
+
+  Future<({int playlistsAdded, int favoritesAdded})> pullFromCloud(
+    MusicProvider music, {
+    http.Client? client,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return (playlistsAdded: 0, favoritesAdded: 0);
+    }
+    final activeClient = client ?? http.Client();
+    try {
+      final res = await activeClient
+          .get(
+            Uri.parse('$baseUrl/sync'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(_timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return (playlistsAdded: 0, favoritesAdded: 0);
+      }
+      final decoded =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return await music.applyCloudSyncPayload(decoded);
+    } catch (_) {
+      return (playlistsAdded: 0, favoritesAdded: 0);
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  /// Pulls existing cloud data onto this device first, then pushes local additions.
+  Future<String> syncBidirectional(MusicProvider music) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return 'Silakan masuk terlebih dahulu (opsional) untuk sinkronisasi.';
+    }
+    final pulled = await pullFromCloud(music);
+    final pushMsg = await syncNow(music);
+    if (pulled.playlistsAdded > 0 || pulled.favoritesAdded > 0) {
+      return 'Sinkronisasi selesai (+${pulled.playlistsAdded} playlist, +${pulled.favoritesAdded} favorit dari cloud).';
+    }
+    return pushMsg;
   }
 
   Future<String> syncNow(MusicProvider music) async {

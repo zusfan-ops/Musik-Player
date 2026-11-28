@@ -28,6 +28,8 @@
         <input type="email" name="email" value="{{ old('email') }}" required>
         <label>Kata Sandi</label>
         <input type="password" name="password" required>
+        <label>Verifikasi Keamanan: Berapa hasil {{ $captchaQuestion ?? '1 + 1' }} ?</label>
+        <input type="number" name="captcha" placeholder="Masukkan angka jawaban" required autocomplete="off">
         <button type="submit">Masuk</button>
     </form>
 </div>

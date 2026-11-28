@@ -10,6 +10,7 @@ use App\Models\AppRelease;
 use App\Models\FeedbackReport;
 use App\Models\M3uSource;
 use App\Models\User;
+use App\Models\UserDevice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,12 +20,18 @@ use Illuminate\View\View;
 
 class AdminController extends Controller
 {
-    public function showLogin(): View|RedirectResponse
+    public function showLogin(Request $request): View|RedirectResponse
     {
         if (Auth::check() && Auth::user()?->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
-        return view('admin.login');
+        $a = random_int(1, 15);
+        $b = random_int(1, 15);
+        $request->session()->put('admin_captcha_answer', $a + $b);
+
+        return view('admin.login', [
+            'captchaQuestion' => "$a + $b",
+        ]);
     }
 
     public function login(Request $request): RedirectResponse
@@ -32,7 +39,15 @@ class AdminController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'captcha' => ['required', 'integer'],
         ]);
+
+        $expectedCaptcha = $request->session()->pull('admin_captcha_answer');
+        if ($expectedCaptcha === null || (int) $credentials['captcha'] !== (int) $expectedCaptcha) {
+            return back()
+                ->withErrors(['captcha' => 'Jawaban captcha keamanan tidak sesuai.'])
+                ->onlyInput('email');
+        }
 
         if (!Auth::attempt([
             'email' => strtolower($credentials['email']),
@@ -78,11 +93,47 @@ class AdminController extends Controller
             ? User::orderByDesc('created_at')->limit(50)->get()
             : collect();
 
+        $recentPropsEvents = AnalyticsEvent::whereNotNull('properties')
+            ->orderByDesc('occurred_at')
+            ->limit(500)
+            ->get(['properties']);
+
+        $totalDurationSeconds = 0;
+        $durationSamples = 0;
+        foreach ($recentPropsEvents as $ev) {
+            $props = $ev->properties;
+            if (!is_array($props)) {
+                continue;
+            }
+            $sec = $props['duration_seconds'] ?? null;
+            if (is_numeric($sec) && (float) $sec > 0 && (float) $sec <= 86400) {
+                $totalDurationSeconds += (int) round((float) $sec);
+                $durationSamples++;
+            } elseif (isset($props['duration_ms']) && is_numeric($props['duration_ms']) && (float) $props['duration_ms'] > 0 && (float) $props['duration_ms'] <= 86400000) {
+                $totalDurationSeconds += (int) round(((float) $props['duration_ms']) / 1000);
+                $durationSamples++;
+            }
+        }
+
         $analyticsSummary = [
+            'total_users' => User::count(),
+            'active_users_7d' => User::where('updated_at', '>=', now()->subDays(7))->count(),
+            'total_devices' => UserDevice::count(),
             'total_events' => AnalyticsEvent::count(),
+            'active_installations_24h' => AnalyticsEvent::where('occurred_at', '>=', now()->subDay())
+                ->distinct('installation_id')
+                ->count('installation_id'),
             'active_installations_7d' => AnalyticsEvent::where('occurred_at', '>=', now()->subDays(7))
                 ->distinct('installation_id')
                 ->count('installation_id'),
+            'total_duration_seconds' => $totalDurationSeconds,
+            'avg_duration_seconds' => $durationSamples > 0
+                ? (int) round($totalDurationSeconds / $durationSamples)
+                : 0,
+            'duration_samples' => $durationSamples,
+            'error_events_7d' => AnalyticsEvent::where('occurred_at', '>=', now()->subDays(7))
+                ->whereIn('event_name', ['playback_error', 'network_error', 'crash_report_automatic'])
+                ->count(),
             'top_events' => AnalyticsEvent::select('event_name', DB::raw('COUNT(*) as total'))
                 ->groupBy('event_name')
                 ->orderByDesc('total')
@@ -90,6 +141,12 @@ class AdminController extends Controller
                 ->get(),
             'by_platform' => AnalyticsEvent::select('platform', DB::raw('COUNT(*) as total'))
                 ->groupBy('platform')
+                ->get(),
+            'by_version' => AnalyticsEvent::select('app_version', DB::raw('COUNT(*) as total'))
+                ->whereNotNull('app_version')
+                ->groupBy('app_version')
+                ->orderByDesc('total')
+                ->limit(10)
                 ->get(),
         ];
 
@@ -112,7 +169,7 @@ class AdminController extends Controller
             'body' => ['required', 'string', 'max:2000'],
             'type' => ['required', 'in:info,maintenance,feature,warning'],
             'action_label' => ['nullable', 'string', 'max:60'],
-            'action_url' => ['nullable', 'url', 'max:512'],
+            'action_url' => ['nullable', 'url:http,https', 'max:512'],
             'sort_order' => ['nullable', 'integer'],
         ]);
 
@@ -149,7 +206,7 @@ class AdminController extends Controller
             'build_number' => ['required', 'integer', 'min:1'],
             'platform' => ['required', 'in:android,android_tv,windows'],
             'abi' => ['required', 'string', 'max:24'],
-            'download_url' => ['required', 'url', 'max:512'],
+            'download_url' => ['required', 'url:http,https', 'max:512'],
             'checksum_sha256' => ['nullable', 'string', 'max:64'],
             'size_bytes' => ['nullable', 'integer', 'min:0'],
             'min_supported_version' => ['nullable', 'string', 'max:32'],

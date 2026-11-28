@@ -20,6 +20,7 @@ import '../services/artwork_service.dart';
 import '../services/cast_media_server.dart';
 import '../services/directory_scanner_service.dart';
 import 'package:http/http.dart' as http;
+import '../services/backend_api_service.dart';
 import '../services/config_backup_service.dart';
 import '../services/github_m3u_sync_service.dart';
 import '../services/link_checker_service.dart';
@@ -481,6 +482,7 @@ class MusicProvider extends ChangeNotifier {
     if (autoScanOnInit) {
       unawaited(_seedDefaultTvPlaylistIfNeeded());
       unawaited(syncGithubM3uDirectory());
+      unawaited(_syncCloudOnStartupIfLoggedIn());
       unawaited(
         refreshPermissionsAndScan(requestInteractive: false).then((_) async {
           if (Platform.isAndroid) {
@@ -492,6 +494,126 @@ class MusicProvider extends ChangeNotifier {
         }),
       );
     }
+  }
+
+  Future<void> _syncCloudOnStartupIfLoggedIn() async {
+    try {
+      final token = await BackendApiService.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        await BackendApiService.instance.pullFromCloud(this);
+      }
+    } catch (_) {}
+  }
+
+  /// Merges cloud sync data (URL playlists, favorites, settings) onto this device.
+  Future<({int playlistsAdded, int favoritesAdded})> applyCloudSyncPayload(
+    Map<String, dynamic> payload,
+  ) async {
+    int playlistsAdded = 0;
+    int favoritesAdded = 0;
+
+    final rawPlaylists = payload['playlists'] as List<dynamic>? ?? const [];
+    final existingUrls = _playlists
+        .where((p) => p.isUrlSource)
+        .map((p) => _safeDecodeLower(p.sourceLocation))
+        .toSet();
+    final existingIds = _playlists.map((p) => p.id).toSet();
+
+    for (final raw in rawPlaylists) {
+      if (raw is! Map<String, dynamic>) continue;
+      final sourceType = raw['source_type']?.toString() ?? 'metadata_only';
+      final sourceUrl = (raw['source_url']?.toString() ?? '').trim();
+      final clientUid = (raw['client_uid']?.toString() ?? '').trim();
+      final name = (raw['name']?.toString() ?? 'Playlist').trim();
+
+      if (sourceType != 'url' || sourceUrl.isEmpty) continue;
+      final uri = Uri.tryParse(sourceUrl);
+      if (uri == null ||
+          !['http', 'https'].contains(uri.scheme.toLowerCase())) {
+        continue;
+      }
+
+      final decodedUrl = _safeDecodeLower(sourceUrl);
+      if (existingUrls.contains(decodedUrl) ||
+          (clientUid.isNotEmpty && existingIds.contains(clientUid))) {
+        continue;
+      }
+
+      final rawItems = raw['items'] as List<dynamic>? ?? const [];
+      final tracks = <TrackItem>[];
+      for (final item in rawItems) {
+        if (item is! Map<String, dynamic>) continue;
+        final streamUrl = (item['stream_url']?.toString() ?? '').trim();
+        if (streamUrl.isEmpty) continue;
+        tracks.add(
+          TrackItem(
+            id: item['client_uid']?.toString() ??
+                'cloud_${streamUrl.hashCode}',
+            title: item['title']?.toString() ?? 'Channel',
+            artist: item['artist']?.toString() ?? name,
+            album: item['album']?.toString() ?? name,
+            groupTitle: item['group_title']?.toString(),
+            sourceType: TrackSourceType.remoteStream,
+            pathOrUrl: streamUrl,
+            directoryPath: sourceUrl,
+            directoryName: name,
+            durationSeconds: (item['duration_seconds'] as num?)?.toInt(),
+            isVideo: item['is_video'] == true,
+          ),
+        );
+      }
+
+      final newId = clientUid.isNotEmpty
+          ? clientUid
+          : 'cloud_pl_${decodedUrl.hashCode}';
+      _playlists.add(
+        M3uPlaylist(
+          id: newId,
+          name: name,
+          sourceType: M3uSourceType.url,
+          sourceLocation: sourceUrl,
+          tracks: tracks,
+          updatedAt: DateTime.now(),
+          isEnabled: raw['is_enabled'] != false,
+        ),
+      );
+      existingUrls.add(decodedUrl);
+      existingIds.add(newId);
+      playlistsAdded++;
+    }
+
+    final rawFavorites = payload['favorites'] as List<dynamic>? ?? const [];
+    for (final fav in rawFavorites) {
+      if (fav is! Map<String, dynamic>) continue;
+      final uid = (fav['client_uid']?.toString() ?? '').trim();
+      if (uid.isNotEmpty && _favoriteIds.add(uid)) {
+        favoritesAdded++;
+      }
+    }
+
+    final settings = payload['settings'];
+    if (settings is Map<String, dynamic>) {
+      if (settings['shuffle_enabled'] is bool) {
+        _shuffleEnabled = settings['shuffle_enabled'] as bool;
+      }
+      final repeatStr = settings['repeat_mode']?.toString();
+      if (repeatStr != null) {
+        for (final mode in RepeatCycleMode.values) {
+          if (mode.name == repeatStr) {
+            _repeatMode = mode;
+            break;
+          }
+        }
+      }
+    }
+
+    if (playlistsAdded > 0 || favoritesAdded > 0) {
+      _invalidateLibraryCache();
+      await _persistPlaylists();
+      await _prefs?.setStringList(_kFavoritesKey, _favoriteIds.toList());
+    }
+    notifyListeners();
+    return (playlistsAdded: playlistsAdded, favoritesAdded: favoritesAdded);
   }
 
   Future<void> _seedDefaultTvPlaylistIfNeeded() async {
