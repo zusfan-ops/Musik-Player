@@ -605,40 +605,153 @@
             </div>
         </section>
 
-                <!-- Panel: Iklan Native -->
+        <!-- Panel: Iklan Native -->
         <section id="panel-ads" class="panel">
             <div class="card">
-                <h2>Tambah Iklan Native (Image / Video)</h2>
-                <form method="POST" action="{{ route('admin.ads.store') }}">
+                <h2>Analitik Performa Iklan</h2>
+                <div class="grid" style="margin-bottom:14px;">
+                    <div class="card" style="margin:0;padding:12px;">
+                        <div class="stat-label">Kampanye Aktif</div>
+                        <div class="stat">{{ $adAnalytics['active_campaigns'] }} / {{ $adAnalytics['total_campaigns'] }}</div>
+                    </div>
+                    <div class="card" style="margin:0;padding:12px;">
+                        <div class="stat-label">Total Tayangan</div>
+                        <div class="stat">{{ number_format($adAnalytics['total_impressions']) }}</div>
+                        <div style="font-size:11px;color:var(--muted);">24j: {{ number_format($adAnalytics['impressions_24h']) }}</div>
+                    </div>
+                    <div class="card" style="margin:0;padding:12px;">
+                        <div class="stat-label">Total Klik</div>
+                        <div class="stat">{{ number_format($adAnalytics['total_clicks']) }}</div>
+                        <div style="font-size:11px;color:var(--muted);">24j: {{ number_format($adAnalytics['clicks_24h']) }}</div>
+                    </div>
+                    <div class="card" style="margin:0;padding:12px;">
+                        <div class="stat-label">CTR Keseluruhan</div>
+                        <div class="stat">{{ $adAnalytics['overall_ctr'] }}%</div>
+                        <div style="font-size:11px;color:var(--muted);">Reach 7h: {{ number_format($adAnalytics['unique_reach_7d']) }} device</div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="align-items:start;">
+                    <div class="card" style="margin:0;padding:12px;">
+                        <h3 style="margin-top:0;font-size:14px;">Performa per Lokasi (Placement)</h3>
+                        <table>
+                            <thead><tr><th>Lokasi</th><th>Iklan</th><th>Tayang</th><th>Klik</th><th>CTR</th></tr></thead>
+                            <tbody>
+                            @foreach ($adAnalytics['by_placement'] as $pl => $row)
+                                <tr>
+                                    <td>{{ $pl }}</td>
+                                    <td>{{ $row['campaigns'] }}</td>
+                                    <td>{{ number_format($row['impressions']) }}</td>
+                                    <td>{{ number_format($row['clicks']) }}</td>
+                                    <td><strong>{{ $row['ctr'] }}%</strong></td>
+                                </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card" style="margin:0;padding:12px;">
+                        <h3 style="margin-top:0;font-size:14px;">Performa per Platform (7 Hari)</h3>
+                        <table>
+                            <thead><tr><th>Platform</th><th>Tayang</th><th>Klik</th><th>CTR</th></tr></thead>
+                            <tbody>
+                            @forelse ($adAnalytics['by_platform'] as $plat => $row)
+                                <tr>
+                                    <td>{{ strtoupper($plat) }}</td>
+                                    <td>{{ number_format($row['impressions']) }}</td>
+                                    <td>{{ number_format($row['clicks']) }}</td>
+                                    <td><strong>{{ $row['ctr'] }}%</strong></td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" style="color:var(--muted);">Belum ada event iklan 7 hari terakhir.</td></tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" style="margin:14px 0 0;padding:12px;">
+                    <h3 style="margin-top:0;font-size:14px;">Tren Tayangan &amp; Klik 7 Hari Terakhir</h3>
+                    <table>
+                        <thead><tr><th>Tanggal</th><th>Tayangan</th><th>Klik</th><th>CTR (%)</th></tr></thead>
+                        <tbody>
+                        @foreach ($adAnalytics['daily_7d'] as $day)
+                            <tr>
+                                <td>{{ $day['date'] }}</td>
+                                <td>{{ number_format($day['impressions']) }}</td>
+                                <td>{{ number_format($day['clicks']) }}</td>
+                                <td>{{ $day['ctr'] }}%</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Tambah Iklan Native (Upload File atau URL Image / Video)</h2>
+                <form method="POST" action="{{ route('admin.ads.store') }}" enctype="multipart/form-data">
                     @csrf
                     <div class="form-row">
                         <input name="title" placeholder="Judul Iklan" required>
                         <select name="media_type">
                             <option value="image">Image (Banner / Poster)</option>
-                            <option value="video">Video (MP4 / Stream)</option>
+                            <option value="video">Video (MP4 / WebM / MOV)</option>
                         </select>
                         <select name="placement">
                             <option value="home_feed">Home Feed (Disisipkan antar card)</option>
                             <option value="store_feed">Store Feed</option>
                         </select>
                     </div>
-                    <input name="media_url" placeholder="URL Media Gambar/Video (https://...)" required>
+                    <div style="margin:8px 0;">
+                        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+                            Upload File Iklan (Gambar: JPG/PNG/WebP/GIF atau Video: MP4/WebM/MOV, maks 25MB)
+                        </label>
+                        <input type="file" name="media_file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime">
+                    </div>
+                    <input name="media_url" placeholder="Atau URL Media Eksternal jika tidak upload file (https://...)">
                     <input name="target_url" placeholder="URL Tujuan saat diklik (opsional, https://...)">
                     <textarea name="description" rows="2" placeholder="Deskripsi singkat iklan"></textarea>
                     <button class="btn" type="submit">Simpan Iklan</button>
                 </form>
             </div>
+
             <div class="card">
-                <h2>Daftar Iklan ({{ $ads->count() }})</h2>
+                <h2>Daftar Iklan &amp; Statistik Detail ({{ $ads->count() }})</h2>
                 <table>
-                    <thead><tr><th>Judul</th><th>Media</th><th>Lokasi</th><th>Tayang / Klik</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Preview &amp; Judul</th><th>Media</th><th>Lokasi</th><th>Tayang / Klik / CTR</th><th>Reach 7h / 24j</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody>
                     @forelse ($ads as $ad)
+                        @php
+                            $adCtr = $ad->impressions_count > 0 ? round(($ad->clicks_count / $ad->impressions_count) * 100, 2) : 0;
+                            $st = $adAnalytics['per_ad'][$ad->id] ?? ['reach_7d' => 0, 'impressions_24h' => 0, 'clicks_24h' => 0];
+                        @endphp
                         <tr>
-                            <td><strong>{{ $ad->title }}</strong></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    @if ($ad->media_type === 'image')
+                                        <img src="{{ $ad->media_url }}" alt="{{ $ad->title }}" style="width:52px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);">
+                                    @else
+                                        <span class="pill">VIDEO</span>
+                                    @endif
+                                    <div>
+                                        <strong>{{ $ad->title }}</strong>
+                                        <div style="font-size:11px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                            <a href="{{ $ad->media_url }}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;">{{ $ad->media_url }}</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
                             <td>{{ strtoupper($ad->media_type) }}</td>
                             <td>{{ $ad->placement }}</td>
-                            <td>{{ $ad->impressions_count }} / {{ $ad->clicks_count }}</td>
+                            <td>
+                                <strong>{{ number_format($ad->impressions_count) }}</strong> / <strong>{{ number_format($ad->clicks_count) }}</strong>
+                                <div style="font-size:11px;color:#4ade80;">CTR: {{ $adCtr }}%</div>
+                            </td>
+                            <td style="font-size:12px;">
+                                Reach: {{ $st['reach_7d'] }}<br>
+                                24j: {{ $st['impressions_24h'] }}t / {{ $st['clicks_24h'] }}k
+                            </td>
                             <td>{{ $ad->is_active ? 'Aktif' : 'Nonaktif' }}</td>
                             <td>
                                 <form style="display:inline" method="POST" action="{{ route('admin.ads.toggle', $ad) }}">@csrf<button class="btn-sec" type="submit">Toggle</button></form>
@@ -646,7 +759,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" style="color:var(--muted);">Belum ada iklan.</td></tr>
+                        <tr><td colspan="7" style="color:var(--muted);">Belum ada iklan.</td></tr>
                     @endforelse
                     </tbody>
                 </table>

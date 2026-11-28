@@ -771,9 +771,17 @@ class BackendApiService {
   }) async {
     final activeClient = client ?? http.Client();
     try {
+      final installId = await getOrCreateInstallationId();
+      final uri = Uri.parse('$baseUrl/ads').replace(
+        queryParameters: {
+          'placement': placement,
+          'platform': _platformName,
+          'installation_id': installId,
+        },
+      );
       final res = await activeClient
           .get(
-            Uri.parse('$baseUrl/ads?placement=$placement'),
+            uri,
             headers: const {'Accept': 'application/json'},
           )
           .timeout(_timeout);
@@ -791,10 +799,18 @@ class BackendApiService {
 
   Future<void> trackAdClick(int adId) async {
     try {
+      final installId = await getOrCreateInstallationId();
       await http
           .post(
             Uri.parse('$baseUrl/ads/$adId/click'),
-            headers: const {'Accept': 'application/json'},
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'platform': _platformName,
+              'installation_id': installId,
+            }),
           )
           .timeout(_timeout);
     } catch (_) {}

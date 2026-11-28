@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdCampaign;
+use App\Models\AdEvent;
 use App\Models\Store;
 use App\Models\StoreBooking;
 use App\Models\StoreOrder;
@@ -73,6 +74,14 @@ class StoreApiController extends Controller
             $placement = 'home_feed';
         }
 
+        $platform = strtolower((string) $request->query('platform', 'unknown'));
+        if (!in_array($platform, ['android', 'android_tv', 'windows', 'linux', 'macos', 'ios', 'web', 'unknown'], true)) {
+            $platform = 'unknown';
+        }
+        $installId = $request->query('installation_id');
+        $installId = is_string($installId) && preg_match('/^[a-zA-Z0-9\-_]{1,64}$/', $installId) ? $installId : null;
+        $userId = $request->user('sanctum')?->id;
+
         $ads = AdCampaign::where('is_active', true)
             ->where('placement', $placement)
             ->inRandomOrder()
@@ -81,6 +90,17 @@ class StoreApiController extends Controller
 
         if ($ads->isNotEmpty()) {
             AdCampaign::whereIn('id', $ads->pluck('id'))->increment('impressions_count');
+            $now = now();
+            $rows = $ads->map(fn (AdCampaign $ad) => [
+                'ad_campaign_id' => $ad->id,
+                'event_type' => 'impression',
+                'placement' => $ad->placement,
+                'platform' => $platform,
+                'installation_id' => $installId,
+                'user_id' => $userId,
+                'occurred_at' => $now,
+            ])->all();
+            AdEvent::insert($rows);
         }
 
         return response()->json([
@@ -96,10 +116,26 @@ class StoreApiController extends Controller
         ]);
     }
 
-    public function trackAdClick(AdCampaign $ad): JsonResponse
+    public function trackAdClick(Request $request, AdCampaign $ad): JsonResponse
     {
         if ($ad->is_active) {
             $ad->increment('clicks_count');
+            $platform = strtolower((string) $request->input('platform', 'unknown'));
+            if (!in_array($platform, ['android', 'android_tv', 'windows', 'linux', 'macos', 'ios', 'web', 'unknown'], true)) {
+                $platform = 'unknown';
+            }
+            $installId = $request->input('installation_id');
+            $installId = is_string($installId) && preg_match('/^[a-zA-Z0-9\-_]{1,64}$/', $installId) ? $installId : null;
+
+            AdEvent::create([
+                'ad_campaign_id' => $ad->id,
+                'event_type' => 'click',
+                'placement' => $ad->placement,
+                'platform' => $platform,
+                'installation_id' => $installId,
+                'user_id' => $request->user('sanctum')?->id,
+                'occurred_at' => now(),
+            ]);
         }
 
         return response()->json(['ok' => true]);

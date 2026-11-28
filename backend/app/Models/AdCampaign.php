@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AdCampaign extends Model
 {
@@ -26,5 +27,10 @@ class AdCampaign extends Model
             'impressions_count' => 'integer',
             'clicks_count' => 'integer',
         ];
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(AdEvent::class, 'ad_campaign_id');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdCampaign;
+use App\Models\AdEvent;
 use App\Models\AdminAuditLog;
 use App\Models\AnalyticsEvent;
 use App\Models\Announcement;
@@ -19,7 +20,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -216,12 +219,83 @@ class AdminController extends Controller
                 ->get(),
         ];
 
+        $totalImpressions = (int) $ads->sum('impressions_count');
+        $totalClicks = (int) $ads->sum('clicks_count');
+        $overallCtr = $totalImpressions > 0 ? round(($totalClicks / $totalImpressions) * 100, 2) : 0.0;
+
+        $adEvents7d = AdEvent::where('occurred_at', '>=', now()->subDays(7))->get();
+        $adEvents24h = $adEvents7d->where('occurred_at', '>=', now()->subDay());
+
+        $adByPlacement = [];
+        foreach (['home_feed', 'store_feed'] as $pl) {
+            $plAds = $ads->where('placement', $pl);
+            $imp = (int) $plAds->sum('impressions_count');
+            $clk = (int) $plAds->sum('clicks_count');
+            $adByPlacement[$pl] = [
+                'campaigns' => $plAds->count(),
+                'impressions' => $imp,
+                'clicks' => $clk,
+                'ctr' => $imp > 0 ? round(($clk / $imp) * 100, 2) : 0.0,
+            ];
+        }
+
+        $adByPlatform = [];
+        foreach ($adEvents7d->groupBy('platform') as $plat => $evGroup) {
+            $imp = $evGroup->where('event_type', 'impression')->count();
+            $clk = $evGroup->where('event_type', 'click')->count();
+            $adByPlatform[$plat] = [
+                'impressions' => $imp,
+                'clicks' => $clk,
+                'ctr' => $imp > 0 ? round(($clk / $imp) * 100, 2) : 0.0,
+            ];
+        }
+
+        $adDaily7d = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $dKey = now()->subDays($i)->format('Y-m-d');
+            $dayEvents = $adEvents7d->filter(fn (AdEvent $ev) => $ev->occurred_at?->format('Y-m-d') === $dKey);
+            $imp = $dayEvents->where('event_type', 'impression')->count();
+            $clk = $dayEvents->where('event_type', 'click')->count();
+            $adDaily7d[] = [
+                'date' => $dKey,
+                'impressions' => $imp,
+                'clicks' => $clk,
+                'ctr' => $imp > 0 ? round(($clk / $imp) * 100, 2) : 0.0,
+            ];
+        }
+
+        $perAdStats = [];
+        foreach ($ads as $ad) {
+            $evAd = $adEvents7d->where('ad_campaign_id', $ad->id);
+            $perAdStats[$ad->id] = [
+                'reach_7d' => $evAd->whereNotNull('installation_id')->pluck('installation_id')->unique()->count(),
+                'impressions_24h' => $adEvents24h->where('ad_campaign_id', $ad->id)->where('event_type', 'impression')->count(),
+                'clicks_24h' => $adEvents24h->where('ad_campaign_id', $ad->id)->where('event_type', 'click')->count(),
+            ];
+        }
+
+        $adAnalytics = [
+            'total_campaigns' => $ads->count(),
+            'active_campaigns' => $ads->where('is_active', true)->count(),
+            'total_impressions' => $totalImpressions,
+            'total_clicks' => $totalClicks,
+            'overall_ctr' => $overallCtr,
+            'impressions_24h' => $adEvents24h->where('event_type', 'impression')->count(),
+            'clicks_24h' => $adEvents24h->where('event_type', 'click')->count(),
+            'unique_reach_7d' => $adEvents7d->whereNotNull('installation_id')->pluck('installation_id')->unique()->count(),
+            'by_placement' => $adByPlacement,
+            'by_platform' => $adByPlatform,
+            'daily_7d' => $adDaily7d,
+            'per_ad' => $perAdStats,
+        ];
+
         return view('admin.dashboard', compact(
             'user',
             'announcements',
             'releases',
             'm3uSources',
             'ads',
+            'adAnalytics',
             'feedbacks',
             'auditLogs',
             'users',
@@ -603,18 +677,48 @@ class AdminController extends Controller
             'title' => ['required', 'string', 'max:140'],
             'description' => ['nullable', 'string', 'max:300'],
             'media_type' => ['required', 'in:image,video'],
-            'media_url' => ['required', 'url:http,https', 'max:1024'],
+            'media_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,gif,mp4,webm,mov', 'extensions:jpg,jpeg,png,webp,gif,mp4,webm,mov', 'max:25600'],
+            'media_url' => ['nullable', 'required_without:media_file', 'url:http,https', 'max:1024'],
             'target_url' => ['nullable', 'url:http,https', 'max:1024'],
             'placement' => ['required', 'in:home_feed,store_feed'],
         ]);
 
+        $mediaUrl = $data['media_url'] ?? '';
+        $mediaType = $data['media_type'];
+
+        if ($request->hasFile('media_file')) {
+            $file = $request->file('media_file');
+            $ext = strtolower((string) $file->guessExtension());
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+            if (!in_array($ext, ['jpg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'], true)) {
+                return back()->withErrors(['media_file' => 'Format file iklan tidak didukung.']);
+            }
+            $mediaType = in_array($ext, ['mp4', 'webm', 'mov'], true) ? 'video' : 'image';
+
+            $destDir = public_path('uploads/ads');
+            File::ensureDirectoryExists($destDir);
+            $filename = Str::random(32) . '.' . $ext;
+            $file->move($destDir, $filename);
+            $mediaUrl = asset('uploads/ads/' . $filename);
+        }
+
         $ad = AdCampaign::create([
-            ...$data,
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'media_type' => $mediaType,
+            'media_url' => $mediaUrl,
+            'target_url' => $data['target_url'] ?? null,
+            'placement' => $data['placement'],
             'is_active' => true,
             'created_by' => $request->user()->id,
         ]);
 
-        $this->audit($request->user(), 'ad_created', 'ad_campaign', (string) $ad->id, ['title' => $ad->title]);
+        $this->audit($request->user(), 'ad_created', 'ad_campaign', (string) $ad->id, [
+            'title' => $ad->title,
+            'source' => $request->hasFile('media_file') ? 'upload' : 'url',
+        ]);
 
         return back()->with('status', 'Iklan berhasil ditambahkan.');
     }
@@ -630,6 +734,14 @@ class AdminController extends Controller
     public function deleteAd(Request $request, AdCampaign $ad): RedirectResponse
     {
         $id = $ad->id;
+        $urlPath = (string) parse_url($ad->media_url, PHP_URL_PATH);
+        if (str_contains($urlPath, '/uploads/ads/')) {
+            $safeName = basename($urlPath);
+            $localPath = public_path('uploads/ads/' . $safeName);
+            if (File::exists($localPath)) {
+                File::delete($localPath);
+            }
+        }
         $ad->delete();
         $this->audit($request->user(), 'ad_deleted', 'ad_campaign', (string) $id);
 
